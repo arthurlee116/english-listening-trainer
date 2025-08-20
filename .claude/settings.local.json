@@ -28,7 +28,11 @@
       "Bash(npm:*)",
       "Bash(PORT=3005 npm run admin)",
       "mcp__git__git_init",
-      "mcp__git__git_add"
+      "mcp__git__git_add",
+      "mcp__git__git_commit",
+      "mcp__github__create_repository",
+      "mcp__git__git_remote",
+      "mcp__git__git_push"
     ],
     "deny": [],
     "ask": []
