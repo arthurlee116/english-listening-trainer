@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep:*)",
+      "Bash(cp:*)",
+      "Bash(npm run lint:*)",
+      "Bash(mv:*)",
+      "Bash(curl:*)",
+      "Bash(/dev/null)",
+      "Bash(pkill:*)",
+      "Bash(ffprobe:*)",
+      "Bash(afinfo:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run:*)",
+      "Bash(python3:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(lsof:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "WebSearch",
+      "Bash(npm:*)",
+      "Bash(PORT=3005 npm run admin)",
+      "mcp__git__git_init",
+      "mcp__git__git_add"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

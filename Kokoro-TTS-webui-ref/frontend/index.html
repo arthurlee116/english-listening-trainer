@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kokoro TTS Web UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+        }
+
+        .slider-value {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e1e5e9;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .progress-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-stage {
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .progress-percentage {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-message {
+            font-size: 14px;
+            color: #6c757d;
+            text-align: center;
+        }
+
+        .audio-player {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 15px;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Kokoro TTS</h1>
+            <p>High-quality text-to-speech with multiple voices</p>
+        </div>
+
+        <form id="ttsForm">
+            <div class="form-group">
+                <label for="textInput">Text to Speech:</label>
+                <textarea 
+                    id="textInput" 
+                    name="text" 
+                    placeholder="Enter your text here..."
+                    required>Hello, this is a demonstration of Kokoro TTS. I can speak with different voices and accents!</textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="voiceSelect">Voice:</label>
+                    <select id="voiceSelect" name="voice">
+                        <option value="af_heart">🇺🇸 🚺 Heart</option>
+                        <option value="af_bella">🇺🇸 🚺 Bella</option>
+                        <option value="af_nicole">🇺🇸 🚺 Nicole</option>
+                        <option value="af_sarah">🇺🇸 🚺 Sarah</option>
+                        <option value="af_nova">🇺🇸 🚺 Nova</option>
+                        <option value="af_sky">🇺🇸 🚺 Sky</option>
+                        <option value="am_michael">🇺🇸 🚹 Michael</option>
+                        <option value="am_echo">🇺🇸 🚹 Echo</option>
+                        <option value="am_eric">🇺🇸 🚹 Eric</option>
+                        <option value="bf_emma">🇬🇧 🚺 Emma</option>
+                        <option value="bf_isabella">🇬🇧 🚺 Isabella</option>
+                        <option value="bm_george">🇬🇧 🚹 George</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="langSelect">Language:</label>
+                    <select id="langSelect" name="lang_code">
+                        <option value="a">American English</option>
+                        <option value="b">British English</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="speedSlider">Speed: <span id="speedValue">1.0</span>x</label>
+                <div class="slider-container">
+                    <input type="range" id="speedSlider" name="speed" min="0.5" max="2.0" step="0.1" value="1.0">
+                    <div class="slider-value" id="speedDisplay">1.0</div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn btn-primary" id="generateBtn">
+                    Generate Speech
+                </button>
+                <button type="button" class="btn btn-secondary" id="clearBtn">
+                    Clear
+                </button>
+            </div>
+        </form>
+
+        <div id="status" class="status"></div>
+
+        <div id="progressContainer" class="progress-container">
+            <div class="progress-header">
+                <span id="progressStage" class="progress-stage">Initializing...</span>
+                <span id="progressPercentage" class="progress-percentage">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <div id="progressMessage" class="progress-message">Starting generation...</div>
+        </div>
+
+        <div id="audioPlayer" class="audio-player">
+            <h3>Generated Audio:</h3>
+            <audio id="audio" controls></audio>
+            <div>
+                <button id="downloadBtn" class="btn btn-secondary">Download Audio</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('ttsForm');
+        const textInput = document.getElementById('textInput');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const langSelect = document.getElementById('langSelect');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const speedDisplay = document.getElementById('speedDisplay');
+        const generateBtn = document.getElementById('generateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const status = document.getElementById('status');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressStage = document.getElementById('progressStage');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const progressBar = document.getElementById('progressBar');
+        const progressMessage = document.getElementById('progressMessage');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audio = document.getElementById('audio');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        const API_BASE_URL = 'http://localhost:8000';
+        let currentRequestId = null;
+        let progressEventSource = null;
+
+        // Update speed display
+        speedSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            speedValue.textContent = value.toFixed(1);
+            speedDisplay.textContent = value.toFixed(1);
+        });
+
+        // Show status message
+        function showStatus(message, type = 'loading') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            if (type === 'loading') {
+                status.innerHTML = '<div class="loading-spinner"></div>' + message;
+            }
+        }
+
+        // Hide status
+        function hideStatus() {
+            status.style.display = 'none';
+        }
+
+        // Show progress
+        function showProgress() {
+            progressContainer.style.display = 'block';
+            audioPlayer.style.display = 'none';
+        }
+
+        // Hide progress
+        function hideProgress() {
+            progressContainer.style.display = 'none';
+        }
+
+        // Update progress display
+        function updateProgress(progress, stage, message) {
+            progressStage.textContent = stage;
+            progressPercentage.textContent = `${progress}%`;
+            progressBar.style.width = `${progress}%`;
+            progressMessage.textContent = message;
+        }
+
+        // Setup progress tracking with SSE
+        function setupProgressTracking(requestId) {
+            // Close any existing connection
+            if (progressEventSource) {
+                progressEventSource.close();
+            }
+
+            currentRequestId = requestId;
+            const eventSource = new EventSource(`${API_BASE_URL}/progress/${requestId}`);
+            progressEventSource = eventSource;
+
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateProgress(data.progress, data.stage, data.message);
+                    
+                    // Auto-hide progress when completed
+                    if (data.progress === 100) {
+                        setTimeout(() => {
+                            hideProgress();
+                        }, 2000);
+                    }
+                } catch (e) {
+                    console.error('Error parsing progress data:', e);
+                }
+            };
+
+            eventSource.onerror = function(error) {
+                console.error('EventSource error:', error);
+                eventSource.close();
+                progressEventSource = null;
+            };
+
+            eventSource.onopen = function() {
+                console.log('Progress tracking connection established');
+            };
+        }
+
+        // Generate speech
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {
+                text: formData.get('text'),
+                voice: formData.get('voice'),
+                lang_code: formData.get('lang_code'),
+                speed: parseFloat(formData.get('speed'))
+            };
+
+            showStatus('Generating speech...', 'loading');
+            showProgress();
+            generateBtn.disabled = true;
+            audioPlayer.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/tts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to generate speech');
+                }
+
+                // Get request ID from response headers
+                const requestId = response.headers.get('X-Request-ID');
+                if (requestId) {
+                    setupProgressTracking(requestId);
+                }
+
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                audio.src = audioUrl;
+                audioPlayer.style.display = 'block';
+                
+                // Setup download button
+                downloadBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = audioUrl;
+                    a.download = 'kokoro-tts.wav';
+                    a.click();
+                };
+
+                showStatus('Speech generated successfully!', 'success');
+                setTimeout(hideStatus, 3000);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+                hideProgress();
+                setTimeout(hideStatus, 5000);
+            } finally {
+                generateBtn.disabled = false;
+            }
+        });
+
+        // Clear form
+        clearBtn.addEventListener('click', () => {
+            form.reset();
+            speedValue.textContent = '1.0';
+            speedDisplay.textContent = '1.0';
+            audioPlayer.style.display = 'none';
+            hideProgress();
+            hideStatus();
+            
+            // Close progress tracking connection
+            if (progressEventSource) {
+                progressEventSource.close();
+                progressEventSource = null;
+            }
+        });
+
+        // Check backend connection on page load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Backend connection successful:', data);
+                    
+                    // Load available voices
+                    const voicesResponse = await fetch(`${API_BASE_URL}/voices`);
+                    if (voicesResponse.ok) {
+                        const voicesData = await voicesResponse.json();
+                        console.log('Available voices:', voicesData.voices);
+                        console.log('Language codes:', voicesData.lang_codes);
+                    }
+                } else {
+                    showStatus('Backend server is not responding properly', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to connect to backend:', error);
+                showStatus('Cannot connect to backend server. Please make sure the backend is running on port 8000.', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

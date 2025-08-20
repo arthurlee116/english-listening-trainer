@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Tracking Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .demo-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .progress-stage {
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        .progress-percentage {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .progress-message {
+            font-size: 14px;
+            color: #6c757d;
+            text-align: center;
+        }
+        
+        .log-container {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-stage {
+            color: #68d391;
+            font-weight: bold;
+        }
+        
+        .log-progress {
+            color: #fbb6ce;
+        }
+        
+        .log-message {
+            color: #bee3f8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Kokoro TTS Progress Tracking Demo</h1>
+        
+        <div class="demo-section">
+            <h3>Test Progress Tracking</h3>
+            <p>This demo shows the enhanced progress tracking system that monitors actual model inference progress.</p>
+            
+            <button class="btn" onclick="startProgressTest()">Start TTS Generation</button>
+            <button class="btn" onclick="clearLog()">Clear Log</button>
+            
+            <div id="progressContainer" class="progress-container" style="display: none;">
+                <div class="progress-header">
+                    <span id="progressStage" class="progress-stage">Initializing...</span>
+                    <span id="progressPercentage" class="progress-percentage">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <div id="progressMessage" class="progress-message">Starting generation...</div>
+            </div>
+            
+            <div class="log-container" id="logContainer">
+                <div class="log-entry">🚀 Progress tracking demo ready. Click "Start TTS Generation" to begin.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let currentRequestId = null;
+        let progressEventSource = null;
+        
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            if (type === 'progress') {
+                logEntry.innerHTML = `<span class="log-stage">[${timestamp}]</span> <span class="log-progress">PROGRESS:</span> <span class="log-message">${message}</span>`;
+            } else if (type === 'stage') {
+                logEntry.innerHTML = `<span class="log-stage">[${timestamp}]</span> <span class="log-stage">STAGE:</span> <span class="log-message">${message}</span>`;
+            } else {
+                logEntry.innerHTML = `<span class="log-stage">[${timestamp}]</span> <span class="log-message">${message}</span>`;
+            }
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '<div class="log-entry">🧹 Log cleared.</div>';
+        }
+        
+        function showProgress() {
+            document.getElementById('progressContainer').style.display = 'block';
+        }
+        
+        function updateProgress(progress, stage, message) {
+            document.getElementById('progressStage').textContent = stage;
+            document.getElementById('progressPercentage').textContent = `${progress}%`;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            document.getElementById('progressMessage').textContent = message;
+            
+            log(`${progress}% - ${stage}: ${message}`, 'progress');
+        }
+        
+        function setupProgressTracking(requestId) {
+            if (progressEventSource) {
+                progressEventSource.close();
+            }
+            
+            currentRequestId = requestId;
+            const eventSource = new EventSource(`${API_BASE_URL}/progress/${requestId}`);
+            progressEventSource = eventSource;
+            
+            log(`📡 Connected to progress stream for request: ${requestId}`, 'stage');
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateProgress(data.progress, data.stage, data.message);
+                    
+                    if (data.progress === 100) {
+                        log(`✅ Progress tracking completed!`, 'stage');
+                        setTimeout(() => {
+                            if (progressEventSource) {
+                                progressEventSource.close();
+                                progressEventSource = null;
+                            }
+                        }, 2000);
+                    }
+                } catch (e) {
+                    log(`❌ Error parsing progress data: ${e.message}`, 'error');
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                log(`❌ EventSource error: ${error}`, 'error');
+                eventSource.close();
+                progressEventSource = null;
+            };
+            
+            eventSource.onopen = function() {
+                log(`🔗 Progress tracking connection established`, 'stage');
+            };
+        }
+        
+        async function startProgressTest() {
+            try {
+                log('🎯 Starting TTS generation test...', 'stage');
+                showProgress();
+                
+                const testData = {
+                    text: "This is a comprehensive test of the enhanced progress tracking system. The system now monitors actual model inference progress, including text processing, neural network operations, and audio synthesis in real-time.",
+                    voice: "af_heart",
+                    speed: 1.0,
+                    lang_code: "a"
+                };
+                
+                log(`📤 Sending TTS request with ${testData.text.length} characters...`, 'stage');
+                
+                const response = await fetch(`${API_BASE_URL}/tts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Read headers BEFORE accessing the body
+                const requestId = response.headers.get('X-Request-ID');
+                if (requestId) {
+                    log(`🎫 Received request ID: ${requestId}`, 'stage');
+                    setupProgressTracking(requestId);
+                } else {
+                    log('⚠️ No request ID found in response headers', 'error');
+                }
+                
+                const audioBlob = await response.blob();
+                log(`🎵 Audio generated successfully! Size: ${audioBlob.size} bytes`, 'stage');
+                
+                // Create audio element for playback
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                log(`🔊 Audio ready for playback`, 'stage');
+                
+                // Auto-play after a short delay
+                setTimeout(() => {
+                    audio.play().then(() => {
+                        log('▶️ Auto-playing generated audio...', 'stage');
+                    }).catch(e => {
+                        log(`⚠️ Auto-play failed: ${e.message}`, 'error');
+                    });
+                }, 1000);
+                
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize
+        log('🎙️ Kokoro TTS Progress Tracking Demo loaded successfully!', 'stage');
+    </script>
+</body>
+</html>
