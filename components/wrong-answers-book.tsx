@@ -199,7 +199,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
     }
 
     let highlightedText = text
-    const highlightElements: JSX.Element[] = []
+    const highlightElements: React.ReactElement[] = []
 
     highlights.forEach((highlight, index) => {
       const regex = new RegExp(`(${highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
@@ -223,7 +223,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
             return null
           } else if (currentHighlightIndex >= 0) {
             const highlight = highlights[currentHighlightIndex]
-            const colorMap = {
+            const colorMap: Record<string, string> = {
               '线索词': 'bg-blue-200 text-blue-900',
               '干扰项': 'bg-red-200 text-red-900',
               '关键信息': 'bg-green-200 text-green-900',

@@ -353,8 +353,10 @@ export default function HomePage() {
     
     // 恢复用户答案
     const restoredAnswers: Record<number, string> = {}
-    exercise.results.forEach((result) => {
-      restoredAnswers[result.question_id] = result.user_answer || ""
+    exercise.results.forEach((result, index) => {
+      // 使用question_id或者索引作为键
+      const key = result.question_id ?? index
+      restoredAnswers[key] = result.user_answer || ""
     })
     setAnswers(restoredAnswers)
     

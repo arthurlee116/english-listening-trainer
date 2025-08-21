@@ -35,9 +35,17 @@
       "mcp__git__git_push",
       "Bash(git config:*)",
       "Bash(git filter-branch:*)",
-      "mcp__git__git_status"
+      "mcp__git__git_status",
+      "WebFetch(domain:github.com)",
+      "Bash(find:*)",
+      "Bash(git clone:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(claude mcp:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/Users/arthur/.claude"
+    ]
   }
 }

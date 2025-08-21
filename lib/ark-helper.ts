@@ -60,7 +60,7 @@ export async function callArkAPI(
         max_tokens: 8192,
       })
 
-      if (!response || !response.choices || response.choices.length === 0) {
+      if (!response || !response.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
         throw new Error("Invalid response structure from Cerebras API")
       }
 

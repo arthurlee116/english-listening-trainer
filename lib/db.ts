@@ -108,7 +108,7 @@ function extendWrongAnswersTable() {
       db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`)
     } catch (error) {
       // 如果字段已存在，忽略错误
-      if (!error.message.includes('duplicate column name')) {
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
         console.error(`Error adding column ${columnName}:`, error)
       }
     }

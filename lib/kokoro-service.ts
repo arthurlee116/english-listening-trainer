@@ -66,7 +66,7 @@ export class KokoroTTSService extends EventEmitter {
       const venvEnv = {
         ...env,
         VIRTUAL_ENV: venvPath,
-        PATH: `${venvPath}/bin:${env.PATH}`,
+        PATH: `${venvPath}/bin:${(env as any).PATH || process.env.PATH || ''}`,
         PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.13', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
       }
       
@@ -80,7 +80,7 @@ export class KokoroTTSService extends EventEmitter {
 
       // 处理标准输出 - 使用缓冲机制处理大JSON
       let jsonBuffer = ''
-      this.process.stdout.on('data', (data: Buffer) => {
+      this.process.stdout?.on('data', (data: Buffer) => {
         const output = data.toString()
         
         // 将数据添加到缓冲区
@@ -94,7 +94,7 @@ export class KokoroTTSService extends EventEmitter {
           return
         } catch (e) {
           // 如果是Unterminated string错误，继续等待更多数据
-          if (e.message.includes('Unterminated string')) {
+          if (e instanceof Error && e.message.includes('Unterminated string')) {
             return
           }
           
@@ -114,7 +114,7 @@ export class KokoroTTSService extends EventEmitter {
       })
 
       // 处理标准错误
-      this.process.stderr.on('data', (data: Buffer) => {
+      this.process.stderr?.on('data', (data: Buffer) => {
         const errorOutput = data.toString()
         if (!errorOutput.includes('Defaulting repo_id')) { // 过滤掉默认警告
           console.error('🐍 Kokoro Python stderr:', errorOutput)
@@ -140,11 +140,11 @@ export class KokoroTTSService extends EventEmitter {
       })
       
       // 监控stdin状态
-      this.process.stdin.on('error', (error) => {
+      this.process.stdin?.on('error', (error) => {
         console.error('💥 Kokoro stdin error:', error)
       })
       
-      this.process.stdin.on('close', () => {
+      this.process.stdin?.on('close', () => {
         console.log('📴 Kokoro stdin closed')
       })
 
@@ -276,12 +276,12 @@ export class KokoroTTSService extends EventEmitter {
       
       try {
         // 确保stdin流没有关闭
-        if (this.process!.stdin.destroyed) {
-          throw new Error('Python process stdin is destroyed')
+        if (!this.process?.stdin || this.process.stdin.destroyed) {
+          throw new Error('Python process stdin is not available or destroyed')
         }
         
         // 写入数据
-        this.process!.stdin.write(requestLine)
+        this.process.stdin.write(requestLine)
         
       } catch (error) {
         this.pendingRequests.delete(requestId)

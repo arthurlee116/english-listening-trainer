@@ -1,22 +1,42 @@
+// 题目类型枚举
+export type QuestionType = "single" | "short"
+
+// 难度级别枚举
+export type DifficultyLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+
+// 考察点标签类型
+export type FocusArea = 
+  | "main-idea" 
+  | "detail-comprehension" 
+  | "inference" 
+  | "vocabulary" 
+  | "cause-effect" 
+  | "sequence" 
+  | "speaker-attitude" 
+  | "comparison" 
+  | "number-information" 
+  | "time-reference"
+
 export interface Question {
-  type: "single" | "short"
+  type: QuestionType
   question: string
   // AI 可能返回 null 表示简答题无选项
   options?: string[] | null
   answer: string
   // 题目考察的知识点标签
-  focus_areas?: string[]
+  focus_areas?: FocusArea[]
   // 题目描述和解释
   explanation?: string
 }
 
 export interface GradingResult {
-  type: "single" | "short"
+  type: QuestionType
   user_answer: string
   correct_answer: string
   is_correct: boolean
+  question_id?: number // 题目索引，用于恢复答案时识别
   standard_answer?: string | null
-  score?: number | null
+  score?: number | null // 1-10 分，仅简答题
   short_feedback?: string | null
   error_tags?: string[]
   error_analysis?: string | null
@@ -24,13 +44,13 @@ export interface GradingResult {
 
 export interface Exercise {
   id: string
-  difficulty: string
+  difficulty: DifficultyLevel
   topic: string
   transcript: string
   questions: Question[]
   answers: Record<number, string>
   results: GradingResult[]
-  createdAt: string
+  createdAt: string // ISO 8601 格式
 }
 
 export interface ErrorTag {

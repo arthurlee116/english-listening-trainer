@@ -70,7 +70,7 @@ export function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="w-5 h-5 text-blue-600" />

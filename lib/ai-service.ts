@@ -1,22 +1,7 @@
 // Client-side AI Service
 // 通过调用 Next.js API 路由，避免在浏览器暴露 ARK_API_KEY
 
-interface Question {
-  type: "single" | "short"
-  question: string
-  options?: string[] | null
-  answer: string
-}
-
-interface GradingResult {
-  type: "single" | "short"
-  user_answer: string
-  correct_answer: string
-  is_correct: boolean
-  standard_answer?: string | null
-  score?: number | null
-  short_feedback?: string | null
-}
+import type { Question, GradingResult } from './types'
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(url, {
