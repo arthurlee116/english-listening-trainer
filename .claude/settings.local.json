@@ -32,7 +32,10 @@
       "mcp__git__git_commit",
       "mcp__github__create_repository",
       "mcp__git__git_remote",
-      "mcp__git__git_push"
+      "mcp__git__git_push",
+      "Bash(git config:*)",
+      "Bash(git filter-branch:*)",
+      "mcp__git__git_status"
     ],
     "deny": [],
     "ask": []
