@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -20,7 +20,83 @@ interface AudioPlayerProps {
   loadingMessage?: string
 }
 
-export function AudioPlayer({ 
+// 自定义Hook用于音频控制
+function useAudioPlayer(audioUrl: string) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const rafRef = useRef<number | null>(null)
+  const isScrubbingRef = useRef(false)
+  const scrubRafRef = useRef<number | null>(null)
+  const pendingTimeRef = useRef<number | null>(null)
+  const wasPausedBeforeScrubRef = useRef(false)
+  const durationCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 清理函数
+  const cleanup = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    if (scrubRafRef.current) {
+      cancelAnimationFrame(scrubRafRef.current)
+      scrubRafRef.current = null
+    }
+    if (durationCheckIntervalRef.current) {
+      clearInterval(durationCheckIntervalRef.current)
+      durationCheckIntervalRef.current = null
+    }
+  }, [])
+
+  // 启动进度更新循环
+  const startProgressLoop = useCallback(() => {
+    cleanup()
+    const tick = () => {
+      const audio = audioRef.current
+      if (audio && !isScrubbingRef.current) {
+        setCurrentTime(audio.currentTime)
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+  }, [cleanup])
+
+  // 停止进度更新循环
+  const stopProgressLoop = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+  }, [])
+
+  return {
+    isPlaying,
+    setIsPlaying,
+    currentTime,
+    setCurrentTime,
+    duration,
+    setDuration,
+    volume,
+    setVolume,
+    isLoading,
+    setIsLoading,
+    audioRef,
+    rafRef,
+    isScrubbingRef,
+    scrubRafRef,
+    pendingTimeRef,
+    wasPausedBeforeScrubRef,
+    startProgressLoop,
+    stopProgressLoop,
+    cleanup
+  }
+}
+
+export const AudioPlayer = React.memo(function AudioPlayer({ 
   audioUrl, 
   audioError, 
   transcript,
@@ -33,206 +109,109 @@ export function AudioPlayer({
   loading = false, 
   loadingMessage = "" 
 }: AudioPlayerProps) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(1)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const rafRef = useRef<number | null>(null)
-  const isScrubbingRef = useRef(false)
-  const scrubRafRef = useRef<number | null>(null)
-  const pendingTimeRef = useRef<number | null>(null)
-  const wasPausedBeforeScrubRef = useRef(false)
-
-  const startProgressLoop = () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    const tick = () => {
-      const audio = audioRef.current
-      if (audio) {
-        // Avoid fighting the user while scrubbing
-        if (!isScrubbingRef.current) {
-          setCurrentTime(audio.currentTime)
-        }
-      }
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-  }
-
-  const stopProgressLoop = () => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-  }
+  const {
+    isPlaying,
+    setIsPlaying,
+    currentTime,
+    setCurrentTime,
+    duration,
+    setDuration,
+    volume,
+    setVolume,
+    isLoading,
+    setIsLoading,
+    audioRef,
+    isScrubbingRef,
+    scrubRafRef,
+    pendingTimeRef,
+    wasPausedBeforeScrubRef,
+    startProgressLoop,
+    stopProgressLoop,
+    cleanup
+  } = useAudioPlayer(audioUrl)
 
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || !audioUrl) return
 
+    setIsLoading(true)
+
+    // 简化的事件处理函数
     const updateTime = () => {
       if (!isScrubbingRef.current) {
         setCurrentTime(audio.currentTime)
       }
     }
+
     const updateDuration = () => {
-      console.log(`🎵 Audio duration loaded: ${audio.duration}s`)
-      console.log(`🎵 Audio readyState: ${audio.readyState}`)
-      console.log(`🎵 Audio networkState: ${audio.networkState}`)
-      
-      // 处理NaN或无效的duration
-      if (isNaN(audio.duration) || !isFinite(audio.duration)) {
-        console.warn(`⚠️ Invalid duration: ${audio.duration}`)
-        return
-      }
-      
-      setDuration(audio.duration)
-    }
-
-    const handleError = (e: Event) => {
-      console.error(`❌ Audio error:`, e)
-      console.error(`❌ Audio error code:`, audio.error)
-    }
-
-    const handleCanPlay = () => {
-      console.log(`✅ Audio can play - duration: ${audio.duration}s`)
-      // 尝试自动修复duration
       if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration)
+        setIsLoading(false)
       }
     }
 
-    const handleLoadStart = () => {
-      console.log(`🔄 Audio load started`)
+    const handleError = () => {
+      console.error('Audio loading error')
+      setIsLoading(false)
     }
 
-    const handleLoadedData = () => {
-      console.log(`📊 Audio data loaded - duration: ${audio.duration}s`)
-      // 尝试自动修复duration
-      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-        setDuration(audio.duration)
-      }
-    }
-
-    const handleCanPlayThrough = () => {
-      console.log(`🎵 Audio can play through - duration: ${audio.duration}s`)
-      
-      // 如果duration还是无效，自动尝试修复
-      if (isNaN(audio.duration) || !isFinite(audio.duration)) {
-        console.log(`🔄 Auto-fixing on canplaythrough...`)
-        autoFixDuration()
-      } else {
-        // duration有效，直接设置
-        setDuration(audio.duration)
-      }
-    }
-
-    const handleProgress = () => {
-      console.log(`📈 Audio loading progress`)
-    }
-
-    audio.addEventListener("timeupdate", updateTime)
-    // Keep UI in sync with actual playback state
     const handlePlay = () => {
       setIsPlaying(true)
       startProgressLoop()
     }
+
     const handlePause = () => {
       setIsPlaying(false)
       stopProgressLoop()
     }
+
     const handleEnded = () => {
       setIsPlaying(false)
       stopProgressLoop()
     }
+
+    // 添加事件监听器
+    audio.addEventListener("timeupdate", updateTime)
+    audio.addEventListener("loadedmetadata", updateDuration)
+    audio.addEventListener("durationchange", updateDuration)
+    audio.addEventListener("canplay", updateDuration)
     audio.addEventListener("play", handlePlay)
-    audio.addEventListener("playing", handlePlay)
     audio.addEventListener("pause", handlePause)
     audio.addEventListener("ended", handleEnded)
-    // Some sources update duration later
-    audio.addEventListener("durationchange", updateDuration)
-    audio.addEventListener("loadedmetadata", updateDuration)
     audio.addEventListener("error", handleError)
-    audio.addEventListener("canplay", handleCanPlay)
-    audio.addEventListener("loadstart", handleLoadStart)
-    audio.addEventListener("loadeddata", handleLoadedData)
-    audio.addEventListener("canplaythrough", handleCanPlayThrough)
-    audio.addEventListener("progress", handleProgress)
 
-    // 立即检查是否已经有数据
-    if (audio.duration && isFinite(audio.duration)) {
-      updateDuration()
-    }
-    
-    // 立即尝试一次自动修复
-    autoFixDuration()
-    
-    // 添加一个定时器来定期检查duration
-    const durationCheckInterval = setInterval(() => {
-      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-        console.log(`⏰ Interval check found duration: ${audio.duration}s`)
-        setDuration(audio.duration)
-        clearInterval(durationCheckInterval)
-      } else {
-        // 尝试自动修复
-        console.log(`⏰ Interval attempting auto-fix...`)
-        autoFixDuration()
-      }
-    }, 100)
-    
-    // 10秒后清理定时器
-    setTimeout(() => {
-      clearInterval(durationCheckInterval)
-    }, 10000)
-
+    // 清理函数
     return () => {
       audio.removeEventListener("timeupdate", updateTime)
       audio.removeEventListener("loadedmetadata", updateDuration)
+      audio.removeEventListener("durationchange", updateDuration)
+      audio.removeEventListener("canplay", updateDuration)
+      audio.removeEventListener("play", handlePlay)
+      audio.removeEventListener("pause", handlePause)
       audio.removeEventListener("ended", handleEnded)
       audio.removeEventListener("error", handleError)
-      audio.removeEventListener("canplay", handleCanPlay)
-      audio.removeEventListener("loadstart", handleLoadStart)
-      audio.removeEventListener("loadeddata", handleLoadedData)
-      audio.removeEventListener("canplaythrough", handleCanPlayThrough)
-      audio.removeEventListener("progress", handleProgress)
-      audio.removeEventListener("play", handlePlay)
-      audio.removeEventListener("playing", handlePlay)
-      audio.removeEventListener("pause", handlePause)
-      audio.removeEventListener("durationchange", updateDuration)
-      
-      // 清理定时器
-      clearInterval(durationCheckInterval)
-      stopProgressLoop()
+      cleanup()
     }
-  }, [audioUrl])
+  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup])
 
-  const togglePlayPause = () => {
+  const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
 
     if (!audio.paused) {
       audio.pause()
-      // Optimistic UI update; 'pause' event will confirm
-      setIsPlaying(false)
     } else {
-      // play() is async; update UI optimistically and sync via events
-      audio
-        .play()
-        .then(() => {
-          setIsPlaying(true)
-        })
-        .catch((err) => {
-          console.error("Failed to play audio:", err)
-          setIsPlaying(false)
-        })
+      audio.play().catch((err) => {
+        console.error("Failed to play audio:", err)
+        setIsPlaying(false)
+      })
     }
-  }
+  }, [])
 
-  const handleSeek = (value: number[]) => {
+  const handleSeek = useCallback((value: number[]) => {
     const audio = audioRef.current
     if (!audio) return
 
-    // Seek using absolute seconds for accuracy
     const target = value[0]
     const maxDuration = isFinite(duration) && duration > 0 ? duration : audio.duration || 100
     const newTime = Math.min(Math.max(0, target), maxDuration)
@@ -241,137 +220,61 @@ export function AudioPlayer({
       audio.currentTime = newTime
       setCurrentTime(newTime)
     }
-    // If currently playing, ensure the progress loop is active
+    
     if (!audio.paused) {
       startProgressLoop()
     }
-    // End scrubbing state after commit
+    
+    // 清理拖拽状态
     isScrubbingRef.current = false
     if (scrubRafRef.current) {
       cancelAnimationFrame(scrubRafRef.current)
       scrubRafRef.current = null
     }
-    // Restore pause state if we auto-played for scrubbing
+    
     if (wasPausedBeforeScrubRef.current) {
       audio.pause()
       wasPausedBeforeScrubRef.current = false
     }
-  }
+  }, [duration, startProgressLoop])
 
-  const skipBackward = () => {
+  const skipBackward = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-
     audio.currentTime = Math.max(0, audio.currentTime - 10)
-  }
+  }, [])
 
-  const skipForward = () => {
+  const skipForward = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-
     audio.currentTime = Math.min(duration, audio.currentTime + 10)
-  }
+  }, [duration])
 
-  const handleVolumeChange = (value: number[]) => {
+  const handleVolumeChange = useCallback((value: number[]) => {
     const audio = audioRef.current
     if (!audio) return
-
     const newVolume = value[0] / 100
     audio.volume = newVolume
     setVolume(newVolume)
-  }
+  }, [])
 
-  const formatTime = (time: number) => {
+  const formatTime = useMemo(() => (time: number) => {
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
-  }
+  }, [])
 
-  const autoFixDuration = () => {
-    const audio = audioRef.current
-    if (audio) {
-      console.log(`🔧 Auto-fixing duration...`)
-      console.log(`🔍 Current audio duration: ${audio.duration}`)
-      
-      // 直接更新React state
-      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-        console.log(`✅ Auto-setting duration to: ${audio.duration}s`)
-        setDuration(audio.duration)
-        return true
-      } else {
-        console.log("🔄 Auto-reloading audio...")
-        audio.load()
-        return false
-      }
-    }
-    return false
-  }
-
-  const handleGenerateAudio = () => {
+  const handleGenerateAudio = useCallback(() => {
     if (onGenerateAudio && !loading) {
       onGenerateAudio()
     }
-  }
+  }, [onGenerateAudio, loading])
 
-  const _handleRegenerate = () => {
+  const handleRegenerate = useCallback(() => {
     if (onRegenerate && !loading) {
       onRegenerate()
     }
-  }
-
-  const debugAudioInfo = () => {
-    const audio = audioRef.current
-    if (audio) {
-      console.log(`🔍 Audio Debug Info:`)
-      console.log(`  - src: ${audio.src}`)
-      console.log(`  - duration: ${audio.duration}`)
-      console.log(`  - readyState: ${audio.readyState} (${getReadyStateText(audio.readyState)})`)
-      console.log(`  - networkState: ${audio.networkState} (${getNetworkStateText(audio.networkState)})`)
-      console.log(`  - error: ${audio.error}`)
-      console.log(`  - currentTime: ${audio.currentTime}`)
-      console.log(`  - buffered ranges: ${audio.buffered.length}`)
-      for (let i = 0; i < audio.buffered.length; i++) {
-        console.log(`    Range ${i}: ${audio.buffered.start(i)} - ${audio.buffered.end(i)}`)
-      }
-      
-      // 如果duration有问题，尝试修复
-      if (isNaN(audio.duration) || !isFinite(audio.duration)) {
-        console.log(`🔧 Attempting to fix duration...`)
-        audio.load()
-        
-        // 添加一次性事件监听器来更新duration
-        const handleFixedDuration = () => {
-          console.log(`✅ Duration fixed: ${audio.duration}s`)
-          setDuration(audio.duration)
-          audio.removeEventListener('loadedmetadata', handleFixedDuration)
-        }
-        audio.addEventListener('loadedmetadata', handleFixedDuration)
-      }
-    } else {
-      console.log(`❌ Audio element not found`)
-    }
-  }
-
-  const getReadyStateText = (state: number) => {
-    switch (state) {
-      case 0: return 'HAVE_NOTHING'
-      case 1: return 'HAVE_METADATA'
-      case 2: return 'HAVE_CURRENT_DATA'
-      case 3: return 'HAVE_FUTURE_DATA'
-      case 4: return 'HAVE_ENOUGH_DATA'
-      default: return 'UNKNOWN'
-    }
-  }
-
-  const getNetworkStateText = (state: number) => {
-    switch (state) {
-      case 0: return 'NETWORK_EMPTY'
-      case 1: return 'NETWORK_IDLE'
-      case 2: return 'NETWORK_LOADING'
-      case 3: return 'NETWORK_NO_SOURCE'
-      default: return 'UNKNOWN'
-    }
-  }
+  }, [onRegenerate, loading])
 
   return (
     <div className="space-y-6">
@@ -569,17 +472,16 @@ export function AudioPlayer({
             开始答题
           </Button>
 
-          {audioUrl && (
-            <div className="space-y-2">
-              <Button
-                onClick={debugAudioInfo}
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                🔍 调试音频信息
-              </Button>
-            </div>
+          {onRegenerate && (
+            <Button
+              onClick={handleRegenerate}
+              variant="outline"
+              className="w-full glass-effect bg-transparent"
+              disabled={loading}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              重新生成听力材料
+            </Button>
           )}
         </div>
       </Card>
@@ -596,4 +498,4 @@ export function AudioPlayer({
       </Card>
     </div>
   )
-}
+})

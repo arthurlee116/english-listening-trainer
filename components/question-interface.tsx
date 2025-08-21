@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -10,6 +10,93 @@ import { Progress } from "@/components/ui/progress"
 import { Slider } from "@/components/ui/slider"
 import { Loader2, Play, Pause, SkipBack, SkipForward } from "lucide-react"
 import type { Question } from "@/lib/types"
+
+// 简化的音频播放器Hook，专门用于问题界面
+function useSimpleAudioPlayer(audioUrl: string) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !audioUrl) return
+
+    const updateTime = () => setCurrentTime(audio.currentTime)
+    const updateDuration = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration)
+      }
+    }
+    const handlePlay = () => setIsPlaying(true)
+    const handlePause = () => setIsPlaying(false)
+    const handleEnded = () => setIsPlaying(false)
+
+    audio.addEventListener("timeupdate", updateTime)
+    audio.addEventListener("loadedmetadata", updateDuration)
+    audio.addEventListener("play", handlePlay)
+    audio.addEventListener("pause", handlePause)
+    audio.addEventListener("ended", handleEnded)
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateTime)
+      audio.removeEventListener("loadedmetadata", updateDuration)
+      audio.removeEventListener("play", handlePlay)
+      audio.removeEventListener("pause", handlePause)
+      audio.removeEventListener("ended", handleEnded)
+    }
+  }, [audioUrl])
+
+  const togglePlayPause = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    if (isPlaying) {
+      audio.pause()
+    } else {
+      audio.play().catch(console.error)
+    }
+  }, [isPlaying])
+
+  const handleSeek = useCallback((value: number[]) => {
+    const audio = audioRef.current
+    if (!audio || !duration) return
+
+    const newTime = (value[0] / 100) * duration
+    audio.currentTime = newTime
+    setCurrentTime(newTime)
+  }, [duration])
+
+  const skipBackward = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = Math.max(0, audio.currentTime - 10)
+  }, [])
+
+  const skipForward = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = Math.min(duration, audio.currentTime + 10)
+  }, [duration])
+
+  const formatTime = useCallback((time: number) => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }, [])
+
+  return {
+    isPlaying,
+    currentTime,
+    duration,
+    audioRef,
+    togglePlayPause,
+    handleSeek,
+    skipBackward,
+    skipForward,
+    formatTime
+  }
+}
 
 interface QuestionInterfaceProps {
   questions: Question[]
@@ -22,7 +109,7 @@ interface QuestionInterfaceProps {
   transcript: string
 }
 
-export function QuestionInterface({
+export const QuestionInterface = React.memo(function QuestionInterface({
   questions,
   answers,
   onAnswerChange,
@@ -32,94 +119,37 @@ export function QuestionInterface({
   audioUrl,
   transcript,
 }: QuestionInterfaceProps) {
-  // 音频播放器状态
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  // Removed volume state
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const {
+    isPlaying,
+    currentTime,
+    duration,
+    audioRef,
+    togglePlayPause,
+    handleSeek,
+    skipBackward,
+    skipForward,
+    formatTime
+  } = useSimpleAudioPlayer(audioUrl)
 
-  // 音频播放器逻辑
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const updateTime = () => setCurrentTime(audio.currentTime)
-    const updateDuration = () => setDuration(audio.duration)
-
-    audio.addEventListener("timeupdate", updateTime)
-    audio.addEventListener("loadedmetadata", updateDuration)
-    audio.addEventListener("ended", () => setIsPlaying(false))
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateTime)
-      audio.removeEventListener("loadedmetadata", updateDuration)
-      audio.removeEventListener("ended", () => setIsPlaying(false))
-    }
-  }, [audioUrl])
-
-  const togglePlayPause = () => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    if (isPlaying) {
-      audio.pause()
-    } else {
-      audio.play()
-    }
-    setIsPlaying(!isPlaying)
-  }
-
-  const handleSeek = (value: number[]) => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const newTime = (value[0] / 100) * duration
-    audio.currentTime = newTime
-    setCurrentTime(newTime)
-  }
-
-  const skipBackward = () => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    audio.currentTime = Math.max(0, audio.currentTime - 10)
-  }
-
-  const skipForward = () => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    audio.currentTime = Math.min(duration, audio.currentTime + 10)
-  }
-
-  // Removed volume change handler
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`
-  }
-
-  // 答题逻辑
-  const handleSingleChoiceAnswer = (questionIndex: number, value: string) => {
+  // 答题逻辑 - 优化性能
+  const handleSingleChoiceAnswer = useCallback((questionIndex: number, value: string) => {
     onAnswerChange({
       ...answers,
       [questionIndex]: value,
     })
-  }
+  }, [answers, onAnswerChange])
 
-  const handleShortAnswer = (questionIndex: number, value: string) => {
+  const handleShortAnswer = useCallback((questionIndex: number, value: string) => {
     onAnswerChange({
       ...answers,
       [questionIndex]: value,
     })
-  }
+  }, [answers, onAnswerChange])
 
-  const answeredCount = Object.keys(answers).length
-  const progress = (answeredCount / questions.length) * 100
-
-  const canSubmit = answeredCount === questions.length && !loading
+  // 记忆化计算
+  const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
+  const progress = useMemo(() => (answeredCount / questions.length) * 100, [answeredCount, questions.length])
+  const canSubmit = useMemo(() => answeredCount === questions.length && !loading, [answeredCount, questions.length, loading])
 
   return (
     <div className="space-y-6">
@@ -260,4 +290,4 @@ export function QuestionInterface({
       </Card>
     </div>
   )
-}
+})

@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +14,7 @@ interface ResultsDisplayProps {
   onExport: () => void
 }
 
-export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplayProps) {
+export const ResultsDisplay = React.memo(function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplayProps) {
   const { questions, results } = exercise
 
   // 自动保存错题
@@ -233,4 +234,4 @@ export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplay
       </Card>
     </div>
   )
-}
+})

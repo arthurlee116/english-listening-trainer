@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, History, MessageSquare, User, Settings, LogOut, Book } from "lucide-react"
+import { Loader2, Sparkles, History, MessageSquare, User, Settings, LogOut, Book, AlertTriangle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/ui/toaster"
 import { AudioPlayer } from "@/components/audio-player"
 import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
@@ -42,91 +44,71 @@ function isError(error: unknown): error is Error {
   return error instanceof Error
 }
 
-export default function HomePage() {
-  // 邀请码相关状态
+// 自定义Hook用于邀请码管理
+function useInvitationCode() {
   const [invitationCode, setInvitationCode] = useState<string>("")
   const [isInvitationVerified, setIsInvitationVerified] = useState<boolean>(false)
   const [usageInfo, setUsageInfo] = useState<{ todayUsage: number; remainingUsage: number }>({ todayUsage: 0, remainingUsage: 5 })
   const [showInvitationDialog, setShowInvitationDialog] = useState<boolean>(false)
+  const { toast } = useToast()
 
-  // 原有状态
-  const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers">("setup")
-  const [difficulty, setDifficulty] = useState<string>("")
-  const [duration, setDuration] = useState<number>(120)
-  const [topic, setTopic] = useState<string>("")
-  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
-  const [transcript, setTranscript] = useState<string>("")
-  const [audioUrl, setAudioUrl] = useState<string>("")
-  const [audioError, setAudioError] = useState<boolean>(false)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [answers, setAnswers] = useState<Record<number, string>>({})
-  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
-  const [loadingMessage, setLoadingMessage] = useState<string>("")
-  const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
-
-  const wordCount = duration * 2 // 120 words per minute / 60 seconds = 2 words per second
-
-  // 检查邀请码
-  useEffect(() => {
-    const checkInvitationCode = async () => {
-      // 先检查本地存储
-      const storedCode = localStorage.getItem('invitation_code') || sessionStorage.getItem('invitation_code')
-      
-      if (storedCode) {
-        try {
-          // 验证邀请码是否仍然有效
-          const response = await fetch(`/api/invitation/check?code=${encodeURIComponent(storedCode)}`)
-          const data = await response.json()
-          
-          if (response.ok) {
-            setInvitationCode(data.code)
-            setIsInvitationVerified(true)
-            setUsageInfo({
-              todayUsage: data.todayUsage,
-              remainingUsage: data.remainingUsage
-            })
-          } else {
-            // 邀请码无效，清除本地存储
-            localStorage.removeItem('invitation_code')
-            sessionStorage.removeItem('invitation_code')
-            setShowInvitationDialog(true)
-          }
-        } catch (error) {
-          console.error('Failed to verify invitation code:', error)
+  const checkInvitationCode = useCallback(async () => {
+    const storedCode = localStorage.getItem('invitation_code') || sessionStorage.getItem('invitation_code')
+    
+    if (storedCode) {
+      try {
+        const response = await fetch(`/api/invitation/check?code=${encodeURIComponent(storedCode)}`)
+        const data = await response.json()
+        
+        if (response.ok) {
+          setInvitationCode(data.code)
+          setIsInvitationVerified(true)
+          setUsageInfo({
+            todayUsage: data.todayUsage,
+            remainingUsage: data.remainingUsage
+          })
+        } else {
+          localStorage.removeItem('invitation_code')
+          sessionStorage.removeItem('invitation_code')
           setShowInvitationDialog(true)
         }
-      } else {
+      } catch (error) {
+        console.error('Failed to verify invitation code:', error)
+        toast({
+          title: "验证失败",
+          description: "无法验证邀请码，请稍后重试",
+          variant: "destructive",
+        })
         setShowInvitationDialog(true)
       }
+    } else {
+      setShowInvitationDialog(true)
     }
-    
-    checkInvitationCode()
-  }, [])
+  }, [toast])
 
-  // 处理邀请码验证成功
-  const handleInvitationCodeVerified = (code: string, usage: { todayUsage: number; remainingUsage: number }) => {
+  const handleInvitationCodeVerified = useCallback((code: string, usage: { todayUsage: number; remainingUsage: number }) => {
     setInvitationCode(code)
     setIsInvitationVerified(true)
     setUsageInfo(usage)
     setShowInvitationDialog(false)
-  }
+  }, [])
 
-  // 退出登录
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('invitation_code')
     sessionStorage.removeItem('invitation_code')
     setInvitationCode("")
     setIsInvitationVerified(false)
     setUsageInfo({ todayUsage: 0, remainingUsage: 5 })
     setShowInvitationDialog(true)
-    setStep("setup")
-  }
+  }, [])
 
-  // 检查使用次数限制
-  const checkUsageLimit = async (): Promise<boolean> => {
+  const checkUsageLimit = useCallback(async (): Promise<boolean> => {
     if (usageInfo.remainingUsage <= 0) {
-      alert('今日使用次数已达上限（5次），请明天再来！')
+      toast({
+        title: "使用次数已达上限",
+        description: "今日使用次数已达上限（5次），请明天再来！",
+        variant: "destructive",
+      })
       return false
     }
     
@@ -146,17 +128,89 @@ export default function HomePage() {
         })
         return true
       } else {
-        alert(data.error || '使用次数检查失败')
+        toast({
+          title: "使用次数检查失败",
+          description: data.error || '使用次数检查失败',
+          variant: "destructive",
+        })
         return false
       }
     } catch (error) {
       console.error('Failed to check usage limit:', error)
-      alert('使用次数检查失败，请稍后重试')
+      toast({
+        title: "网络错误",
+        description: "使用次数检查失败，请稍后重试",
+        variant: "destructive",
+      })
       return false
     }
-  }
+  }, [usageInfo.remainingUsage, invitationCode, toast])
 
-  const handleGenerateTopics = async () => {
+  return {
+    invitationCode,
+    isInvitationVerified,
+    usageInfo,
+    showInvitationDialog,
+    checkInvitationCode,
+    handleInvitationCodeVerified,
+    handleLogout,
+    checkUsageLimit
+  }
+}
+
+export default function HomePage() {
+  const {
+    invitationCode,
+    isInvitationVerified,
+    usageInfo,
+    showInvitationDialog,
+    checkInvitationCode,
+    handleInvitationCodeVerified,
+    handleLogout,
+    checkUsageLimit
+  } = useInvitationCode()
+
+  const { toast } = useToast()
+
+  // 原有状态
+  const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers">("setup")
+  const [difficulty, setDifficulty] = useState<string>("")
+  const [duration, setDuration] = useState<number>(120)
+  const [topic, setTopic] = useState<string>("")
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
+  const [transcript, setTranscript] = useState<string>("")
+  const [audioUrl, setAudioUrl] = useState<string>("")
+  const [audioError, setAudioError] = useState<boolean>(false)
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [answers, setAnswers] = useState<Record<number, string>>({})
+  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [loadingMessage, setLoadingMessage] = useState<string>("")
+  const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
+
+  const wordCount = useMemo(() => duration * 2, [duration]) // 120 words per minute / 60 seconds = 2 words per second
+
+  // 记忆化计算，避免不必要的重新渲染
+  const isSetupComplete = useMemo(() => {
+    return Boolean(difficulty && topic)
+  }, [difficulty, topic])
+
+  const canGenerateQuestions = useMemo(() => {
+    return Boolean(transcript)
+  }, [transcript])
+
+  const canSubmitAnswers = useMemo(() => {
+    return questions.length > 0 && Object.keys(answers).length === questions.length
+  }, [questions, answers])
+
+  // 检查邀请码
+  useEffect(() => {
+    checkInvitationCode()
+  }, [checkInvitationCode])
+
+  // 在自定义hook中已经处理了，这里删除重复的函数
+
+  const handleGenerateTopics = useCallback(async () => {
     if (!difficulty) return
 
     setLoading(true)
@@ -165,17 +219,25 @@ export default function HomePage() {
     try {
       const topics = await generateTopics(difficulty, wordCount)
       setSuggestedTopics(topics)
+      toast({
+        title: "话题生成成功",
+        description: `已生成 ${topics.length} 个话题建议`,
+      })
     } catch (error) {
       console.error("Failed to generate topics:", error)
       const errorMessage = isError(error) ? error.message : String(error)
-      alert(`Failed to generate topics: ${errorMessage}`)
+      toast({
+        title: "话题生成失败",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
       setLoadingMessage("")
     }
-  }
+  }, [difficulty, wordCount, toast])
 
-  const handleGenerateTranscript = async () => {
+  const handleGenerateTranscript = useCallback(async () => {
     if (!difficulty || !topic) return
 
     // 检查使用次数限制
@@ -203,17 +265,25 @@ export default function HomePage() {
     try {
       await attemptGeneration(1)
       setStep("listening")
+      toast({
+        title: "听力材料生成成功",
+        description: "已成功生成听力材料，请点击生成音频或直接开始答题",
+      })
     } catch (error) {
       console.error("Failed to generate transcript:", error)
       const errorMessage = isError(error) ? error.message : String(error)
-      alert(`Failed to generate transcript: ${errorMessage}`)
+      toast({
+        title: "听力材料生成失败",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
       setLoadingMessage("")
     }
-  }
+  }, [difficulty, topic, wordCount, checkUsageLimit, toast])
 
-  const handleGenerateAudio = async () => {
+  const handleGenerateAudio = useCallback(async () => {
     if (!transcript) return
 
     setLoading(true)
@@ -233,6 +303,10 @@ export default function HomePage() {
         if (response.ok) {
           const contentLength = response.headers.get('content-length')
           console.log(`📊 音频文件大小: ${contentLength} bytes`)
+          toast({
+            title: "音频生成成功",
+            description: "音频已生成，现在可以播放练习音频了",
+          })
         }
       } catch (fetchError) {
         console.warn(`⚠️ 无法验证音频文件:`, fetchError)
@@ -241,14 +315,18 @@ export default function HomePage() {
       console.error("Failed to generate audio:", error)
       setAudioError(true)
       const errorMessage = isError(error) ? error.message : String(error)
-      alert(`Failed to generate audio: ${errorMessage}`)
+      toast({
+        title: "音频生成失败",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
       setLoadingMessage("")
     }
-  }
+  }, [transcript, toast])
 
-  const handleStartQuestions = async () => {
+  const handleStartQuestions = useCallback(async () => {
     if (!transcript) return
 
     setLoading(true)
@@ -259,17 +337,25 @@ export default function HomePage() {
       setQuestions(generatedQuestions)
       setAnswers({})
       setStep("questions")
+      toast({
+        title: "题目生成成功",
+        description: `已生成 ${generatedQuestions.length} 道题目`,
+      })
     } catch (error) {
       console.error("Failed to generate questions:", error)
       const errorMessage = isError(error) ? error.message : String(error)
-      alert(`Failed to generate questions: ${errorMessage}`)
+      toast({
+        title: "题目生成失败",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
       setLoadingMessage("")
     }
-  }
+  }, [transcript, difficulty, toast])
 
-  const handleSubmitAnswers = async () => {
+  const handleSubmitAnswers = useCallback(async () => {
     if (questions.length === 0) return
 
     setLoading(true)
@@ -308,17 +394,25 @@ export default function HomePage() {
       }
       
       setStep("results")
+      toast({
+        title: "答题完成",
+        description: "已完成评分，查看您的成绩和详细分析",
+      })
     } catch (error) {
       console.error("Grading failed:", error)
       const errorMessage = isError(error) ? error.message : String(error)
-      alert(`Failed to grade answers: ${errorMessage}. Please try again.`)
+      toast({
+        title: "评分失败",
+        description: `${errorMessage}. 请重试`,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
       setLoadingMessage("")
     }
-  }
+  }, [questions, transcript, answers, difficulty, topic, invitationCode, toast])
 
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     setStep("setup")
     setTopic("")
     setSuggestedTopics([])
@@ -329,21 +423,25 @@ export default function HomePage() {
     setAnswers({})
     setCurrentExercise(null)
     setCanRegenerate(true)
-  }
+  }, [])
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (currentExercise) {
       exportToTxt(currentExercise)
+      toast({
+        title: "导出成功",
+        description: "练习结果已导出为文本文件",
+      })
     }
-  }
+  }, [currentExercise, toast])
 
-  const handleFeedback = () => {
+  const handleFeedback = useCallback(() => {
     const subject = encodeURIComponent("English Listening Trainer Feedback")
     const body = encodeURIComponent(`Page URL: ${window.location.href}\n\nFeedback:\n`)
     window.open(`mailto:laoli3699@qq.com?subject=${subject}&body=${body}`)
-  }
+  }, [])
 
-  const handleRestoreExercise = (exercise: Exercise) => {
+  const handleRestoreExercise = useCallback((exercise: Exercise) => {
     // 恢复所有练习相关的状态
     setDifficulty(exercise.difficulty)
     setTopic(exercise.topic)
@@ -366,7 +464,7 @@ export default function HomePage() {
     
     // 直接跳转到结果页面
     setStep("results")
-  }
+  }, [])
 
   // 如果邀请码未验证，只显示验证对话框
   if (!isInvitationVerified) {
@@ -563,7 +661,7 @@ export default function HomePage() {
                 {/* Generate Exercise Button */}
                 <Button
                   onClick={handleGenerateTranscript}
-                  disabled={!difficulty || !topic || loading}
+                  disabled={!isSetupComplete || loading}
                   className="w-full"
                   size="lg"
                 >
@@ -626,6 +724,7 @@ export default function HomePage() {
           </div>
         )}
       </div>
+      <Toaster />
     </div>
   )
 }

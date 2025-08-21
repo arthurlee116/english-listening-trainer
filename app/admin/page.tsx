@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Eye, EyeOff, Plus, Trash2, RefreshCw, Copy, Check } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/ui/toaster"
 
 interface InvitationCode {
   code: string
@@ -41,22 +43,15 @@ interface UsageStatsResponse {
   dailyStats: DailyStat[]
 }
 
-export default function AdminPage() {
+// 自定义Hook用于管理员认证
+function useAdminAuth() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(false)
-  
-  // 邀请码管理
-  const [codes, setCodes] = useState<InvitationCode[]>([])
-  const [generateCount, setGenerateCount] = useState(5)
-  const [generateLength, setGenerateLength] = useState(6)
-  const [copiedCode, setCopiedCode] = useState<string | null>(null)
-  
-  // 统计数据
-  const [stats, setStats] = useState<UsageStatsResponse | null>(null)
+  const { toast } = useToast()
 
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async () => {
     if (!password) return
     
     setLoading(true)
@@ -65,19 +60,61 @@ export default function AdminPage() {
       
       if (response.ok) {
         setIsAuthenticated(true)
-        await loadCodes()
-        await loadStats()
+        toast({
+          title: "登录成功",
+          description: "欢迎进入管理后台",
+        })
+        return true
       } else {
-        alert('管理员密码错误')
+        toast({
+          title: "登录失败",
+          description: "管理员密码错误",
+          variant: "destructive",
+        })
+        return false
       }
     } catch (error) {
-      alert('登录失败，请稍后重试')
+      toast({
+        title: "网络错误",
+        description: "登录失败，请稍后重试",
+        variant: "destructive",
+      })
+      return false
     } finally {
       setLoading(false)
     }
-  }
+  }, [password, toast])
 
-  const loadCodes = async () => {
+  const handleLogout = useCallback(() => {
+    setIsAuthenticated(false)
+    setPassword("")
+  }, [])
+
+  return {
+    password,
+    setPassword,
+    showPassword,
+    setShowPassword,
+    isAuthenticated,
+    loading,
+    handleLogin,
+    handleLogout
+  }
+}
+
+// 自定义Hook用于邀请码管理
+function useInvitationManagement(password: string) {
+  const [codes, setCodes] = useState<InvitationCode[]>([])
+  const [generateCount, setGenerateCount] = useState(5)
+  const [generateLength, setGenerateLength] = useState(6)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [stats, setStats] = useState<UsageStatsResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
+
+  const loadCodes = useCallback(async () => {
+    if (!password) return
+    
     try {
       const response = await fetch(`/api/admin/codes?password=${encodeURIComponent(password)}`)
       if (response.ok) {
@@ -86,10 +123,17 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Failed to load codes:', error)
+      toast({
+        title: "加载失败",
+        description: "无法加载邀请码列表",
+        variant: "destructive",
+      })
     }
-  }
+  }, [password, toast])
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
+    if (!password) return
+    
     try {
       const response = await fetch(`/api/admin/usage-stats?password=${encodeURIComponent(password)}`)
       if (response.ok) {
@@ -98,10 +142,15 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Failed to load stats:', error)
+      toast({
+        title: "加载失败",
+        description: "无法加载使用统计",
+        variant: "destructive",
+      })
     }
-  }
+  }, [password, toast])
 
-  const handleGenerateCodes = async () => {
+  const handleGenerateCodes = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch('/api/admin/generate-codes', {
@@ -117,20 +166,31 @@ export default function AdminPage() {
       const data = await response.json()
       
       if (response.ok) {
-        alert(`成功生成 ${data.generated} 个邀请码`)
+        toast({
+          title: "生成成功",
+          description: `成功生成 ${data.generated} 个邀请码`,
+        })
         await loadCodes()
         await loadStats()
       } else {
-        alert(data.error || '生成失败')
+        toast({
+          title: "生成失败",
+          description: data.error || '生成失败',
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      alert('生成失败，请稍后重试')
+      toast({
+        title: "网络错误",
+        description: "生成失败，请稍后重试",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
-  }
+  }, [password, generateCount, generateLength, loadCodes, loadStats, toast])
 
-  const handleDeleteCode = async (code: string) => {
+  const handleDeleteCode = useCallback(async (code: string) => {
     setLoading(true)
     try {
       const response = await fetch('/api/admin/codes', {
@@ -142,34 +202,84 @@ export default function AdminPage() {
       const data = await response.json()
       
       if (response.ok) {
-        alert(data.message)
+        toast({
+          title: "删除成功",
+          description: data.message,
+        })
         await loadCodes()
         await loadStats()
       } else {
-        alert(data.error || '删除失败')
+        toast({
+          title: "删除失败",
+          description: data.error || '删除失败',
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      alert('删除失败，请稍后重试')
+      toast({
+        title: "网络错误",
+        description: "删除失败，请稍后重试",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
-  }
+  }, [password, loadCodes, loadStats, toast])
 
-  const copyToClipboard = async (code: string) => {
+  const copyToClipboard = useCallback(async (code: string) => {
     try {
       await navigator.clipboard.writeText(code)
       setCopiedCode(code)
       setTimeout(() => setCopiedCode(null), 2000)
+      toast({
+        title: "复制成功",
+        description: `邀请码 ${code} 已复制到剪贴板`,
+      })
     } catch (error) {
       console.error('Failed to copy:', error)
+      toast({
+        title: "复制失败",
+        description: "无法复制到剪贴板",
+        variant: "destructive",
+      })
     }
-  }
+  }, [toast])
 
-  const formatDate = (dateString: string) => {
+  return {
+    codes,
+    generateCount,
+    setGenerateCount,
+    generateLength,
+    setGenerateLength,
+    copiedCode,
+    stats,
+    loading,
+    loadCodes,
+    loadStats,
+    handleGenerateCodes,
+    handleDeleteCode,
+    copyToClipboard
+  }
+}
+
+export default function AdminPage() {
+  const authState = useAdminAuth()
+  const invitationState = useInvitationManagement(authState.password)
+
+  // 格式化日期的辅助函数
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleString('zh-CN')
-  }
+  }, [])
 
-  if (!isAuthenticated) {
+  // 登录成功后初始化数据
+  useEffect(() => {
+    if (authState.isAuthenticated) {
+      invitationState.loadCodes()
+      invitationState.loadStats()
+    }
+  }, [authState.isAuthenticated, invitationState.loadCodes, invitationState.loadStats])
+
+  if (!authState.isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
         <Card className="w-full max-w-md p-8">
@@ -184,33 +294,36 @@ export default function AdminPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                  type={authState.showPassword ? "text" : "password"}
+                  value={authState.password}
+                  onChange={(e) => authState.setPassword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && authState.handleLogin()}
                   placeholder="请输入管理员密码"
+                  autoComplete="current-password"
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => authState.setShowPassword(!authState.showPassword)}
+                  aria-label={authState.showPassword ? "隐藏密码" : "显示密码"}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {authState.showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
             
             <Button 
-              onClick={handleLogin} 
-              disabled={loading || !password}
+              onClick={authState.handleLogin} 
+              disabled={authState.loading || !authState.password}
               className="w-full"
             >
-              {loading ? "验证中..." : "登录"}
+              {authState.loading ? "验证中..." : "登录"}
             </Button>
           </div>
         </Card>
+        <Toaster />
       </div>
     )
   }
@@ -222,10 +335,7 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">邀请码管理系统</h1>
           <Button 
             variant="outline" 
-            onClick={() => {
-              setIsAuthenticated(false)
-              setPassword("")
-            }}
+            onClick={authState.handleLogout}
           >
             退出登录
           </Button>
@@ -249,8 +359,8 @@ export default function AdminPage() {
                     type="number"
                     min="1"
                     max="100"
-                    value={generateCount}
-                    onChange={(e) => setGenerateCount(parseInt(e.target.value) || 1)}
+                    value={invitationState.generateCount}
+                    onChange={(e) => invitationState.setGenerateCount(parseInt(e.target.value) || 1)}
                   />
                 </div>
                 <div>
@@ -260,17 +370,17 @@ export default function AdminPage() {
                     type="number"
                     min="6"
                     max="8"
-                    value={generateLength}
-                    onChange={(e) => setGenerateLength(parseInt(e.target.value) || 6)}
+                    value={invitationState.generateLength}
+                    onChange={(e) => invitationState.setGenerateLength(parseInt(e.target.value) || 6)}
                   />
                 </div>
                 <Button 
-                  onClick={handleGenerateCodes} 
-                  disabled={loading}
+                  onClick={invitationState.handleGenerateCodes} 
+                  disabled={invitationState.loading}
                   className="flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  {loading ? "生成中..." : "生成邀请码"}
+                  {invitationState.loading ? "生成中..." : "生成邀请码"}
                 </Button>
               </div>
             </Card>
@@ -278,13 +388,13 @@ export default function AdminPage() {
             {/* 邀请码列表 */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">邀请码列表 ({codes.length})</h2>
+                <h2 className="text-xl font-semibold">邀请码列表 ({invitationState.codes.length})</h2>
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => {
-                    loadCodes()
-                    loadStats()
+                    invitationState.loadCodes()
+                    invitationState.loadStats()
                   }}
                   className="flex items-center gap-2"
                 >
@@ -304,7 +414,7 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {codes.map((code) => (
+                    {invitationState.codes.map((code) => (
                       <TableRow key={code.code}>
                         <TableCell className="font-mono font-semibold">
                           <div className="flex items-center gap-2">
@@ -312,10 +422,10 @@ export default function AdminPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(code.code)}
+                              onClick={() => invitationState.copyToClipboard(code.code)}
                               className="p-1 h-6 w-6"
                             >
-                              {copiedCode === code.code ? (
+                              {invitationState.copiedCode === code.code ? (
                                 <Check className="w-3 h-3 text-green-600" />
                               ) : (
                                 <Copy className="w-3 h-3" />
@@ -346,7 +456,7 @@ export default function AdminPage() {
                               <AlertDialogFooter>
                                 <AlertDialogCancel>取消</AlertDialogCancel>
                                 <AlertDialogAction 
-                                  onClick={() => handleDeleteCode(code.code)}
+                                  onClick={() => invitationState.handleDeleteCode(code.code)}
                                   className="bg-red-600 hover:bg-red-700"
                                 >
                                   删除
@@ -364,24 +474,24 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-6">
-            {stats && (
+            {invitationState.stats && (
               <>
                 {/* 统计概览 */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card className="p-4">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.summary.totalInvitations}</div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{invitationState.stats.summary.totalInvitations}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">总邀请码数</div>
                   </Card>
                   <Card className="p-4">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.summary.totalExercises}</div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{invitationState.stats.summary.totalExercises}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">总练习次数</div>
                   </Card>
                   <Card className="p-4">
-                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.summary.activeToday}</div>
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{invitationState.stats.summary.activeToday}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">今日活跃用户</div>
                   </Card>
                   <Card className="p-4">
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.summary.averageExercisesPerCode}</div>
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{invitationState.stats.summary.averageExercisesPerCode}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-300">平均练习次数</div>
                   </Card>
                 </div>
@@ -399,7 +509,7 @@ export default function AdminPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {stats.exerciseStats.map((stat) => (
+                        {invitationState.stats.exerciseStats.map((stat) => (
                           <TableRow key={stat.invitation_code}>
                             <TableCell className="font-mono">{stat.invitation_code}</TableCell>
                             <TableCell>
@@ -426,7 +536,7 @@ export default function AdminPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {stats.dailyStats.map((stat, index) => (
+                        {invitationState.stats.dailyStats.map((stat, index) => (
                           <TableRow key={`${stat.invitation_code}-${stat.date}`}>
                             <TableCell className="font-mono">{stat.invitation_code}</TableCell>
                             <TableCell>{stat.date}</TableCell>
@@ -448,6 +558,7 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
+      <Toaster />
     </div>
   )
 }

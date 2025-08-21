@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState, useCallback, useMemo } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,14 +13,20 @@ interface InvitationDialogProps {
   onCodeVerified: (code: string, usageInfo: { todayUsage: number; remainingUsage: number }) => void
 }
 
-export function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps) {
+export const InvitationDialog = React.memo(function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps) {
   const [code, setCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const handleVerify = async () => {
-    if (!code.trim()) {
-      setError("请输入邀请码")
+  // 验证邀请码格式
+  const isValidCode = useMemo(() => {
+    const trimmedCode = code.trim()
+    return trimmedCode.length >= 6 && trimmedCode.length <= 8 && /^[A-Z0-9]+$/.test(trimmedCode)
+  }, [code])
+
+  const handleVerify = useCallback(async () => {
+    if (!isValidCode) {
+      setError("请输入6-8位字母数字组合的邀请码")
       return
     }
 
@@ -49,31 +55,32 @@ export function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps
         setError(data.error || '验证失败')
       }
     } catch (error) {
-      setError('验证失败，请稍后重试')
+      console.error('Invitation verification error:', error)
+      setError('网络连接失败，请稍后重试')
     } finally {
       setLoading(false)
     }
-  }
+  }, [code, isValidCode, onCodeVerified])
 
-  const handleInputChange = (value: string) => {
-    // 只允许字母和数字，自动转大写
-    const cleanValue = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  const handleInputChange = useCallback((value: string) => {
+    // 只允许字母和数字，自动转大写，限制长度
+    const cleanValue = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8)
     setCode(cleanValue)
     if (error) setError("")
-  }
+  }, [error])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && code.trim() && !loading) {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && isValidCode && !loading) {
       handleVerify()
     }
-  }
+  }, [isValidCode, loading, handleVerify])
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={() => {}} modal>
+      <DialogContent className="sm:max-w-md" aria-labelledby="invitation-dialog-title">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Key className="w-5 h-5 text-blue-600" />
+          <DialogTitle id="invitation-dialog-title" className="flex items-center gap-2">
+            <Key className="w-5 h-5 text-blue-600" aria-hidden="true" />
             验证邀请码
           </DialogTitle>
           <DialogDescription>
@@ -91,11 +98,25 @@ export function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps
               onKeyPress={handleKeyPress}
               placeholder="请输入6-8位邀请码"
               maxLength={8}
-              className="font-mono text-center text-lg tracking-wider text-gray-900 dark:text-gray-100"
+              className={`font-mono text-center text-lg tracking-wider text-gray-900 dark:text-gray-100 ${
+                error ? 'border-red-500 focus:border-red-500' : ''
+              } ${isValidCode ? 'border-green-500' : ''}`}
               disabled={loading}
+              autoComplete="off"
+              spellCheck="false"
+              autoFocus
+              aria-invalid={error ? 'true' : 'false'}
+              aria-describedby={error ? 'invitation-error' : 'invitation-help'}
             />
             {error && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>
+              <p id="invitation-error" className="text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+                {error}
+              </p>
+            )}
+            {!error && (
+              <p id="invitation-help" className="text-sm text-gray-500 mt-1">
+                输入格式：{code.length}/8 个字符 {isValidCode && '✓'}
+              </p>
             )}
           </div>
 
@@ -115,13 +136,15 @@ export function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps
         <DialogFooter>
           <Button 
             onClick={handleVerify} 
-            disabled={!code.trim() || loading}
+            disabled={!isValidCode || loading}
             className="w-full"
+            type="submit"
+            aria-describedby={loading ? 'loading-state' : undefined}
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                验证中...
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                <span id="loading-state">验证中...</span>
               </>
             ) : (
               '验证邀请码'
@@ -131,4 +154,4 @@ export function InvitationDialog({ open, onCodeVerified }: InvitationDialogProps
       </DialogContent>
     </Dialog>
   )
-}
+})
