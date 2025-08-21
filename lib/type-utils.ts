@@ -178,7 +178,7 @@ export interface DatabaseResult<T = unknown> {
 /**
  * 应用错误代码枚举
  */
-export const enum ErrorCode {
+export enum ErrorCode {
   // 通用错误
   UNKNOWN = 'UNKNOWN',
   INVALID_INPUT = 'INVALID_INPUT',
@@ -298,7 +298,7 @@ export function removeUndefined<T extends Record<string, unknown>>(obj: T): Part
   const result: Partial<T> = {}
   for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined) {
-      result[key as keyof T] = value
+      result[key as keyof T] = value as T[keyof T]
     }
   }
   return result
@@ -349,7 +349,7 @@ export function createEnumChecker<T extends Record<string, string | number>>(
 ) {
   const values = Object.values(enumObject)
   return (value: unknown): value is T[keyof T] => {
-    return values.includes(value as T[keyof T])
+    return values.includes(value as string | number)
   }
 }
 

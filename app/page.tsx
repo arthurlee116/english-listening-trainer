@@ -19,7 +19,7 @@ import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
 import { ThemeToggle } from "@/components/theme-toggle"
-import type { Exercise, Question } from "@/lib/types"
+import type { Exercise, Question, DifficultyLevel } from "@/lib/types"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", label: "A1 - Beginner" },
@@ -280,7 +280,7 @@ export default function HomePage() {
 
       const exercise: Exercise = {
         id: Date.now().toString(),
-        difficulty,
+        difficulty: difficulty as DifficultyLevel,
         topic,
         transcript,
         questions,
