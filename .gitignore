@@ -77,3 +77,22 @@ logs
 backend.log
 frontend.log
 tts-warmup.out
+
+# Development documentation (temporary)
+*_IMPROVEMENT_PLAN.md
+*_OPTIMIZATION_REPORT.md
+*_SYSTEM.md
+typescript-safety-report.md
+test-core-functionality.js
+
+# Database WAL files
+*.db-wal
+*.db-shm
+
+# Generated audio files
+public/tts_audio_*.wav
+warmup_audio.wav
+
+# Development temporary files
+docs/
+*.backup
