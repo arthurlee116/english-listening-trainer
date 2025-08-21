@@ -3,7 +3,7 @@
  * 提供性能监控、错误追踪、健康检查等功能
  */
 
-import { compatibleDbOperations } from './db-simple'
+import { DatabaseOperations } from './db-unified'
 import { appCache } from './cache'
 
 // 日志级别
@@ -404,7 +404,7 @@ export class HealthChecker {
   private async checkDatabase(): Promise<HealthCheckResult['checks'][string]> {
     try {
       const start = Date.now()
-      const result = compatibleDbOperations.healthCheck()
+      const result = DatabaseOperations.healthCheck()
       const duration = Date.now() - start
 
       if (result.status === 'healthy') {

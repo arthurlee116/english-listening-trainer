@@ -14,7 +14,7 @@ import {
   commonSchemas 
 } from '@/lib/validation'
 import { withMiddleware } from '@/lib/middleware'
-import { compatibleDbOperations } from '@/lib/db-simple'
+import { DatabaseOperations } from '@/lib/db-unified'
 import { appCache } from '@/lib/cache'
 import type { Exercise } from '@/lib/types'
 
@@ -31,7 +31,7 @@ async function saveExerciseHandler(request: NextRequest) {
   
   try {
     // 保存练习记录（包含事务处理）
-    const success = compatibleDbOperations.saveExercise(exercise as Exercise, invitationCode)
+    const success = DatabaseOperations.saveExercise(exercise as Exercise, invitationCode)
     
     if (!success) {
       throw createApiError.databaseError('练习保存失败')

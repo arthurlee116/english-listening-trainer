@@ -67,7 +67,7 @@ export class KokoroTTSService extends EventEmitter {
         ...env,
         VIRTUAL_ENV: venvPath,
         PATH: `${venvPath}/bin:${(env as any).PATH || process.env.PATH || ''}`,
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.13', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
+        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.12', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
       }
       
       // 启动Python进程

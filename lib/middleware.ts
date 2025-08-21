@@ -374,7 +374,7 @@ export function withMiddleware(config: {
         if (config.requireAuth) {
           // 这里需要从请求中获取邀请码，具体实现取决于API设计
           const body = await request.clone().json().catch(() => ({}))
-          const invitationCode = body.invitationCode || request.headers.get('x-invitation-code')
+          const invitationCode = body.invitationCode || body.code || request.headers.get('x-invitation-code')
           
           if (!invitationCode) {
             throw createApiError.missingParameters(['invitationCode'])

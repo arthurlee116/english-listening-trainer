@@ -15,7 +15,7 @@ import {
   validateQueryParams 
 } from '@/lib/validation'
 import { withMiddleware } from '@/lib/middleware'
-import { compatibleDbOperations } from '@/lib/db-simple'
+import { DatabaseOperations } from '@/lib/db-unified'
 import { appCache, cacheKeys } from '@/lib/cache'
 
 /**

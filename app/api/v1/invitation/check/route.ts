@@ -1,5 +1,5 @@
 /**
- * 优化的邀请码验证API - v1
+ * 邀请码检查API - v1
  * 使用新的架构：统一响应格式、验证、缓存、中间件等
  */
 
@@ -9,65 +9,72 @@ import {
   withErrorHandler, 
   createApiError
 } from '@/lib/api-response'
-import { 
-  validateRequestBody, 
-  commonSchemas 
-} from '@/lib/validation'
 import { withMiddleware } from '@/lib/middleware'
 import { DatabaseOperations } from '@/lib/db-unified'
 import { appCache } from '@/lib/cache'
 
 /**
- * 邀请码验证处理器
+ * 邀请码检查处理器
  */
-async function verifyInvitationHandler(request: NextRequest) {
-  // 验证请求体
-  const { data } = await validateRequestBody(request, commonSchemas.invitationCode)
-  const { code } = data
+async function checkInvitationHandler(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const code = searchParams.get('code')
+  
+  if (!code) {
+    throw createApiError.validationError({
+      field: 'code',
+      message: '缺少邀请码参数'
+    })
+  }
+
+  const invitationCode = code.trim().toUpperCase()
   
   // 检查缓存
-  const cachedResult = appCache.getCachedInvitationVerification(code)
+  const cachedResult = appCache.getCachedInvitationVerification(invitationCode)
   if (cachedResult !== null) {
     if (!cachedResult) {
       throw createApiError.invitationCodeNotFound()
     }
     
     // 即使缓存命中，也要检查使用次数（实时数据）
-    const todayUsage = DatabaseOperations.getTodayUsageCount(code)
+    const todayUsage = DatabaseOperations.getTodayUsageCount(invitationCode)
     
     return createSuccessResponse({
-      code,
+      code: invitationCode,
       todayUsage,
       remainingUsage: Math.max(0, 5 - todayUsage),
+      canUse: Math.max(0, 5 - todayUsage) > 0,
       message: '邀请码验证成功',
       cached: true
     })
   }
   
   // 验证邀请码是否存在
-  const isValid = DatabaseOperations.verifyInvitationCode(code)
+  const isValid = DatabaseOperations.verifyInvitationCode(invitationCode)
   
   // 缓存验证结果
-  appCache.cacheInvitationVerification(code, isValid)
+  appCache.cacheInvitationVerification(invitationCode, isValid)
   
   if (!isValid) {
     throw createApiError.invitationCodeNotFound()
   }
 
   // 检查今日使用次数
-  const todayUsage = DatabaseOperations.getTodayUsageCount(code)
+  const todayUsage = DatabaseOperations.getTodayUsageCount(invitationCode)
+  const remainingUsage = Math.max(0, 5 - todayUsage)
   
   return createSuccessResponse({
-    code,
+    code: invitationCode,
     todayUsage,
-    remainingUsage: Math.max(0, 5 - todayUsage),
+    remainingUsage,
+    canUse: remainingUsage > 0,
     message: '邀请码验证成功',
     cached: false
   })
 }
 
 // 应用中间件并导出处理器
-export const POST = withMiddleware({
+export const GET = withMiddleware({
   rateLimit: true,
   cors: true
-})(withErrorHandler(verifyInvitationHandler))
+})(withErrorHandler(checkInvitationHandler))

@@ -15,7 +15,7 @@ import {
   performanceMonitor, 
   logger 
 } from '@/lib/monitoring'
-import { compatibleDbOperations } from '@/lib/db-simple'
+import { DatabaseOperations } from '@/lib/db-unified'
 
 /**
  * 健康检查处理器

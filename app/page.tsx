@@ -57,15 +57,15 @@ function useInvitationCode() {
     
     if (storedCode) {
       try {
-        const response = await fetch(`/api/invitation/check?code=${encodeURIComponent(storedCode)}`)
+        const response = await fetch(`/api/v1/invitation/check?code=${encodeURIComponent(storedCode)}`)
         const data = await response.json()
         
         if (response.ok) {
-          setInvitationCode(data.code)
+          setInvitationCode(data.data.code)
           setIsInvitationVerified(true)
           setUsageInfo({
-            todayUsage: data.todayUsage,
-            remainingUsage: data.remainingUsage
+            todayUsage: data.data.todayUsage,
+            remainingUsage: data.data.remainingUsage
           })
         } else {
           localStorage.removeItem('invitation_code')
@@ -113,7 +113,7 @@ function useInvitationCode() {
     }
     
     try {
-      const response = await fetch('/api/invitation/use', {
+      const response = await fetch('/api/v1/invitation/use', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: invitationCode })
@@ -123,8 +123,8 @@ function useInvitationCode() {
       
       if (response.ok) {
         setUsageInfo({
-          todayUsage: data.todayUsage,
-          remainingUsage: data.remainingUsage
+          todayUsage: data.data.todayUsage,
+          remainingUsage: data.data.remainingUsage
         })
         return true
       } else {
@@ -380,7 +380,7 @@ export default function HomePage() {
       
       // 同步到数据库
       try {
-        await fetch('/api/exercises/save', {
+        await fetch('/api/v1/exercises/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
