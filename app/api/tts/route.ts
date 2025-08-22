@@ -54,7 +54,10 @@ export async function POST(request: NextRequest) {
       // 根据错误类型设置状态码
       if (errorMessage.includes('timeout')) {
         statusCode = 504
-        errorMessage = '音频生成超时，请稍后重试'
+        errorMessage = '音频生成超时，长文本需要更多时间，请稍后重试'
+      } else if (errorMessage.includes('Audio generation timeout')) {
+        statusCode = 504
+        errorMessage = `音频生成超时：文本长度 ${text.length} 字符，预计需要 ${Math.ceil(text.length / 10)} 秒，请稍后重试`
       } else if (errorMessage.includes('not initialized') || errorMessage.includes('not ready')) {
         statusCode = 503
         errorMessage = 'TTS服务初始化中，请稍后重试'

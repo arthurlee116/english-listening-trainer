@@ -216,7 +216,7 @@ export class KokoroTTSService extends EventEmitter {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId)
         reject(new Error('Audio generation timeout'))
-      }, 60000) // 60秒超时
+      }, 180000) // 3分钟超时，适应长文本生成
 
       this.pendingRequests.set(requestId, {
         resolve: (response: KokoroResponse) => {

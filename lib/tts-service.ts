@@ -68,6 +68,10 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
         throw new Error('本地TTS服务连接失败，请确保Python环境已正确配置')
       } else if (error.message.includes('未就绪') || error.message.includes('初始化中')) {
         throw new Error('本地TTS服务正在启动，请稍后重试')
+      } else if (error.message.includes('504') || error.message.includes('Gateway Timeout')) {
+        throw new Error('音频生成超时，文本较长需要更多时间，请稍后重试')
+      } else if (error.message.includes('timeout')) {
+        throw new Error('音频生成超时，请尝试缩短文本或稍后重试')
       } else {
         throw new Error(`本地音频生成失败: ${error.message}`)
       }
