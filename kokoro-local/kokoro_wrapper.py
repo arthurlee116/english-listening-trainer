@@ -25,13 +25,17 @@ if sys.platform == "darwin":
         asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
 class KokoroTTSWrapper:
-    """Kokoro TTS服务包装器"""
+    """Kokoro TTS服务包装器，支持动态语言配置"""
     
-    def __init__(self):
+    def __init__(self, lang_code: str = 'a', voice: str = 'af_heart'):
         self.pipeline = None
         self.device = None
         self.voice_pack = None
         self.initialized = False
+        self.lang_code = lang_code
+        self.voice = voice
+        self.current_lang_code = None
+        self.current_voice = None
         
     def setup_device(self):
         """设置计算设备 (优先使用MPS for M4)"""
@@ -48,9 +52,22 @@ class KokoroTTSWrapper:
             print(f"ERROR in setup_device: {e}", file=sys.stderr)
             self.device = 'cpu'  # 回退到CPU
             
-    async def initialize(self):
-        """初始化Kokoro模型和语音"""
-        if self.initialized:
+    async def initialize(self, lang_code: Optional[str] = None, voice: Optional[str] = None):
+        """初始化或重新初始化Kokoro模型和语音"""
+        # 更新语言和语音配置
+        if lang_code is not None:
+            self.lang_code = lang_code
+        if voice is not None:
+            self.voice = voice
+            
+        # 检查是否需要重新初始化
+        need_reinit = (
+            not self.initialized or 
+            self.current_lang_code != self.lang_code or
+            self.current_voice != self.voice
+        )
+        
+        if not need_reinit:
             return
             
         try:
@@ -67,22 +84,39 @@ class KokoroTTSWrapper:
             import kokoro
             kokoro.logger.disable("kokoro")
             
-            # 初始化pipeline
-            self.pipeline = KPipeline(lang_code='a')
+            # 初始化pipeline (如果语言改变需要重新创建)
+            if self.current_lang_code != self.lang_code:
+                print(f"🌍 Initializing pipeline for language: {self.lang_code}", file=sys.stderr)
+                self.pipeline = KPipeline(lang_code=self.lang_code)
+                self.current_lang_code = self.lang_code
             
-            # 预加载默认语音
-            try:
-                self.voice_pack = self.pipeline.load_voice('af_heart')
-            except Exception as e:
-                self.voice_pack = None
+            # 加载语音 (如果语音改变需要重新加载)
+            if self.current_voice != self.voice:
+                try:
+                    print(f"🎵 Loading voice: {self.voice}", file=sys.stderr)
+                    self.voice_pack = self.pipeline.load_voice(self.voice)
+                    self.current_voice = self.voice
+                except Exception as e:
+                    print(f"⚠️  Warning: Failed to load voice {self.voice}: {e}", file=sys.stderr)
+                    # 尝试加载默认语音
+                    try:
+                        fallback_voice = 'af_heart' if self.lang_code == 'a' else f"{self.lang_code}f_alpha"
+                        print(f"🔄 Trying fallback voice: {fallback_voice}", file=sys.stderr)
+                        self.voice_pack = self.pipeline.load_voice(fallback_voice)
+                        self.voice = fallback_voice
+                        self.current_voice = fallback_voice
+                    except Exception as e2:
+                        print(f"❌ Fallback voice also failed: {e2}", file=sys.stderr)
+                        self.voice_pack = None
             
             self.initialized = True
             
             # 发送就绪信号到stderr
-            print('🚀 Kokoro TTS service is ready', file=sys.stderr)
+            print(f'🚀 Kokoro TTS service ready - Language: {self.lang_code}, Voice: {self.voice}', file=sys.stderr)
             sys.stderr.flush()
             
         except Exception as e:
+            print(f"❌ Initialization failed: {e}", file=sys.stderr)
             raise
             
     async def generate_speech(self, text: str, speed: float = 1.0, parallel: bool = True) -> str:
@@ -303,7 +337,7 @@ class KokoroTTSWrapper:
             for i, (graphemes, phonemes, audio) in enumerate(
                 self.pipeline(
                     text, 
-                    voice='af_heart', 
+                    voice=self.voice, 
                     speed=speed,
                     split_pattern=r'\n+'
                 )
@@ -324,7 +358,7 @@ class KokoroTTSWrapper:
             for i, (graphemes, phonemes, audio) in enumerate(
                 self.pipeline(
                     text, 
-                    voice='af_heart', 
+                    voice=self.voice, 
                     speed=speed,
                     split_pattern=r'\n+'
                 )
@@ -385,6 +419,13 @@ async def main():
                 # 解析JSON请求
                 request = json.loads(line)
                 
+                # 获取语言和语音配置
+                lang_code = request.get('lang_code', 'a')
+                voice = request.get('voice', 'af_heart')
+                
+                # 重新初始化服务（如果需要）
+                await service.initialize(lang_code=lang_code, voice=voice)
+                
                 # 处理请求
                 result = await service.generate_speech(
                     text=request.get('text', ''),
@@ -396,6 +437,8 @@ async def main():
                     "success": True,
                     "audio_data": result,
                     "device": service.device or "unknown",
+                    "lang_code": service.lang_code,
+                    "voice": service.voice,
                     "message": "Audio generated successfully"
                 }
                 
