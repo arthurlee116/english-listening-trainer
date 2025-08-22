@@ -1,17 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
 import { countWords, meetsLengthRequirement } from '@/lib/text-expansion'
+import type { ListeningLanguage } from '@/lib/types'
+
+// 语言名称映射
+const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
+  'en-US': 'American English',
+  'en-GB': 'British English', 
+  'es': 'Spanish',
+  'fr': 'French',
+  'ja': 'Japanese',
+  'it': 'Italian',
+  'pt-BR': 'Portuguese',
+  'hi': 'Hindi'
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, wordCount, topic } = await request.json()
+    const { difficulty, wordCount, topic, language = 'en-US' } = await request.json()
 
     if (!difficulty || !wordCount || !topic) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
 
+    const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
+
     // 生成初始听力稿
-    const basePrompt = `你是一名专业英语听力稿生成助手，难度等级：${difficulty}，主题：${topic}。请生成一篇英文听力稿，目标长度约 ${wordCount} 个英文单词，内容连贯、自然，避免冗余和重复，不要添加任何额外说明或多余标点，只输出稿子本身。`
+    const basePrompt = `You are a professional listening comprehension script generator. Generate a ${languageName} listening script on the topic: "${topic}" at ${difficulty} level.
+
+Requirements:
+- Target length: approximately ${wordCount} words
+- Content must be entirely in ${languageName}
+- Content should be coherent and natural
+- Appropriate for ${difficulty} language level
+- Avoid redundancy and repetition
+- Return only the script content, no additional explanations or punctuation
+
+Generate the listening script in ${languageName}.`
 
     const schema = {
       type: 'object',
@@ -82,6 +107,7 @@ export async function POST(request: NextRequest) {
             targetWordCount: wordCount,
             topic,
             difficulty,
+            language,
             maxAttempts: 5,
             minAcceptablePercentage: 0.95  // 要求达到95%才算成功
           }),

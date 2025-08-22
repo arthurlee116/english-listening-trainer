@@ -21,7 +21,8 @@ import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
 import { ThemeToggle } from "@/components/theme-toggle"
-import type { Exercise, Question, DifficultyLevel } from "@/lib/types"
+import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
+import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", label: "A1 - Beginner" },
@@ -176,6 +177,7 @@ export default function HomePage() {
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers">("setup")
   const [difficulty, setDifficulty] = useState<string>("")
   const [duration, setDuration] = useState<number>(120)
+  const [language, setLanguage] = useState<ListeningLanguage>(DEFAULT_LANGUAGE)
   const [topic, setTopic] = useState<string>("")
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
   const [transcript, setTranscript] = useState<string>("")
@@ -217,7 +219,7 @@ export default function HomePage() {
     setLoadingMessage("Generating topic suggestions...")
 
     try {
-      const topics = await generateTopics(difficulty, wordCount)
+      const topics = await generateTopics(difficulty, wordCount, language)
       setSuggestedTopics(topics)
       toast({
         title: "话题生成成功",
@@ -235,7 +237,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, wordCount, toast])
+  }, [difficulty, wordCount, language, toast])
 
   const handleGenerateTranscript = useCallback(async () => {
     if (!difficulty || !topic) return
@@ -249,7 +251,7 @@ export default function HomePage() {
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       try {
-        const generatedTranscript = await generateTranscript(difficulty, wordCount, topic)
+        const generatedTranscript = await generateTranscript(difficulty, wordCount, topic, language)
         setTranscript(generatedTranscript)
         setCanRegenerate(true)
       } catch (error) {
@@ -281,7 +283,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, topic, wordCount, checkUsageLimit, toast])
+  }, [difficulty, topic, wordCount, language, checkUsageLimit, toast])
 
   const handleGenerateAudio = useCallback(async () => {
     if (!transcript) return
@@ -292,7 +294,7 @@ export default function HomePage() {
 
     try {
       console.log(`🎤 开始生成音频，文本长度: ${transcript.length}`)
-      const audioUrl = await generateAudio(transcript)
+      const audioUrl = await generateAudio(transcript, { language })
       console.log(`✅ 音频生成完成，URL: ${audioUrl}`)
       setAudioUrl(audioUrl)
       
@@ -324,7 +326,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, toast])
+  }, [transcript, language, toast])
 
   const handleStartQuestions = useCallback(async () => {
     if (!transcript) return
@@ -333,7 +335,7 @@ export default function HomePage() {
     setLoadingMessage("Generating questions...")
 
     try {
-      const generatedQuestions = await generateQuestions(difficulty, transcript)
+      const generatedQuestions = await generateQuestions(difficulty, transcript, language)
       setQuestions(generatedQuestions)
       setAnswers({})
       setStep("questions")
@@ -353,7 +355,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, difficulty, toast])
+  }, [transcript, difficulty, language, toast])
 
   const handleSubmitAnswers = useCallback(async () => {
     if (questions.length === 0) return
@@ -362,11 +364,12 @@ export default function HomePage() {
     setLoadingMessage("Grading your answers...")
 
     try {
-      const gradingResults = await gradeAnswers(transcript, questions, answers)
+      const gradingResults = await gradeAnswers(transcript, questions, answers, language)
 
       const exercise: Exercise = {
         id: Date.now().toString(),
         difficulty: difficulty as DifficultyLevel,
+        language,
         topic,
         transcript,
         questions,
@@ -410,7 +413,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [questions, transcript, answers, difficulty, topic, invitationCode, toast])
+  }, [questions, transcript, answers, difficulty, language, topic, invitationCode, toast])
 
   const handleRestart = useCallback(() => {
     setStep("setup")
@@ -571,7 +574,7 @@ export default function HomePage() {
                     Difficulty Level
                   </Label>
                   <Select value={difficulty} onValueChange={setDifficulty}>
-                    <SelectTrigger className="glass-effect">
+                    <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                       <SelectValue placeholder="Select difficulty level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -584,13 +587,32 @@ export default function HomePage() {
                   </Select>
                 </div>
 
+                {/* Language Selection */}
+                <div>
+                  <Label htmlFor="language" className="text-base font-medium">
+                    Listening Language
+                  </Label>
+                  <Select value={language} onValueChange={(value) => setLanguage(value as ListeningLanguage)}>
+                    <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                      <SelectValue placeholder="Select listening language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Duration Selection */}
                 <div>
                   <Label htmlFor="duration" className="text-base font-medium">
                     Duration
                   </Label>
                   <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
-                    <SelectTrigger className="glass-effect">
+                    <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                       <SelectValue placeholder="Select duration" />
                     </SelectTrigger>
                     <SelectContent>

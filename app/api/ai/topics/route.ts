@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
+import type { ListeningLanguage } from '@/lib/types'
+import { getLanguageConfig } from '@/lib/language-config'
+
+// 语言名称映射
+const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
+  'en-US': 'American English',
+  'en-GB': 'British English', 
+  'es': 'Spanish',
+  'fr': 'French',
+  'ja': 'Japanese',
+  'it': 'Italian',
+  'pt-BR': 'Portuguese',
+  'hi': 'Hindi'
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, wordCount } = await request.json()
+    const { difficulty, wordCount, language = 'en-US' } = await request.json()
 
     if (!difficulty || !wordCount) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
 
-    const prompt = `你是一个英语听力推荐话题生成助手，现在用户处于这个水平：${difficulty}，需要一个这么长的听力稿：${wordCount}字，请你帮忙生成五个符合用户水平和字数长度的听力主题，应该是一个话题短语或者一句话。`
+    const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
+    
+    const prompt = `You are a listening comprehension topic generator. Generate 5 topics suitable for ${languageName} listening practice at ${difficulty} level with approximately ${wordCount} words. 
+
+Requirements:
+- All topics must be generated in ${languageName}
+- Topics should be appropriate for ${difficulty} language level
+- Each topic should be a phrase or short sentence
+- Topics should be engaging and practical
+
+Return exactly 5 topics in ${languageName}.`
 
     const schema = {
       type: 'object',

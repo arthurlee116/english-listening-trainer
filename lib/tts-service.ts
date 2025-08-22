@@ -1,8 +1,11 @@
 // Local Kokoro TTS Service - Client Side
 // 本地Kokoro TTS服务客户端接口
 
+import type { ListeningLanguage } from './types'
+
 export interface TTSOptions {
   speed?: number  // 语速，默认1.0
+  language?: ListeningLanguage  // 语言，默认'en-US'
 }
 
 export async function generateAudio(text: string, options: TTSOptions = {}): Promise<string> {
@@ -27,7 +30,8 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
       },
       body: JSON.stringify({ 
         text, 
-        speed: options.speed || 1.0 
+        speed: options.speed || 1.0,
+        language: options.language || 'en-US'
       }),
     })
 

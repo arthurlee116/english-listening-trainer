@@ -558,6 +558,7 @@ export class DatabaseOperations {
     transcript_snippet?: string
     topic: string
     difficulty: string
+    language: string
     tags: string[]
     error_analysis?: string
   }): boolean => {
@@ -568,9 +569,9 @@ export class DatabaseOperations {
           INSERT INTO wrong_answers (
             id, invitation_code, exercise_id, question_index, 
             question_data, user_answer, correct_answer, 
-            transcript_snippet, topic, difficulty, error_analysis,
+            transcript_snippet, topic, difficulty, language, error_analysis,
             detailed_analysis_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         `)
         
         stmt.run(
@@ -584,6 +585,7 @@ export class DatabaseOperations {
           wrongAnswer.transcript_snippet,
           wrongAnswer.topic,
           wrongAnswer.difficulty,
+          wrongAnswer.language,
           wrongAnswer.error_analysis
         )
 

@@ -119,6 +119,7 @@ function extendWrongAnswersTable() {
   addColumnIfNotExists('wrong_answers', 'solution_tips', 'TEXT') // 答题技巧，约100字
   addColumnIfNotExists('wrong_answers', 'highlighting_annotations', 'TEXT') // JSON格式的高亮标注信息
   addColumnIfNotExists('wrong_answers', 'detailed_analysis_status', 'TEXT DEFAULT "pending"') // 状态: pending, generating, completed, failed
+  addColumnIfNotExists('wrong_answers', 'language', 'TEXT DEFAULT "en-US"') // 听力语言
 }
 
 // 初始化标签数据
@@ -344,6 +345,7 @@ export const dbOperations = {
     transcript_snippet?: string
     topic: string
     difficulty: string
+    language: string
     tags: string[]
     error_analysis?: string
   }): boolean {
@@ -352,9 +354,9 @@ export const dbOperations = {
         INSERT INTO wrong_answers (
           id, invitation_code, exercise_id, question_index, 
           question_data, user_answer, correct_answer, 
-          transcript_snippet, topic, difficulty, tags, error_analysis,
+          transcript_snippet, topic, difficulty, language, tags, error_analysis,
           detailed_analysis_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
       `)
       
       stmt.run(
@@ -368,6 +370,7 @@ export const dbOperations = {
         wrongAnswer.transcript_snippet,
         wrongAnswer.topic,
         wrongAnswer.difficulty,
+        wrongAnswer.language,
         JSON.stringify(wrongAnswer.tags),
         wrongAnswer.error_analysis
       )

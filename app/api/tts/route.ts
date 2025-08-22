@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { kokoroTTS } from '@/lib/kokoro-service'
+import type { ListeningLanguage } from '@/lib/types'
+import { isLanguageSupported } from '@/lib/language-config'
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, speed = 1.0 } = await request.json()
+    const { text, speed = 1.0, language = 'en-US' } = await request.json()
     
     if (!text) {
       return NextResponse.json({ error: '文本内容不能为空' }, { status: 400 })
     }
+    
+    if (!isLanguageSupported(language)) {
+      return NextResponse.json({ error: `不支持的语言: ${language}` }, { status: 400 })
+    }
 
     console.log('🎤 开始本地Kokoro TTS生成...')
+    console.log(`🌍 语言: ${language}`)
     console.log(`📝 文本长度: ${text.length} 字符`)
     console.log(`⚡ 语速: ${speed}x`)
 
@@ -22,13 +29,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 调用本地Kokoro服务生成音频
-    const audioUrl = await kokoroTTS.generateAudio(text, speed)
+    const audioUrl = await kokoroTTS.generateAudio(text, speed, language)
     
     console.log('✅ 本地音频生成成功:', audioUrl)
     
     return NextResponse.json({ 
       success: true, 
       audioUrl: audioUrl,
+      language: language,
       message: '本地音频生成成功',
       provider: 'kokoro-local',
       format: 'wav'

@@ -2,10 +2,14 @@ import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
+import { getLanguageConfig } from './language-config'
+import type { ListeningLanguage } from './types'
 
 export interface KokoroRequest {
   text: string
   speed?: number
+  lang_code?: string
+  voice?: string
 }
 
 export interface KokoroResponse {
@@ -196,7 +200,7 @@ export class KokoroTTSService extends EventEmitter {
     }
   }
 
-  async generateAudio(text: string, speed: number = 1.0): Promise<string> {
+  async generateAudio(text: string, speed: number = 1.0, language: ListeningLanguage = 'en-US'): Promise<string> {
     if (!this.initialized || !this.process) {
       throw new Error('Kokoro TTS service not initialized')
     }
@@ -270,8 +274,16 @@ export class KokoroTTSService extends EventEmitter {
         }
       })
 
+      // 获取语言配置
+      const config = getLanguageConfig(language)
+      
       // 发送请求到Python进程
-      const request: KokoroRequest = { text, speed }
+      const request: KokoroRequest = { 
+        text, 
+        speed, 
+        lang_code: config.code, 
+        voice: config.voice 
+      }
       const requestLine = JSON.stringify(request) + '\n'
       
       try {

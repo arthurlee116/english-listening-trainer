@@ -1,39 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
+import type { ListeningLanguage } from '@/lib/types'
+
+// 语言名称映射
+const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
+  'en-US': 'American English',
+  'en-GB': 'British English', 
+  'es': 'Spanish',
+  'fr': 'French',
+  'ja': 'Japanese',
+  'it': 'Italian',
+  'pt-BR': 'Portuguese',
+  'hi': 'Hindi'
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, transcript, duration } = await request.json()
+    const { difficulty, transcript, duration, language = 'en-US' } = await request.json()
 
     if (!difficulty || !transcript) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
 
+    const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
+
     // 计算建议题目数量
     const suggestedCount = duration ? (duration <= 120 ? Math.max(1, Math.floor(duration / 60)) : Math.min(10, Math.floor(duration / 60))) : 10
     const targetCount = Math.min(10, Math.max(8, suggestedCount))
 
-    const prompt = `你是一个专业的英语听力题目生成专家。请根据以下听力材料生成理解题目。
+    const prompt = `You are a professional listening comprehension question generator. Create comprehension questions based on the following ${languageName} listening material.
 
-听力材料：
+Listening Material:
 ${transcript}
 
-生成要求：
-1. 总共生成 ${targetCount} 道题目
-2. 题目难度：${difficulty} 水平
-3. 题目类型分布：
-   - 前9道为选择题（single）：每题提供4个选项
-   - 最后1道为简答题（short）：开放性回答题目
-4. 选择题分布：
-   - 前2道：测试主旨理解
-   - 中间4-6道：测试细节理解
-   - 最后2-3道：测试推理分析
-5. 考察点标签：
-   - 为每道题目标注2-3个准确的考察点标签
-   - 可用标签：main-idea(主旨理解), detail-comprehension(细节理解), inference(推理判断), vocabulary(词汇理解), cause-effect(因果关系), sequence(顺序理解), speaker-attitude(说话人态度), comparison(比较分析), number-information(数字信息), time-reference(时间信息)
-6. 题目解释：为每道题目提供简短的解释说明
+Requirements:
+1. Generate ${targetCount} questions total
+2. Difficulty level: ${difficulty}
+3. All questions and answer options must be in ${languageName}
+4. Question type distribution:
+   - First 9 questions: Multiple choice (single) with 4 options each
+   - Last 1 question: Short answer (short) open-ended question
+5. Multiple choice distribution:
+   - First 2: Test main idea comprehension
+   - Middle 4-6: Test detail comprehension  
+   - Last 2-3: Test inference and analysis
+6. Focus area tags:
+   - Label each question with 2-3 accurate focus area tags
+   - Available tags: main-idea, detail-comprehension, inference, vocabulary, cause-effect, sequence, speaker-attitude, comparison, number-information, time-reference
+7. Question explanations: Provide brief explanations for each question
 
-请确保题目质量高，标签准确，能够有效测试听力理解能力。`
+Ensure high quality questions with accurate tags that effectively test ${languageName} listening comprehension skills.`
 
     const schema = {
       type: 'object',

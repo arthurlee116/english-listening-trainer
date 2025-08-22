@@ -66,29 +66,44 @@ export function generateExpansionPrompt(
   targetWordCount: number,
   topic: string,
   difficulty: string,
-  minAcceptablePercentage: number = 0.9
+  minAcceptablePercentage: number = 0.9,
+  language: string = 'en-US'
 ): string {
   const expansionTarget = calculateExpansionTarget(originalText, targetWordCount, minAcceptablePercentage + 0.05)  // 目标比最小要求多5%
   
-  return `你是一名专业英语听力稿扩写助手。需要将以下英文听力稿进行扩写。
+  // 语言映射
+  const languageNames: Record<string, string> = {
+    'en-US': 'American English',
+    'en-GB': 'British English',
+    'es': 'Spanish',
+    'fr': 'French',
+    'ja': 'Japanese',
+    'it': 'Italian',
+    'pt-BR': 'Portuguese',
+    'hi': 'Hindi'
+  }
+  
+  const languageName = languageNames[language] || 'English'
+  
+  return `You are a professional ${languageName} listening comprehension script expansion assistant. Expand the following ${languageName} listening script.
 
-原始主题：${topic}
-难度等级：${difficulty}
-当前长度：${currentWordCount} 词
-目标长度：${expansionTarget} 词
-最小要求：${Math.round(targetWordCount * minAcceptablePercentage)} 词
+Original Topic: ${topic}
+Difficulty Level: ${difficulty}
+Current Length: ${currentWordCount} words
+Target Length: ${expansionTarget} words
+Minimum Requirement: ${Math.round(targetWordCount * minAcceptablePercentage)} words
 
-原始听力稿：
+Original Script:
 ${originalText}
 
-扩写要求：
-1. 保持原文的核心内容和逻辑结构
-2. 在适当位置添加相关细节、例子、描述或解释
-3. 确保内容连贯、自然，符合${difficulty}难度水平
-4. 不要改变原意或添加无关信息
-5. 生成完整的扩写稿，不要只追加内容
-6. 仅输出英文稿件本身，不要包含任何解释或说明
-7. 必须达到最小${Math.round(minAcceptablePercentage * 110)}%的长度要求（${Math.round(targetWordCount * minAcceptablePercentage)}词）
+Expansion Requirements:
+1. Maintain the core content and logical structure of the original text
+2. Add relevant details, examples, descriptions, or explanations in appropriate places
+3. Ensure content is coherent and natural, suitable for ${difficulty} level
+4. Do not change the original meaning or add irrelevant information
+5. Generate a complete expanded script, not just additional content
+6. Output only the ${languageName} script itself, no explanations or notes
+7. Must reach the minimum ${Math.round(minAcceptablePercentage * 100)}% length requirement (${Math.round(targetWordCount * minAcceptablePercentage)} words)
 
-请将上述文本扩写到约${expansionTarget}词，确保内容丰富且符合听力练习需求。`
+Please expand the above text to approximately ${expansionTarget} words in ${languageName}, ensuring rich content suitable for listening practice.`
 }

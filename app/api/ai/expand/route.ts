@@ -5,10 +5,11 @@ import {
   meetsLengthRequirement, 
   generateExpansionPrompt 
 } from '@/lib/text-expansion'
+import type { ListeningLanguage } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, targetWordCount, topic, difficulty, maxAttempts = 5, minAcceptablePercentage = 0.9 } = await request.json()
+    const { text, targetWordCount, topic, difficulty, language = 'en-US', maxAttempts = 5, minAcceptablePercentage = 0.9 } = await request.json()
 
     if (!text || !targetWordCount || !topic || !difficulty) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
@@ -43,7 +44,8 @@ export async function POST(request: NextRequest) {
         targetWordCount,
         topic,
         difficulty,
-        minAcceptablePercentage
+        minAcceptablePercentage,
+        language
       )
 
       const schema = {

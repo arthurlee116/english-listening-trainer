@@ -1,7 +1,7 @@
 // Client-side AI Service
 // 通过调用 Next.js API 路由，避免在浏览器暴露 ARK_API_KEY
 
-import type { Question, GradingResult } from './types'
+import type { Question, GradingResult, ListeningLanguage } from './types'
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(url, {
@@ -23,10 +23,10 @@ async function postJson<T>(url: string, body: Record<string, unknown>): Promise<
 }
 
 // 生成听力话题
-export async function generateTopics(difficulty: string, wordCount: number): Promise<string[]> {
+export async function generateTopics(difficulty: string, wordCount: number, language: ListeningLanguage = 'en-US'): Promise<string[]> {
   const data = await postJson<{ success: boolean; topics: string[] }>(
     "/api/ai/topics",
-    { difficulty, wordCount },
+    { difficulty, wordCount, language },
   )
   return data.topics
 }
@@ -36,10 +36,11 @@ export async function generateTranscript(
   difficulty: string,
   wordCount: number,
   topic: string,
+  language: ListeningLanguage = 'en-US',
 ): Promise<string> {
   const data = await postJson<{ success: boolean; transcript: string }>(
     "/api/ai/transcript",
-    { difficulty, wordCount, topic },
+    { difficulty, wordCount, topic, language },
   )
   return data.transcript
 }
@@ -48,10 +49,11 @@ export async function generateTranscript(
 export async function generateQuestions(
   difficulty: string,
   transcript: string,
+  language: ListeningLanguage = 'en-US',
 ): Promise<Question[]> {
   const data = await postJson<{ success: boolean; questions: Question[] }>(
     "/api/ai/questions",
-    { difficulty, transcript },
+    { difficulty, transcript, language },
   )
   return data.questions
 }
@@ -61,10 +63,11 @@ export async function gradeAnswers(
   transcript: string,
   questions: Question[],
   answers: Record<number, string>,
+  language: ListeningLanguage = 'en-US',
 ): Promise<GradingResult[]> {
   const data = await postJson<{ success: boolean; results: GradingResult[] }>(
     "/api/ai/grade",
-    { transcript, questions, answers },
+    { transcript, questions, answers, language },
   )
   return data.results
 }
@@ -75,6 +78,7 @@ export async function expandText(
   targetWordCount: number,
   topic: string,
   difficulty: string,
+  language: ListeningLanguage = 'en-US',
   maxAttempts?: number,
 ): Promise<{
   expandedText: string
@@ -94,7 +98,7 @@ export async function expandText(
     message: string
   }>(
     "/api/ai/expand",
-    { text, targetWordCount, topic, difficulty, maxAttempts },
+    { text, targetWordCount, topic, difficulty, language, maxAttempts },
   )
   
   return {

@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
             transcript_snippet: wrongAnswer.transcriptSnippet,
             topic: exercise.topic,
             difficulty: exercise.difficulty,
+            language: exercise.language || 'en-US',
             tags: wrongAnswer.tags || [],
             error_analysis: wrongAnswer.errorAnalysis
           }

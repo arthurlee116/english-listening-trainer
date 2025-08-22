@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
               transcript_snippet: transcriptSnippet,
               topic: exercise.topic,
               difficulty: exercise.difficulty,
+              language: exercise.language || 'en-US',
               tags: result.error_tags || [],
               error_analysis: result.error_analysis || null
             }

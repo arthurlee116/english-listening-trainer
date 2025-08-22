@@ -4,6 +4,24 @@ export type QuestionType = "single" | "short"
 // 难度级别枚举
 export type DifficultyLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
 
+// 听力语言类型
+export type ListeningLanguage = 
+  | "en-US"      // American English
+  | "en-GB"      // British English  
+  | "es"         // Spanish
+  | "fr"         // French
+  | "ja"         // Japanese
+  | "it"         // Italian
+  | "pt-BR"      // Portuguese (Brazil)
+  | "hi"         // Hindi
+
+// 语言配置接口
+export interface LanguageConfig {
+  code: string           // Kokoro TTS language code
+  voice: string          // Default voice for this language
+  displayName: string    // Display name in English
+}
+
 // 考察点标签类型
 export type FocusArea = 
   | "main-idea" 
@@ -45,6 +63,7 @@ export interface GradingResult {
 export interface Exercise {
   id: string
   difficulty: DifficultyLevel
+  language: ListeningLanguage // 听力语言
   topic: string
   transcript: string
   questions: Question[]
@@ -72,6 +91,7 @@ export interface WrongAnswer {
   transcript_snippet?: string
   topic: string
   difficulty: string
+  language: ListeningLanguage // 听力语言
   tags: string[]
   tagDetails?: ErrorTag[]
   error_analysis?: string
