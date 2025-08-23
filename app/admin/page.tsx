@@ -43,6 +43,33 @@ interface UsageStatsResponse {
   dailyStats: DailyStat[]
 }
 
+interface AssessmentStats {
+  summary: {
+    totalAssessments: number
+    averageDifficulty: number
+    difficultyDistribution: Array<{
+      difficulty_range: string
+      count: number
+      percentage: string
+    }>
+    recentTrends: Array<{
+      date: string
+      count: number
+      averageDifficulty: number
+    }>
+  }
+  history: Array<{
+    id: number
+    invitationCode: string
+    testDate: string
+    scores: number[]
+    finalDifficulty: number
+    difficultyRange: string
+    averageScore: number
+  }>
+  totalHistoryCount: number
+}
+
 // 自定义Hook用于管理员认证
 function useAdminAuth() {
   const [password, setPassword] = useState("")
@@ -109,6 +136,7 @@ function useInvitationManagement(password: string) {
   const [generateLength, setGenerateLength] = useState(6)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [stats, setStats] = useState<UsageStatsResponse | null>(null)
+  const [assessmentStats, setAssessmentStats] = useState<AssessmentStats | null>(null)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
@@ -150,6 +178,25 @@ function useInvitationManagement(password: string) {
     }
   }, [password, toast])
 
+  const loadAssessmentStats = useCallback(async () => {
+    if (!password) return
+    
+    try {
+      const response = await fetch(`/api/admin/assessment-stats?password=${encodeURIComponent(password)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAssessmentStats(data)
+      }
+    } catch (error) {
+      console.error('Failed to load assessment stats:', error)
+      toast({
+        title: "加载失败",
+        description: "无法加载评估统计",
+        variant: "destructive",
+      })
+    }
+  }, [password, toast])
+
   const handleGenerateCodes = useCallback(async () => {
     setLoading(true)
     try {
@@ -172,6 +219,7 @@ function useInvitationManagement(password: string) {
         })
         await loadCodes()
         await loadStats()
+        await loadAssessmentStats()
       } else {
         toast({
           title: "生成失败",
@@ -188,7 +236,7 @@ function useInvitationManagement(password: string) {
     } finally {
       setLoading(false)
     }
-  }, [password, generateCount, generateLength, loadCodes, loadStats, toast])
+  }, [password, generateCount, generateLength, loadCodes, loadStats, loadAssessmentStats, toast])
 
   const handleDeleteCode = useCallback(async (code: string) => {
     setLoading(true)
@@ -208,6 +256,7 @@ function useInvitationManagement(password: string) {
         })
         await loadCodes()
         await loadStats()
+        await loadAssessmentStats()
       } else {
         toast({
           title: "删除失败",
@@ -224,7 +273,7 @@ function useInvitationManagement(password: string) {
     } finally {
       setLoading(false)
     }
-  }, [password, loadCodes, loadStats, toast])
+  }, [password, loadCodes, loadStats, loadAssessmentStats, toast])
 
   const copyToClipboard = useCallback(async (code: string) => {
     try {
@@ -253,9 +302,11 @@ function useInvitationManagement(password: string) {
     setGenerateLength,
     copiedCode,
     stats,
+    assessmentStats,
     loading,
     loadCodes,
     loadStats,
+    loadAssessmentStats,
     handleGenerateCodes,
     handleDeleteCode,
     copyToClipboard
@@ -276,8 +327,9 @@ export default function AdminPage() {
     if (authState.isAuthenticated) {
       invitationState.loadCodes()
       invitationState.loadStats()
+      invitationState.loadAssessmentStats()
     }
-  }, [authState.isAuthenticated, invitationState.loadCodes, invitationState.loadStats])
+  }, [authState.isAuthenticated, invitationState.loadCodes, invitationState.loadStats, invitationState.loadAssessmentStats])
 
   if (!authState.isAuthenticated) {
     return (
@@ -342,9 +394,10 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="codes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="codes">邀请码管理</TabsTrigger>
             <TabsTrigger value="stats">使用统计</TabsTrigger>
+            <TabsTrigger value="assessments">评估统计</TabsTrigger>
           </TabsList>
 
           <TabsContent value="codes" className="space-y-6">
@@ -395,6 +448,7 @@ export default function AdminPage() {
                   onClick={() => {
                     invitationState.loadCodes()
                     invitationState.loadStats()
+                    invitationState.loadAssessmentStats()
                   }}
                   className="flex items-center gap-2"
                 >
@@ -554,6 +608,144 @@ export default function AdminPage() {
                   </div>
                 </Card>
               </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="assessments" className="space-y-6">
+            {invitationState.assessmentStats ? (
+              <>
+                {/* 评估统计摘要 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">总评估数</p>
+                        <p className="text-3xl font-bold text-blue-600">
+                          {invitationState.assessmentStats.summary.totalAssessments}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">平均难度</p>
+                        <p className="text-3xl font-bold text-green-600">
+                          {invitationState.assessmentStats.summary.averageDifficulty.toFixed(1)}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">评估历史记录</p>
+                        <p className="text-3xl font-bold text-purple-600">
+                          {invitationState.assessmentStats.totalHistoryCount}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* 难度分布 */}
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">难度等级分布</h3>
+                  <div className="space-y-3">
+                    {invitationState.assessmentStats.summary.difficultyDistribution.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{item.difficulty_range}</span>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${parseFloat(item.percentage)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-500 min-w-[60px]">
+                            {item.count} ({item.percentage})
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* 评估历史 */}
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">最近评估记录</h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>邀请码</TableHead>
+                          <TableHead>评估日期</TableHead>
+                          <TableHead>各题得分</TableHead>
+                          <TableHead>平均得分</TableHead>
+                          <TableHead>最终难度</TableHead>
+                          <TableHead>难度等级</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invitationState.assessmentStats.history.slice(0, 20).map((record) => (
+                          <TableRow key={record.id}>
+                            <TableCell className="font-mono">{record.invitationCode}</TableCell>
+                            <TableCell>{formatDateTime(record.testDate)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {record.scores.map((score, index) => (
+                                  <Badge 
+                                    key={index} 
+                                    variant={score >= 7 ? "default" : score >= 4 ? "secondary" : "destructive"}
+                                    className="text-xs"
+                                  >
+                                    {score}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={record.averageScore >= 7 ? "default" : record.averageScore >= 4 ? "secondary" : "destructive"}>
+                                {record.averageScore.toFixed(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-bold">{record.finalDifficulty}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{record.difficultyRange}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+
+                {/* 最近趋势 */}
+                {invitationState.assessmentStats.summary.recentTrends.length > 0 && (
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">最近评估趋势</h3>
+                    <div className="space-y-3">
+                      {invitationState.assessmentStats.summary.recentTrends.map((trend, index) => (
+                        <div key={index} className="flex items-center justify-between py-2 border-b">
+                          <span className="text-sm">{trend.date}</span>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-sm text-gray-600">评估数: {trend.count}</span>
+                            <span className="text-sm text-gray-600">
+                              平均难度: {trend.averageDifficulty.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                暂无评估统计数据
+              </div>
             )}
           </TabsContent>
         </Tabs>

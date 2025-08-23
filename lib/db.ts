@@ -91,11 +91,38 @@ function initializeDatabase() {
     )
   `)
 
+  // 创建用户难度评估表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_difficulty (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invitation_code TEXT UNIQUE NOT NULL,
+      difficulty_level INTEGER NOT NULL, -- 1-30
+      test_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      scores TEXT NOT NULL, -- JSON存储5个评分
+      FOREIGN KEY (invitation_code) REFERENCES invitations(code)
+    )
+  `)
+
+  // 创建测试历史表（管理员查看）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS assessment_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invitation_code TEXT NOT NULL,
+      test_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      scores TEXT NOT NULL, -- JSON: [score1, score2, score3, score4, score5]
+      final_difficulty INTEGER NOT NULL,
+      FOREIGN KEY (invitation_code) REFERENCES invitations(code)
+    )
+  `)
+
   // 初始化标签数据
   initializeErrorTags()
 
   // 扩展wrong_answers表，添加详细分析字段
   extendWrongAnswersTable()
+  
+  // 扩展exercises表，添加难度字段
+  extendExercisesTable()
 
   console.log('✅ Database initialized successfully')
 }
@@ -120,6 +147,23 @@ function extendWrongAnswersTable() {
   addColumnIfNotExists('wrong_answers', 'highlighting_annotations', 'TEXT') // JSON格式的高亮标注信息
   addColumnIfNotExists('wrong_answers', 'detailed_analysis_status', 'TEXT DEFAULT "pending"') // 状态: pending, generating, completed, failed
   addColumnIfNotExists('wrong_answers', 'language', 'TEXT DEFAULT "en-US"') // 听力语言
+}
+
+// 扩展exercises表结构
+function extendExercisesTable() {
+  const addColumnIfNotExists = (tableName: string, columnName: string, columnDef: string) => {
+    try {
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`)
+    } catch (error) {
+      // 如果字段已存在，忽略错误
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
+        console.error(`Error adding column ${columnName}:`, error)
+      }
+    }
+  }
+
+  // 添加难度字段到exercises表
+  addColumnIfNotExists('exercises', 'difficulty', 'INTEGER') // 用户难度等级
 }
 
 // 初始化标签数据
@@ -282,10 +326,10 @@ export const dbOperations = {
   },
 
   // 保存练习记录
-  saveExercise(exercise: Exercise, invitationCode: string): boolean {
+  saveExercise(exercise: Exercise, invitationCode: string, difficulty?: number): boolean {
     try {
-      const stmt = db.prepare('INSERT INTO exercises (id, invitation_code, exercise_data) VALUES (?, ?, ?)')
-      stmt.run(exercise.id, invitationCode, JSON.stringify(exercise))
+      const stmt = db.prepare('INSERT INTO exercises (id, invitation_code, exercise_data, difficulty) VALUES (?, ?, ?, ?)')
+      stmt.run(exercise.id, invitationCode, JSON.stringify(exercise), difficulty)
       return true
     } catch (error) {
       console.error('Failed to save exercise:', error)
@@ -725,6 +769,169 @@ export const dbOperations = {
     } catch (error) {
       console.error('Failed to mark wrong answers for detailed analysis:', error)
       return false
+    }
+  },
+
+  // === 难度评估相关操作 ===
+
+  // 检查用户是否已完成难度测试
+  checkUserDifficultyAssessment(invitation_code: string): {
+    hasAssessment: boolean
+    difficultyLevel?: number
+    testDate?: string
+  } {
+    try {
+      const stmt = db.prepare('SELECT difficulty_level, test_date FROM user_difficulty WHERE invitation_code = ?')
+      const result = stmt.get(invitation_code) as { difficulty_level: number, test_date: string } | undefined
+      
+      if (result) {
+        return {
+          hasAssessment: true,
+          difficultyLevel: result.difficulty_level,
+          testDate: result.test_date
+        }
+      }
+      
+      return { hasAssessment: false }
+    } catch (error) {
+      console.error('Failed to check user difficulty assessment:', error)
+      return { hasAssessment: false }
+    }
+  },
+
+  // 保存难度评估结果
+  saveDifficultyAssessment(invitation_code: string, scores: number[], finalDifficulty: number): boolean {
+    try {
+      // 开始事务
+      const transaction = db.transaction(() => {
+        // 插入或更新用户难度表
+        const upsertStmt = db.prepare(`
+          INSERT INTO user_difficulty (invitation_code, difficulty_level, scores, test_date) 
+          VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(invitation_code) DO UPDATE SET 
+            difficulty_level = excluded.difficulty_level,
+            scores = excluded.scores,
+            test_date = CURRENT_TIMESTAMP
+        `)
+        upsertStmt.run(invitation_code, finalDifficulty, JSON.stringify(scores))
+
+        // 插入测试历史记录
+        const historyStmt = db.prepare(`
+          INSERT INTO assessment_history (invitation_code, scores, final_difficulty) 
+          VALUES (?, ?, ?)
+        `)
+        historyStmt.run(invitation_code, JSON.stringify(scores), finalDifficulty)
+      })
+      
+      transaction()
+      return true
+    } catch (error) {
+      console.error('Failed to save difficulty assessment:', error)
+      return false
+    }
+  },
+
+  // 获取用户的难度等级
+  getUserDifficultyLevel(invitation_code: string): number | null {
+    try {
+      const stmt = db.prepare('SELECT difficulty_level FROM user_difficulty WHERE invitation_code = ?')
+      const result = stmt.get(invitation_code) as { difficulty_level: number } | undefined
+      return result?.difficulty_level || null
+    } catch (error) {
+      console.error('Failed to get user difficulty level:', error)
+      return null
+    }
+  },
+
+  // 删除用户难度评估记录（重新测试）
+  deleteDifficultyAssessment(invitation_code: string): boolean {
+    try {
+      const stmt = db.prepare('DELETE FROM user_difficulty WHERE invitation_code = ?')
+      const result = stmt.run(invitation_code)
+      return result.changes > 0
+    } catch (error) {
+      console.error('Failed to delete difficulty assessment:', error)
+      return false
+    }
+  },
+
+  // 获取评估历史记录（管理员功能）
+  getAssessmentHistory(limit: number = 50): Array<{
+    id: number
+    invitation_code: string
+    test_date: string
+    scores: number[]
+    final_difficulty: number
+  }> {
+    try {
+      const stmt = db.prepare(`
+        SELECT id, invitation_code, test_date, scores, final_difficulty
+        FROM assessment_history 
+        ORDER BY test_date DESC 
+        LIMIT ?
+      `)
+      const results = stmt.all(limit) as Array<any>
+      
+      return results.map(row => ({
+        ...row,
+        scores: JSON.parse(row.scores)
+      }))
+    } catch (error) {
+      console.error('Failed to get assessment history:', error)
+      return []
+    }
+  },
+
+  // 获取难度分布统计（管理员功能）
+  getDifficultyDistribution(): Array<{
+    difficulty_range: string
+    count: number
+    percentage: string
+  }> {
+    try {
+      const stmt = db.prepare(`
+        SELECT 
+          CASE 
+            WHEN difficulty_level <= 5 THEN '1-5 (初学者)'
+            WHEN difficulty_level <= 10 THEN '6-10 (入门)'
+            WHEN difficulty_level <= 15 THEN '11-15 (初级)'
+            WHEN difficulty_level <= 20 THEN '16-20 (中级)'
+            WHEN difficulty_level <= 25 THEN '21-25 (中高级)'
+            ELSE '26-30 (高级)'
+          END as difficulty_range,
+          COUNT(*) as count
+        FROM user_difficulty 
+        GROUP BY 
+          CASE 
+            WHEN difficulty_level <= 5 THEN '1-5 (初学者)'
+            WHEN difficulty_level <= 10 THEN '6-10 (入门)'
+            WHEN difficulty_level <= 15 THEN '11-15 (初级)'
+            WHEN difficulty_level <= 20 THEN '16-20 (中级)'
+            WHEN difficulty_level <= 25 THEN '21-25 (中高级)'
+            ELSE '26-30 (高级)'
+          END
+        ORDER BY 
+          CASE 
+            WHEN difficulty_level <= 5 THEN 1
+            WHEN difficulty_level <= 10 THEN 2
+            WHEN difficulty_level <= 15 THEN 3
+            WHEN difficulty_level <= 20 THEN 4
+            WHEN difficulty_level <= 25 THEN 5
+            ELSE 6
+          END
+      `)
+      const results = stmt.all() as Array<{ difficulty_range: string, count: number }>
+      
+      // 计算总数和百分比
+      const total = results.reduce((sum, row) => sum + row.count, 0)
+      
+      return results.map(row => ({
+        ...row,
+        percentage: total > 0 ? ((row.count / total) * 100).toFixed(1) : '0.0'
+      }))
+    } catch (error) {
+      console.error('Failed to get difficulty distribution:', error)
+      return []
     }
   }
 }

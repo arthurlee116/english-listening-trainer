@@ -23,10 +23,10 @@ async function postJson<T>(url: string, body: Record<string, unknown>): Promise<
 }
 
 // 生成听力话题
-export async function generateTopics(difficulty: string, wordCount: number, language: ListeningLanguage = 'en-US'): Promise<string[]> {
+export async function generateTopics(difficulty: string, wordCount: number, language: ListeningLanguage = 'en-US', difficultyLevel?: number): Promise<string[]> {
   const data = await postJson<{ success: boolean; topics: string[] }>(
     "/api/ai/topics",
-    { difficulty, wordCount, language },
+    { difficulty, wordCount, language, difficultyLevel },
   )
   return data.topics
 }
@@ -37,10 +37,11 @@ export async function generateTranscript(
   wordCount: number,
   topic: string,
   language: ListeningLanguage = 'en-US',
+  difficultyLevel?: number,
 ): Promise<string> {
   const data = await postJson<{ success: boolean; transcript: string }>(
     "/api/ai/transcript",
-    { difficulty, wordCount, topic, language },
+    { difficulty, wordCount, topic, language, difficultyLevel },
   )
   return data.transcript
 }
@@ -50,10 +51,12 @@ export async function generateQuestions(
   difficulty: string,
   transcript: string,
   language: ListeningLanguage = 'en-US',
+  duration?: number,
+  difficultyLevel?: number,
 ): Promise<Question[]> {
   const data = await postJson<{ success: boolean; questions: Question[] }>(
     "/api/ai/questions",
-    { difficulty, transcript, language },
+    { difficulty, transcript, language, duration, difficultyLevel },
   )
   return data.questions
 }

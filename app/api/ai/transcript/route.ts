@@ -17,7 +17,7 @@ const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, wordCount, topic, language = 'en-US' } = await request.json()
+    const { difficulty, wordCount, topic, language = 'en-US', difficultyLevel } = await request.json()
 
     if (!difficulty || !wordCount || !topic) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
@@ -25,14 +25,23 @@ export async function POST(request: NextRequest) {
 
     const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
 
+    // 如果提供了数字难度等级，使用更精确的难度描述
+    let difficultyDescription = `at ${difficulty} level`
+    if (difficultyLevel && typeof difficultyLevel === 'number') {
+      const { getDifficultyPromptModifier } = await import('@/lib/difficulty-service')
+      difficultyDescription = getDifficultyPromptModifier(difficultyLevel, language)
+    }
+
     // 生成初始听力稿
-    const basePrompt = `You are a professional listening comprehension script generator. Generate a ${languageName} listening script on the topic: "${topic}" at ${difficulty} level.
+    const basePrompt = `You are a professional listening comprehension script generator. Generate a ${languageName} listening script on the topic: "${topic}".
+
+${difficultyDescription}
 
 Requirements:
 - Target length: approximately ${wordCount} words
 - Content must be entirely in ${languageName}
 - Content should be coherent and natural
-- Appropriate for ${difficulty} language level
+- Match the specified difficulty characteristics exactly
 - Avoid redundancy and repetition
 - Return only the script content, no additional explanations or punctuation
 

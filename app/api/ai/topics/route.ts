@@ -17,7 +17,7 @@ const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, wordCount, language = 'en-US' } = await request.json()
+    const { difficulty, wordCount, language = 'en-US', difficultyLevel } = await request.json()
 
     if (!difficulty || !wordCount) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
@@ -25,13 +25,23 @@ export async function POST(request: NextRequest) {
 
     const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
     
-    const prompt = `You are a listening comprehension topic generator. Generate 5 topics suitable for ${languageName} listening practice at ${difficulty} level with approximately ${wordCount} words. 
+    // 如果提供了数字难度等级，使用更精确的难度描述
+    let difficultyDescription = difficulty
+    if (difficultyLevel && typeof difficultyLevel === 'number') {
+      const { getDifficultyPromptModifier } = await import('@/lib/difficulty-service')
+      difficultyDescription = getDifficultyPromptModifier(difficultyLevel, language)
+    }
+    
+    const prompt = `You are a listening comprehension topic generator. Generate 5 topics suitable for ${languageName} listening practice with approximately ${wordCount} words. 
+
+${difficultyDescription}
 
 Requirements:
 - All topics must be generated in ${languageName}
-- Topics should be appropriate for ${difficulty} language level
+- Topics should match the specified difficulty characteristics
 - Each topic should be a phrase or short sentence
 - Topics should be engaging and practical
+- Consider the vocabulary complexity and subject matter appropriate for this level
 
 Return exactly 5 topics in ${languageName}.`
 

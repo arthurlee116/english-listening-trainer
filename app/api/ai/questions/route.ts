@@ -16,7 +16,7 @@ const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, transcript, duration, language = 'en-US' } = await request.json()
+    const { difficulty, transcript, duration, language = 'en-US', difficultyLevel } = await request.json()
 
     if (!difficulty || !transcript) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
@@ -28,15 +28,27 @@ export async function POST(request: NextRequest) {
     const suggestedCount = duration ? (duration <= 120 ? Math.max(1, Math.floor(duration / 60)) : Math.min(10, Math.floor(duration / 60))) : 10
     const targetCount = Math.min(10, Math.max(8, suggestedCount))
 
+    // 如果提供了数字难度等级，使用更精确的难度描述
+    let difficultyDescription = `Difficulty level: ${difficulty}`
+    if (difficultyLevel && typeof difficultyLevel === 'number') {
+      const { getDifficultyPromptModifier } = await import('@/lib/difficulty-service')
+      difficultyDescription = getDifficultyPromptModifier(difficultyLevel, language)
+    }
+
     const prompt = `You are a professional listening comprehension question generator. Create comprehension questions based on the following ${languageName} listening material.
 
 Listening Material:
 ${transcript}
 
+${difficultyDescription}
+
 Requirements:
 1. Generate ${targetCount} questions total
-2. Difficulty level: ${difficulty}
-3. All questions and answer options must be in ${languageName}
+2. All questions and answer options must be in ${languageName}
+3. Match the specified difficulty characteristics exactly:
+   - Question complexity should match the difficulty level
+   - Vocabulary in questions should be appropriate for the level
+   - Inference requirements should match cognitive complexity
 4. Question type distribution:
    - First 9 questions: Multiple choice (single) with 4 options each
    - Last 1 question: Short answer (short) open-ended question

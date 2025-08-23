@@ -51,6 +51,9 @@ function useInvitationCode() {
   const [isInvitationVerified, setIsInvitationVerified] = useState<boolean>(false)
   const [usageInfo, setUsageInfo] = useState<{ todayUsage: number; remainingUsage: number }>({ todayUsage: 0, remainingUsage: 5 })
   const [showInvitationDialog, setShowInvitationDialog] = useState<boolean>(false)
+  const [hasAssessment, setHasAssessment] = useState<boolean>(false)
+  const [userDifficultyLevel, setUserDifficultyLevel] = useState<number | null>(null)
+  const [isCheckingAssessment, setIsCheckingAssessment] = useState<boolean>(false)
   const { toast } = useToast()
 
   const checkInvitationCode = useCallback(async () => {
@@ -68,6 +71,9 @@ function useInvitationCode() {
             todayUsage: data.data.todayUsage,
             remainingUsage: data.data.remainingUsage
           })
+          
+          // 检查用户是否已完成难度评估
+          await checkDifficultyAssessment(data.data.code)
         } else {
           localStorage.removeItem('invitation_code')
           sessionStorage.removeItem('invitation_code')
@@ -87,12 +93,41 @@ function useInvitationCode() {
     }
   }, [toast])
 
-  const handleInvitationCodeVerified = useCallback((code: string, usage: { todayUsage: number; remainingUsage: number }) => {
+  const checkDifficultyAssessment = useCallback(async (code: string) => {
+    try {
+      setIsCheckingAssessment(true)
+      const response = await fetch(`/api/assessment/status?code=${encodeURIComponent(code)}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        setHasAssessment(data.data.hasAssessment)
+        setUserDifficultyLevel(data.data.difficultyLevel)
+        
+        if (!data.data.hasAssessment) {
+          toast({
+            title: "需要完成难度评估",
+            description: "请先完成听力难度测试以获得个性化练习内容",
+          })
+        }
+      } else {
+        console.error('Failed to check assessment status:', data.error)
+      }
+    } catch (error) {
+      console.error('Failed to check difficulty assessment:', error)
+    } finally {
+      setIsCheckingAssessment(false)
+    }
+  }, [toast])
+
+  const handleInvitationCodeVerified = useCallback(async (code: string, usage: { todayUsage: number; remainingUsage: number }) => {
     setInvitationCode(code)
     setIsInvitationVerified(true)
     setUsageInfo(usage)
     setShowInvitationDialog(false)
-  }, [])
+    
+    // 检查难度评估状态
+    await checkDifficultyAssessment(code)
+  }, [checkDifficultyAssessment])
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('invitation_code')
@@ -100,6 +135,8 @@ function useInvitationCode() {
     setInvitationCode("")
     setIsInvitationVerified(false)
     setUsageInfo({ todayUsage: 0, remainingUsage: 5 })
+    setHasAssessment(false)
+    setUserDifficultyLevel(null)
     setShowInvitationDialog(true)
   }, [])
 
@@ -152,10 +189,14 @@ function useInvitationCode() {
     isInvitationVerified,
     usageInfo,
     showInvitationDialog,
+    hasAssessment,
+    userDifficultyLevel,
+    isCheckingAssessment,
     checkInvitationCode,
     handleInvitationCodeVerified,
     handleLogout,
-    checkUsageLimit
+    checkUsageLimit,
+    checkDifficultyAssessment
   }
 }
 
@@ -165,10 +206,14 @@ export default function HomePage() {
     isInvitationVerified,
     usageInfo,
     showInvitationDialog,
+    hasAssessment,
+    userDifficultyLevel,
+    isCheckingAssessment,
     checkInvitationCode,
     handleInvitationCodeVerified,
     handleLogout,
-    checkUsageLimit
+    checkUsageLimit,
+    checkDifficultyAssessment
   } = useInvitationCode()
 
   const { toast } = useToast()
@@ -219,7 +264,7 @@ export default function HomePage() {
     setLoadingMessage("Generating topic suggestions...")
 
     try {
-      const topics = await generateTopics(difficulty, wordCount, language)
+      const topics = await generateTopics(difficulty, wordCount, language, userDifficultyLevel || undefined)
       setSuggestedTopics(topics)
       toast({
         title: "话题生成成功",
@@ -237,7 +282,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, wordCount, language, toast])
+  }, [difficulty, wordCount, language, userDifficultyLevel, toast])
 
   const handleGenerateTranscript = useCallback(async () => {
     if (!difficulty || !topic) return
@@ -251,7 +296,7 @@ export default function HomePage() {
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       try {
-        const generatedTranscript = await generateTranscript(difficulty, wordCount, topic, language)
+        const generatedTranscript = await generateTranscript(difficulty, wordCount, topic, language, userDifficultyLevel || undefined)
         setTranscript(generatedTranscript)
         setCanRegenerate(true)
       } catch (error) {
@@ -283,7 +328,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, topic, wordCount, language, checkUsageLimit, toast])
+  }, [difficulty, topic, wordCount, language, userDifficultyLevel, checkUsageLimit, toast])
 
   const handleGenerateAudio = useCallback(async () => {
     if (!transcript) return
@@ -335,7 +380,7 @@ export default function HomePage() {
     setLoadingMessage("Generating questions...")
 
     try {
-      const generatedQuestions = await generateQuestions(difficulty, transcript, language)
+      const generatedQuestions = await generateQuestions(difficulty, transcript, language, duration, userDifficultyLevel || undefined)
       setQuestions(generatedQuestions)
       setAnswers({})
       setStep("questions")
@@ -355,7 +400,7 @@ export default function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, difficulty, language, toast])
+  }, [transcript, difficulty, language, duration, userDifficultyLevel, toast])
 
   const handleSubmitAnswers = useCallback(async () => {
     if (questions.length === 0) return
@@ -521,6 +566,11 @@ export default function HomePage() {
               <div className="flex items-center gap-2 bg-white dark:bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200 text-gray-900 dark:text-gray-900">
                 <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span className="font-mono text-sm font-semibold">{invitationCode}</span>
+                {hasAssessment && userDifficultyLevel && (
+                  <Badge variant="outline" className="text-green-600 border-green-300">
+                    L{userDifficultyLevel}
+                  </Badge>
+                )}
                 <Badge 
                   variant={usageInfo.remainingUsage > 2 ? "secondary" : usageInfo.remainingUsage > 0 ? "default" : "destructive"}
                 >
@@ -538,6 +588,17 @@ export default function HomePage() {
             )}
             <div className="flex gap-2">
               <ThemeToggle />
+              {isInvitationVerified && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => window.open('/assessment', '_blank')} 
+                  className="glass-effect"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  {hasAssessment ? '重新测试' : '难度测试'}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setStep("history")} className="glass-effect">
                 <History className="w-4 h-4 mr-2" />
                 History
@@ -558,6 +619,32 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Difficulty Assessment Reminder */}
+        {isInvitationVerified && !hasAssessment && !isCheckingAssessment && (
+          <div className="max-w-2xl mx-auto mb-6">
+            <Card className="border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-800">
+              <div className="p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-orange-800 dark:text-orange-200 mb-1">
+                    需要完成难度评估
+                  </h3>
+                  <p className="text-sm text-orange-700 dark:text-orange-300 mb-3">
+                    为了获得最适合您水平的练习内容，请先完成听力难度测试。测试大约需要15分钟，包含5段不同难度的音频。
+                  </p>
+                  <Button 
+                    onClick={() => window.open('/assessment', '_blank')} 
+                    size="sm"
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    开始难度测试
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Setup Step */}
         {step === "setup" && (
           <div className="max-w-2xl mx-auto">
@@ -565,6 +652,11 @@ export default function HomePage() {
               <div className="flex items-center gap-3 mb-6">
                 <Sparkles className="w-6 h-6 text-blue-600" />
                 <h2 className="text-2xl font-bold">Create Your Listening Exercise</h2>
+                {hasAssessment && userDifficultyLevel && (
+                  <Badge variant="secondary" className="ml-2">
+                    个性化难度: L{userDifficultyLevel}
+                  </Badge>
+                )}
               </div>
 
               <div className="space-y-6">

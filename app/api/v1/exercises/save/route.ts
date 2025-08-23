@@ -24,14 +24,22 @@ import type { Exercise } from '@/lib/types'
 async function saveExerciseHandler(request: NextRequest) {
   // 验证请求体
   const { data } = await validateRequestBody(request, commonSchemas.exerciseSave)
-  const { exercise, invitationCode } = data
+  const { exercise, invitationCode, difficultyLevel } = data
   
   // 详细验证练习数据结构
   validateExerciseData(exercise)
   
   try {
-    // 保存练习记录（包含事务处理）
-    const success = DatabaseOperations.saveExercise(exercise as Exercise, invitationCode)
+    // 获取用户的难度等级（如果没有提供）
+    let userDifficultyLevel = difficultyLevel
+    if (!userDifficultyLevel) {
+      const { dbOperations } = await import('@/lib/db')
+      userDifficultyLevel = dbOperations.getUserDifficultyLevel(invitationCode)
+    }
+    
+    // 保存练习记录（包含难度等级）
+    const { dbOperations } = await import('@/lib/db')
+    const success = dbOperations.saveExercise(exercise as Exercise, invitationCode, userDifficultyLevel)
     
     if (!success) {
       throw createApiError.databaseError('练习保存失败')
