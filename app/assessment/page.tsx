@@ -71,6 +71,18 @@ export default function AssessmentPage() {
     loadAudioData()
   }, [router])
 
+  // 监听音频索引变化，强制重新加载音频
+  useEffect(() => {
+    if (audioRef.current && audios.length > 0) {
+      // 重置播放状态
+      setIsPlaying(false)
+      setCurrentTime(0)
+      setDuration(0)
+      // 强制重新加载音频
+      audioRef.current.load()
+    }
+  }, [currentAudioIndex, audios])
+
   const loadAudioData = async () => {
     try {
       const response = await fetch('/api/assessment/audio')
@@ -123,8 +135,25 @@ export default function AssessmentPage() {
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
+      console.log(`音频 ${currentAudioIndex + 1} 元数据加载完成:`, {
+        duration: audioRef.current.duration,
+        src: audioRef.current.src,
+        readyState: audioRef.current.readyState
+      })
       setDuration(audioRef.current.duration)
     }
+  }
+
+  const handleLoadStart = () => {
+    console.log(`音频 ${currentAudioIndex + 1} 开始加载:`, audios[currentAudioIndex]?.audioUrl)
+  }
+
+  const handleCanPlay = () => {
+    console.log(`音频 ${currentAudioIndex + 1} 可以播放`)
+  }
+
+  const handleError = (e: any) => {
+    console.error(`音频 ${currentAudioIndex + 1} 加载错误:`, e)
   }
 
   const handleScoreChange = (audioIndex: number, value: number[]) => {
@@ -135,19 +164,31 @@ export default function AssessmentPage() {
 
   const handleNextAudio = () => {
     if (currentAudioIndex < audios.length - 1) {
-      setCurrentAudioIndex(currentAudioIndex + 1)
       setIsPlaying(false)
       setCurrentTime(0)
       setDuration(0)
+      setCurrentAudioIndex(currentAudioIndex + 1)
+      // 强制重新加载音频元数据
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.load()
+        }
+      }, 100)
     }
   }
 
   const handlePrevAudio = () => {
     if (currentAudioIndex > 0) {
-      setCurrentAudioIndex(currentAudioIndex - 1)
       setIsPlaying(false)
       setCurrentTime(0)
       setDuration(0)
+      setCurrentAudioIndex(currentAudioIndex - 1)
+      // 强制重新加载音频元数据
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.load()
+        }
+      }, 100)
     }
   }
 
@@ -343,7 +384,11 @@ export default function AssessmentPage() {
                 onEnded={handleAudioEnded}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onLoadStart={handleLoadStart}
+                onCanPlay={handleCanPlay}
+                onError={handleError}
                 className="hidden"
+                preload="metadata"
               />
 
               <div className="space-y-4">
