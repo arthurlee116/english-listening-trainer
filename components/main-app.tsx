@@ -28,6 +28,7 @@ export function MainApp() {
     invitationCode,
     isInvitationVerified,
     usageInfo,
+    assessmentInfo,
     showInvitationDialog,
     isLoading: invitationLoading,
     setShowInvitationDialog,
@@ -47,7 +48,7 @@ export function MainApp() {
     resetExercise,
     updateFormData,
     updateUserAnswer
-  } = useExerciseWorkflow()
+  } = useExerciseWorkflow(assessmentInfo)
 
   const [currentView, setCurrentView] = React.useState<'exercise' | 'history' | 'wrong-answers'>('exercise')
   const { toast } = useToast()
@@ -179,6 +180,7 @@ export function MainApp() {
             <ExerciseView
               state={state}
               canProceed={canProceed}
+              assessmentInfo={assessmentInfo}
               onFormDataChange={updateFormData}
               onGenerateTopics={generateTopicSuggestions}
               onStartExercise={handleStartExercise}
@@ -208,6 +210,7 @@ export function MainApp() {
 interface ExerciseViewProps {
   state: any
   canProceed: boolean
+  assessmentInfo?: any
   onFormDataChange: (data: any) => void
   onGenerateTopics: () => void
   onStartExercise: () => void
@@ -220,6 +223,7 @@ interface ExerciseViewProps {
 function ExerciseView({
   state,
   canProceed,
+  assessmentInfo,
   onFormDataChange,
   onGenerateTopics,
   onStartExercise,
@@ -237,6 +241,7 @@ function ExerciseView({
           isGenerating={state.isGenerating}
           generationProgress={state.generationProgress}
           error={state.error}
+          assessmentInfo={assessmentInfo}
           onFormDataChange={onFormDataChange}
           onGenerateTopics={onGenerateTopics}
           onStartExercise={onStartExercise}

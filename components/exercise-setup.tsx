@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles } from "lucide-react"
 import { ExerciseFormData } from "@/hooks/use-exercise-workflow"
+import { mapDifficultyToCEFR, getDifficultyRange } from "@/lib/difficulty-service"
 import type { DifficultyLevel } from "@/lib/types"
+import type { AssessmentInfo } from "@/hooks/use-invitation-code"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", label: "A1 - Beginner" },
@@ -36,6 +38,7 @@ interface ExerciseSetupProps {
   isGenerating: boolean
   generationProgress: string
   error: string | null
+  assessmentInfo?: AssessmentInfo
   onFormDataChange: (data: Partial<ExerciseFormData>) => void
   onGenerateTopics: () => void
   onStartExercise: () => void
@@ -47,11 +50,21 @@ export function ExerciseSetup({
   isGenerating,
   generationProgress,
   error,
+  assessmentInfo,
   onFormDataChange,
   onGenerateTopics,
   onStartExercise
 }: ExerciseSetupProps) {
   const canStartExercise = formData.topic !== '' || formData.customTopic.trim() !== ''
+
+  // 计算推荐难度信息
+  const recommendedLevel = assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel 
+    ? mapDifficultyToCEFR(assessmentInfo.difficultyLevel)
+    : null
+  
+  const difficultyRange = assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel
+    ? getDifficultyRange(assessmentInfo.difficultyLevel)
+    : null
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -66,7 +79,27 @@ export function ExerciseSetup({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="difficulty">难度级别</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="difficulty">难度级别</Label>
+                {recommendedLevel && (
+                  <Badge variant="secondary" className="text-xs">
+                    推荐: {recommendedLevel}
+                  </Badge>
+                )}
+              </div>
+              
+              {assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel && difficultyRange && (
+                <div className="text-xs text-muted-foreground mb-2 p-2 bg-blue-50 rounded-md">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="h-3 w-3 text-blue-500" />
+                    <span>
+                      根据您的评估结果，推荐难度：<strong>{difficultyRange.name}</strong> 
+                      （{assessmentInfo.difficultyLevel}/30级）
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               <Select
                 value={formData.difficulty}
                 onValueChange={(value: DifficultyLevel) => 
@@ -79,7 +112,14 @@ export function ExerciseSetup({
                 <SelectContent>
                   {DIFFICULTY_LEVELS.map((level) => (
                     <SelectItem key={level.value} value={level.value}>
-                      {level.label}
+                      <div className="flex items-center justify-between w-full">
+                        <span>{level.label}</span>
+                        {recommendedLevel === level.value && (
+                          <Badge variant="default" className="ml-2 text-xs">
+                            推荐
+                          </Badge>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

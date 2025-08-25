@@ -8,7 +8,9 @@ import { useToast } from "@/hooks/use-toast"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
 import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
+import { mapDifficultyToCEFR } from "@/lib/difficulty-service"
 import type { Exercise, Question, DifficultyLevel } from "@/lib/types"
+import type { AssessmentInfo } from "./use-invitation-code"
 
 export type ExerciseStep = 'setup' | 'listening' | 'questions' | 'results'
 
@@ -50,25 +52,34 @@ type ExerciseAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET' }
 
-const initialState: ExerciseState = {
-  currentStep: 'setup',
-  formData: {
-    topic: '',
-    customTopic: '',
-    difficulty: 'B1' as DifficultyLevel,
-    duration: 120,
-    focus: ''
-  },
-  isGenerating: false,
-  generationProgress: '',
-  transcript: '',
-  audioUrl: '',
-  questions: [],
-  userAnswers: [],
-  results: null,
-  exercise: null,
-  suggestedTopics: [],
-  error: null
+function createInitialState(assessmentInfo?: AssessmentInfo): ExerciseState {
+  // 根据用户评估结果设置推荐难度，如果没有评估则使用默认的B1
+  let recommendedDifficulty: DifficultyLevel = 'B1'
+  
+  if (assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel) {
+    recommendedDifficulty = mapDifficultyToCEFR(assessmentInfo.difficultyLevel) as DifficultyLevel
+  }
+
+  return {
+    currentStep: 'setup',
+    formData: {
+      topic: '',
+      customTopic: '',
+      difficulty: recommendedDifficulty,
+      duration: 120,
+      focus: ''
+    },
+    isGenerating: false,
+    generationProgress: '',
+    transcript: '',
+    audioUrl: '',
+    questions: [],
+    userAnswers: [],
+    results: null,
+    exercise: null,
+    suggestedTopics: [],
+    error: null
+  }
 }
 
 function exerciseReducer(state: ExerciseState, action: ExerciseAction): ExerciseState {
@@ -102,14 +113,14 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
     case 'SET_ERROR':
       return { ...state, error: action.payload, isGenerating: false }
     case 'RESET':
-      return { ...initialState, formData: state.formData }
+      return { ...createInitialState(), formData: state.formData }
     default:
       return state
   }
 }
 
-export function useExerciseWorkflow() {
-  const [state, dispatch] = useReducer(exerciseReducer, initialState)
+export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
+  const [state, dispatch] = useReducer(exerciseReducer, createInitialState(assessmentInfo))
   const { toast } = useToast()
 
   // 生成话题建议

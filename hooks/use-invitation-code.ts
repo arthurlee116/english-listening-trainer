@@ -11,10 +11,17 @@ export interface UsageInfo {
   remainingUsage: number
 }
 
+export interface AssessmentInfo {
+  hasAssessment: boolean
+  difficultyLevel?: number
+  testDate?: string
+}
+
 export function useInvitationCode() {
   const [invitationCode, setInvitationCode] = useState<string>("")
   const [isInvitationVerified, setIsInvitationVerified] = useState<boolean>(false)
   const [usageInfo, setUsageInfo] = useState<UsageInfo>({ todayUsage: 0, remainingUsage: 5 })
+  const [assessmentInfo, setAssessmentInfo] = useState<AssessmentInfo>({ hasAssessment: false })
   const [showInvitationDialog, setShowInvitationDialog] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const { toast } = useToast()
@@ -35,6 +42,23 @@ export function useInvitationCode() {
             todayUsage: data.todayUsage,
             remainingUsage: data.remainingUsage
           })
+          
+          // 获取用户的难度评估状态
+          try {
+            const assessmentResponse = await fetch(`/api/assessment/status?code=${encodeURIComponent(data.code)}`)
+            const assessmentData = await assessmentResponse.json()
+            
+            if (assessmentResponse.ok) {
+              setAssessmentInfo({
+                hasAssessment: assessmentData.data.hasAssessment,
+                difficultyLevel: assessmentData.data.difficultyLevel,
+                testDate: assessmentData.data.testDate
+              })
+            }
+          } catch (assessmentError) {
+            console.error('Failed to fetch assessment status:', assessmentError)
+            // 不影响主流程，只是没有评估信息
+          }
         } else {
           // 清理无效的邀请码
           localStorage.removeItem('invitation_code')
@@ -109,6 +133,7 @@ export function useInvitationCode() {
     invitationCode,
     isInvitationVerified,
     usageInfo,
+    assessmentInfo,
     showInvitationDialog,
     isLoading,
     setShowInvitationDialog,
