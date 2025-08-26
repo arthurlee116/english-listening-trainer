@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles } from "lucide-react"
 import { ExerciseFormData } from "@/hooks/use-exercise-workflow"
-import { mapDifficultyToCEFR, getDifficultyRange } from "@/lib/difficulty-service"
+import { mapDifficultyToCEFR, getDifficultyRange, mapCEFRToDifficulty } from "@/lib/difficulty-service"
 import type { DifficultyLevel } from "@/lib/types"
 import type { AssessmentInfo } from "@/hooks/use-invitation-code"
 
@@ -60,11 +60,29 @@ export function ExerciseSetup({
   // 计算推荐难度信息
   const recommendedLevel = assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel 
     ? mapDifficultyToCEFR(assessmentInfo.difficultyLevel)
-    : null
+    : null;
   
   const difficultyRange = assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel
     ? getDifficultyRange(assessmentInfo.difficultyLevel)
-    : null
+    : null;
+
+  // 动态生成难度选项列表
+  let difficultyOptions = [...DIFFICULTY_LEVELS];
+  if (assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel) {
+    difficultyOptions = [
+      { value: "personalized", label: `Personalized - ${difficultyRange.name} (L${assessmentInfo.difficultyLevel})` },
+      ...DIFFICULTY_LEVELS
+    ];
+  }
+  // 新增：为每个CEFR难度拼接L区间
+  const difficultyOptionsWithL = difficultyOptions.map(opt => {
+    if (opt.value === "personalized") return opt;
+    const lRange = mapCEFRToDifficulty(opt.value);
+    return {
+      ...opt,
+      label: `${opt.label} (L${lRange.min}~L${lRange.max})`
+    };
+  });
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -102,15 +120,21 @@ export function ExerciseSetup({
               
               <Select
                 value={formData.difficulty}
-                onValueChange={(value: DifficultyLevel) => 
-                  onFormDataChange({ difficulty: value })
-                }
+                onValueChange={(value: string) => {
+                  if (value === 'personalized') {
+                    if (recommendedLevel) {
+                      onFormDataChange({ difficulty: recommendedLevel });
+                    }
+                  } else {
+                    onFormDataChange({ difficulty: value as DifficultyLevel });
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择难度" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DIFFICULTY_LEVELS.map((level) => (
+                  {difficultyOptionsWithL.map((level) => (
                     <SelectItem key={level.value} value={level.value}>
                       <div className="flex items-center justify-between w-full">
                         <span>{level.label}</span>

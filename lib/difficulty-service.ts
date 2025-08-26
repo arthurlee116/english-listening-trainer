@@ -36,71 +36,53 @@ export const ASSESSMENT_AUDIOS: AssessmentAudio[] = [
     filename: 'test-1-level6.wav',
     difficulty: 6,
     weight: 0.1,
-    topic: 'Shopping at a Local Market',
-    description: '日常购物对话，慢语速，简单词汇，基础句式',
-    transcript: `A: Good morning! How much are these apples?
-B: They are three dollars per kilogram. Very fresh and sweet.
-A: That sounds good. Can I have two kilograms please?
-B: Of course. Anything else you need today?
-A: Yes, I also need some bananas. How much are they?
-B: The bananas are two dollars per kilogram. They are very ripe and perfect for eating.
-A: Great! I'll take one kilogram of bananas too.
-B: So that's two kilograms of apples and one kilogram of bananas. The total is eight dollars.
-A: Here you go. Thank you very much!
-B: Thank you for shopping with us. Have a wonderful day!`
+    topic: 'Simple Shopping Conversation',
+    description: '超级简单购物对话，0.8倍慢语速，最基础词汇，短句',
+    transcript: `A: Hello! How much are the apples?
+B: They are two dollars per bag. Very fresh.
+A: Good. I want one bag please.
+B: Sure. Anything else today?
+A: No, thank you. Here is the money.
+B: Thank you! Have a nice day!`
   },
   {
     id: 2,
     filename: 'test-2-level12.wav',
     difficulty: 12,
     weight: 0.15,
-    topic: 'Campus Life Discussion',
-    description: '校园生活讨论，正常语速，日常词汇，一般复合句',
-    transcript: `A: Hey Sarah, how are you finding your first semester at university?
-B: It's been quite an adjustment, to be honest. The workload is much heavier than I expected.
-A: I know what you mean. When I started, I struggled with time management too. Have you joined any clubs or societies yet?
-B: I've been thinking about it. I'm interested in the debate society, but I'm worried it might take up too much time.
-A: Actually, extracurricular activities can be really helpful. They're a great way to meet people and develop skills that complement your studies.
-B: That's a good point. I've also been considering getting a part-time job to help with expenses.
-A: That could work, but make sure you don't overcommit yourself. Your studies should remain the priority, especially in your first year.
-B: You're right. I think I'll start with one activity and see how I manage before taking on more responsibilities.`
+    topic: 'University Life Discussion',
+    description: '校园生活讨论，正常语速，教育词汇，复合句',
+    transcript: `Student A: Hey, how was your first week at university?
+Student B: Pretty good, but I'm struggling with the chemistry course. The professor speaks really fast and uses lots of technical terms I don't know yet.
+Student A: I had the same problem last semester. Try recording the lectures on your phone and listening again later.
+Student B: That's a great idea! I'll ask for permission first.`
   },
   {
     id: 3,
     filename: 'test-3-level18.wav',
     difficulty: 18,
     weight: 0.2,
-    topic: 'Job Interview Scenario',
-    description: '工作面试场景，略快语速，职场词汇，复杂句式',
-    transcript: `Interviewer: Good afternoon, thank you for coming in today. Could you start by telling me about your professional background and what attracted you to this position?
-Candidate: Certainly. I have five years of experience in digital marketing, specializing in content strategy and social media management. I've successfully led campaigns that increased brand engagement by over 200% at my current company. What particularly appeals to me about this role is the opportunity to work with innovative technologies and contribute to a forward-thinking organization that values creativity and data-driven decision making.
-Interviewer: That's impressive. Can you describe a challenging project you've managed and how you overcame the obstacles you encountered?
-Candidate: Last year, we faced a significant challenge when a major product launch campaign wasn't performing as expected. The engagement rates were below our projections, and we had a tight deadline to turn things around. I analyzed the data thoroughly, identified that our target demographic was responding better to video content than static images, and quickly pivoted our strategy. We reallocated budget, collaborated with the creative team to produce compelling video content, and ultimately exceeded our original targets by 150%.
-Interviewer: Excellent problem-solving skills. How do you stay current with the rapidly evolving digital marketing landscape?`
+    topic: 'Business Meeting Report',
+    description: '商务会议报告，1.2倍略快语速，商务术语，复杂句型',
+    transcript: `Manager: Good morning everyone. Today's quarterly review shows significant progress in our digital marketing campaigns, with a 35% increase in customer engagement compared to last quarter. However, we need to address the declining conversion rates in our e-commerce platform. I'd like Sarah to present her analysis of the current market trends and recommend actionable strategies for optimization.`
   },
   {
     id: 4,
     filename: 'test-4-level24.wav',
     difficulty: 24,
     weight: 0.25,
-    topic: 'Technology News Report',
-    description: '科技新闻播报，快语速，专业词汇，长难句',
-    transcript: `Good evening. In today's technology segment, we're examining the unprecedented developments in artificial intelligence that are reshaping industries worldwide. According to recent research from leading tech institutions, machine learning algorithms are now demonstrating capabilities that were previously thought to be decades away from practical implementation.
-The breakthrough centers around advanced neural network architectures that can process complex, multi-modal data streams simultaneously, enabling applications ranging from autonomous vehicle navigation to sophisticated medical diagnostics. Industry analysts suggest these innovations could potentially revolutionize sectors including healthcare, transportation, and financial services within the next five years.
-However, this rapid advancement has also intensified discussions about ethical considerations and regulatory frameworks. Prominent researchers are calling for comprehensive guidelines to ensure responsible development and deployment of these technologies. The debate encompasses concerns about data privacy, algorithmic bias, and the societal implications of increasingly autonomous systems.
-Major technology corporations have announced substantial investments in AI safety research, while government agencies are establishing specialized committees to address the regulatory challenges posed by these emerging technologies. The intersection of innovation and governance continues to evolve as stakeholders navigate the balance between technological progress and public safety.`
+    topic: 'AI Technology News',
+    description: '人工智能科技新闻，1.4倍快语速，科技术语，长难句',
+    transcript: `News Anchor: Breaking developments in artificial intelligence research have emerged from MIT's Computer Science Laboratory. Scientists have successfully demonstrated neural network architectures capable of processing complex multidimensional datasets with unprecedented accuracy rates. The breakthrough involves sophisticated machine learning algorithms that utilize deep learning methodologies to achieve autonomous pattern recognition capabilities previously thought impossible.`
   },
   {
     id: 5,
     filename: 'test-5-level30.wav',
     difficulty: 30,
     weight: 0.3,
-    topic: 'Academic Lecture Excerpt',
-    description: '学术讲座片段，很快语速，学术词汇，复杂从句嵌套',
-    transcript: `Today we're examining the epistemological implications of postmodern theoretical frameworks within the context of interdisciplinary research methodologies. The fundamental question we must address concerns the extent to which traditional empirical paradigms remain viable when confronted with increasingly complex, multi-dimensional phenomena that resist conventional analytical categorization.
-Contemporary scholars argue that the intersection of phenomenological approaches with quantitative methodologies creates a synergistic framework that transcends the limitations inherent in singular methodological perspectives. This synthesis, however, necessitates a reconceptualization of validity constructs and requires researchers to develop sophisticated analytical competencies that accommodate both interpretive and empirical dimensions.
-The implications extend beyond mere methodological considerations to encompass broader philosophical questions about the nature of knowledge construction itself. When we consider the hermeneutic circle and its relationship to data interpretation, we encounter fundamental tensions between objective measurement and subjective understanding that have profound implications for research validity and generalizability.
-Furthermore, the emergence of computational methodologies and big data analytics introduces additional complexity to this already multifaceted landscape, challenging traditional notions of research design while simultaneously offering unprecedented opportunities for innovative inquiry that bridges quantitative precision with qualitative depth and contextual sensitivity.`
+    topic: 'Quantum Physics Lecture',
+    description: '量子物理学术讲座，1.5倍极快语速，量子力学专业术语，复杂学术句式',
+    transcript: `Professor: Today's discourse examines quantum entanglement phenomena within the framework of Heisenberg's uncertainty principle. The wave function collapse mechanism demonstrates non-local correlations between particles exhibiting superposition states. These quantum mechanical properties fundamentally challenge classical deterministic paradigms, revealing probabilistic interpretations of reality through Schrödinger's equation applications in quantum field theory contexts.`
   }
 ]
 

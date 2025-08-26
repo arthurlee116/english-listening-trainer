@@ -23,6 +23,7 @@ import { exportToTxt } from "@/lib/export"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
+import { mapCEFRToDifficulty } from "@/lib/difficulty-service"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", label: "A1 - Beginner" },
@@ -236,6 +237,14 @@ export default function HomePage() {
   const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
 
   const wordCount = useMemo(() => duration * 2, [duration]) // 120 words per minute / 60 seconds = 2 words per second
+
+  // 为下拉菜单拼接个性化难度区间 (Lmin~Lmax)
+  const difficultyLevelsWithL = useMemo(() => {
+    return DIFFICULTY_LEVELS.map(level => {
+      const lRange = mapCEFRToDifficulty(level.value)
+      return { ...level, label: `${level.label} (L${lRange.min}~L${lRange.max})` }
+    })
+  }, [])
 
   // 记忆化计算，避免不必要的重新渲染
   const isSetupComplete = useMemo(() => {
@@ -670,7 +679,7 @@ export default function HomePage() {
                       <SelectValue placeholder="Select difficulty level" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DIFFICULTY_LEVELS.map((level) => (
+                      {difficultyLevelsWithL.map((level) => (
                         <SelectItem key={level.value} value={level.value}>
                           {level.label}
                         </SelectItem>

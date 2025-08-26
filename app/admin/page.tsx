@@ -166,7 +166,7 @@ function useInvitationManagement(password: string) {
       const response = await fetch(`/api/admin/usage-stats?password=${encodeURIComponent(password)}`)
       if (response.ok) {
         const data = await response.json()
-        setStats(data)
+        setStats(data.data)
       }
     } catch (error) {
       console.error('Failed to load stats:', error)
@@ -185,7 +185,7 @@ function useInvitationManagement(password: string) {
       const response = await fetch(`/api/admin/assessment-stats?password=${encodeURIComponent(password)}`)
       if (response.ok) {
         const data = await response.json()
-        setAssessmentStats(data)
+        setAssessmentStats(data.data)
       }
     } catch (error) {
       console.error('Failed to load assessment stats:', error)
@@ -621,7 +621,7 @@ export default function AdminPage() {
                       <div>
                         <p className="text-sm text-gray-500">总评估数</p>
                         <p className="text-3xl font-bold text-blue-600">
-                          {invitationState.assessmentStats.summary.totalAssessments}
+                          {invitationState.assessmentStats?.summary?.totalAssessments || 0}
                         </p>
                       </div>
                     </div>
@@ -632,7 +632,7 @@ export default function AdminPage() {
                       <div>
                         <p className="text-sm text-gray-500">平均难度</p>
                         <p className="text-3xl font-bold text-green-600">
-                          {invitationState.assessmentStats.summary.averageDifficulty.toFixed(1)}
+                          {invitationState.assessmentStats?.summary?.averageDifficulty?.toFixed(1) || 0}
                         </p>
                       </div>
                     </div>
@@ -643,7 +643,7 @@ export default function AdminPage() {
                       <div>
                         <p className="text-sm text-gray-500">评估历史记录</p>
                         <p className="text-3xl font-bold text-purple-600">
-                          {invitationState.assessmentStats.totalHistoryCount}
+                          {invitationState.assessmentStats?.totalHistoryCount || 0}
                         </p>
                       </div>
                     </div>
@@ -654,7 +654,7 @@ export default function AdminPage() {
                 <Card className="p-6">
                   <h3 className="text-lg font-semibold mb-4">难度等级分布</h3>
                   <div className="space-y-3">
-                    {invitationState.assessmentStats.summary.difficultyDistribution.map((item, index) => (
+                    {invitationState.assessmentStats?.summary?.difficultyDistribution?.map((item, index) => (
                       <div key={index} className="flex items-center justify-between">
                         <span className="text-sm font-medium">{item.difficulty_range}</span>
                         <div className="flex items-center space-x-2">
@@ -689,10 +689,10 @@ export default function AdminPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {invitationState.assessmentStats.history.slice(0, 20).map((record) => (
+                        {invitationState.assessmentStats?.history?.slice(0, 20)?.map((record) => (
                           <TableRow key={record.id}>
                             <TableCell className="font-mono">{record.invitationCode}</TableCell>
-                            <TableCell>{formatDateTime(record.testDate)}</TableCell>
+                            <TableCell>{formatDate(record.testDate)}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
                                 {record.scores.map((score, index) => (
@@ -723,11 +723,11 @@ export default function AdminPage() {
                 </Card>
 
                 {/* 最近趋势 */}
-                {invitationState.assessmentStats.summary.recentTrends.length > 0 && (
+                {invitationState.assessmentStats?.summary?.recentTrends?.length > 0 && (
                   <Card className="p-6">
                     <h3 className="text-lg font-semibold mb-4">最近评估趋势</h3>
                     <div className="space-y-3">
-                      {invitationState.assessmentStats.summary.recentTrends.map((trend, index) => (
+                      {invitationState.assessmentStats?.summary?.recentTrends?.map((trend, index) => (
                         <div key={index} className="flex items-center justify-between py-2 border-b">
                           <span className="text-sm">{trend.date}</span>
                           <div className="flex items-center space-x-4">

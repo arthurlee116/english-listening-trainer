@@ -319,7 +319,7 @@ export function cached(
   ) {
     const method = descriptor.value!
     
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (this: any, ...args: any[]) {
       const cacheKey = keyGenerator(...args)
       
       // 尝试从缓存获取
@@ -357,7 +357,7 @@ export function cachedAsync(
   ) {
     const method = descriptor.value!
     
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (this: any, ...args: any[]) {
       const cacheKey = keyGenerator(...args)
       
       // 尝试从缓存获取

@@ -132,3 +132,25 @@ export interface TagStats {
   count: number
   last_occurrence: string
 }
+
+export type InvitationCodeState = 'unverified' | 'verifying' | 'verified' | 'invalid';
+
+export interface UserAssessment {
+  id: string;
+  userId: string;
+  level: DifficultyLevel;
+  weaknesses: UserWeakness[];
+  recommendations: string[];
+  createdAt: string;
+}
+
+export interface AppError {
+  message: string;
+  code?: string | number;
+}
+
+export interface LoadingState {
+  isLoading: boolean;
+  loadingText?: string;
+  progress?: number;
+}
