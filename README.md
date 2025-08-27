@@ -1,55 +1,89 @@
-English Listening Trainer – Dev Guide
+# English Listening Trainer – Dev Guide
 
-Overview
-- Next.js App Router (TypeScript) app for AI‑assisted English listening practice.
-- Features: topic/transcript generation, questions, grading, local Kokoro TTS, invitation code access with daily usage limits, admin dashboard, SQLite persistence.
+## Overview
 
-Quick Start
-- Prereqs: Node.js 18+, Python 3.8-3.12 (⚠️ Python 3.13+ not supported by Kokoro), macOS recommended (Apple Silicon supported), local HTTPS proxy if needed.
-- Install deps: `npm install`
-- Set env vars: `cp .env.example .env.local` and ensure `CEREBRAS_API_KEY` is set. Optionally set a proxy for Cerebras in `lib/ark-helper.ts` or via environment.
-- Initialize Kokoro (first time): `npm run setup-kokoro`
-  - Creates Python venv under `kokoro-local/venv` and installs dependencies
-  - Copies required voice file to `kokoro-local/voices`
-- Create invitation codes: `node scripts/create-test-codes.js`
-- Run dev server: `npm run dev`
-- Open: `http://localhost:3000` (enter a generated invitation code)
-- Admin dashboard: `npm run admin` then `http://localhost:3005/admin` (default password: `admin123`)
+This is a Next.js App Router (TypeScript) application for AI-assisted English listening practice.
 
-Key Workflows
-- Generate topics/transcripts/questions via Cerebras (proxied) APIs under `app/api/ai/*`.
-- Generate audio locally via Kokoro: `POST /api/tts` saves WAV to `public/`.
-- Track daily usage and store exercises using SQLite under `data/app.db`.
+### Features:
+- **AI-Powered Content:** Generate topics, transcripts, and questions using AI.
+- **Personalized Difficulty:** The system assesses the user's level and recommends a suitable difficulty (CEFR and L-levels).
+- **Local Text-to-Speech (TTS):** Utilizes a local "Kokoro" TTS engine for audio generation.
+- **Invitation Codes:** Access to the application is managed through invitation codes with daily usage limits.
+- **Admin Dashboard:** A simple dashboard to manage invitation codes and view usage statistics.
+- **Data Persistence:** Uses SQLite to store exercises and user progress.
+- **Modern UI:** Built with shadcn/ui and Tailwind CSS.
+- **Themeing:** Supports light and dark modes with `next-themes`.
 
-Environment
-- Required: `CEREBRAS_API_KEY` (see `.env.local`).
-- Local proxy (optional): update `PROXY_URL` in `lib/ark-helper.ts` if needed.
-- Apple Silicon: `PYTORCH_ENABLE_MPS_FALLBACK=1` is set; `setup-kokoro.sh` configures PyTorch + MPS.
+## Quick Start
 
-Performance Notes
-- **TTS Performance**: First audio generation takes 3-5 seconds (model loading), subsequent generations: 2-8 seconds depending on text length.
-- **Memory Usage**: Kokoro TTS uses ~1-2GB RAM when active. Memory warnings in console are cosmetic.
-- **Apple Silicon**: Metal acceleration provides significant performance boost for audio generation.
+### Prerequisites
+- Node.js 18+
+- Python 3.8-3.12 (Kokoro TTS does not support Python 3.13+)
+- macOS (recommended, Apple Silicon supported)
+- `pnpm` package manager (`npm install -g pnpm`)
 
-Files to Know
-- `app/page.tsx`: main flow (invitation → generation → audio → questions → grading → save).
-- `app/api/ai/*`: topics/transcript/questions/grade/expand endpoints.
-- `app/api/invitation/*`: verify/check/use daily limit.
-- `app/api/exercises/*`: save and fetch history.
-- `app/admin/page.tsx` + `app/api/admin/*`: invitation code admin + usage stats.
-- `lib/kokoro-service.ts`: Node ↔ Python Kokoro bridge.
-- `scripts/setup-kokoro.sh`: TTS env setup; `scripts/create-test-codes.js`: seed invitation codes.
+### Installation & Setup
+1.  **Install dependencies:**
+    ```bash
+    pnpm install
+    ```
 
-Notes
-- The default admin password is hardcoded in API routes (`admin123`). For production, move to env vars.
-- The project ignores TypeScript and ESLint errors during build (`next.config.mjs`).
-- Some npm scripts reference non-existent files (e.g., `scripts/test-mcp.js`); they are not required for core features.
+2.  **Set up environment variables:**
+    ```bash
+    cp .env.example .env.local
+    ```
+    You will need to add your AI provider's API key to `.env.local`.
 
-Troubleshooting
-- **Python Version Issues**: If TTS fails to initialize, check Python version with `python3 --version`. Kokoro requires Python 3.8-3.12 (not 3.13+). If needed, recreate venv: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`
-- **Cerebras API**: verify API key and proxy connectivity in `lib/ark-helper.ts`.
-- **TTS Initialization**: ensure Kokoro venv is initialized and voice file exists; try rerunning `npm run setup-kokoro`.
-- **Usage Count Display**: if usage counter shows incorrect values, check browser console for API errors and refresh the page.
-- **SQLite**: database is at `data/app.db`. If schema issues occur, delete the file to reinit (development only).
-- **Memory Leaks**: EventEmitter warnings are cosmetic and don't affect functionality.
+3.  **Initialize Kokoro TTS (first time only):**
+    ```bash
+    pnpm run setup-kokoro
+    ```
+    This will create a Python virtual environment in `kokoro-local/venv`, install dependencies, and download the required voice files.
+
+4.  **Run database migrations:**
+    ```bash
+    pnpm exec ts-node scripts/database-migration.ts
+    ```
+
+5.  **Run the development server:**
+    ```bash
+    pnpm run dev
+    ```
+    The application will be available at `http://localhost:3000`. You will need an invitation code to use it.
+
+6.  **Run the admin dashboard:**
+    ```bash
+    pnpm run admin
+    ```
+    The admin dashboard will be available at `http://localhost:3005/admin`. The default password is `admin123`.
+
+## Key Workflows
+
+- **Content Generation:** The AI service generates topics, transcripts, and questions. The relevant code is in `lib/ai-service.ts` and `app/api/ai/*`.
+- **Audio Generation:** The local Kokoro TTS engine generates audio from the transcript. The service is managed in `lib/kokoro-service.ts` and the API endpoint is `app/api/tts`.
+- **User Progress:** The application tracks daily usage and stores exercises in a SQLite database (`data/app.db`).
+- **Invitation Codes:** The invitation system is managed through the API endpoints in `app/api/invitation/*`.
+
+## Project Structure
+
+- `app/`: The main application code, following the Next.js App Router structure.
+- `components/`: React components used throughout the application.
+- `lib/`: Core application logic, services, and utilities.
+- `hooks/`: Custom React hooks.
+- `scripts/`: Utility scripts for tasks like database migration and setting up Kokoro.
+- `kokoro-local/`: The local Kokoro TTS engine and its related files.
+- `public/`: Static assets, including generated audio files.
+- `data/`: The SQLite database file.
+
+## Performance Notes
+
+- **TTS Performance**: The first audio generation can take 3-5 seconds due to model loading. Subsequent generations are faster, typically taking 2-8 seconds depending on the text length.
+- **Memory Usage**: The Kokoro TTS engine can consume 1-2GB of RAM when active.
+- **Apple Silicon**: The application is optimized for Apple Silicon, which provides a significant performance boost for audio generation.
+
+## Troubleshooting
+
+- **Python Version Issues**: If TTS fails to initialize, verify your Python version (`python3 --version`). Kokoro requires Python 3.8-3.12. If needed, you can recreate the virtual environment: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`.
+- **TTS Initialization**: If the TTS engine fails to start, try re-running the setup script: `pnpm run setup-kokoro`.
+- **Database Issues**: If you encounter schema issues during development, you can delete the `data/app.db` file to reinitialize the database.
 

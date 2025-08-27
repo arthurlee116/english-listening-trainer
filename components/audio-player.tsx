@@ -193,6 +193,13 @@ export const AudioPlayer = React.memo(function AudioPlayer({
       cleanup()
     }
   }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup])
+  
+  useEffect(() => {
+    if (audioRef.current) {
+      setCurrentTime(0)
+      setDuration(0)
+    }
+  }, [])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current

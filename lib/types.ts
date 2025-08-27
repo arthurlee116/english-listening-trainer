@@ -90,7 +90,7 @@ export interface WrongAnswer {
   correct_answer: string
   transcript_snippet?: string
   topic: string
-  difficulty: string
+  difficulty: DifficultyLevel
   language: ListeningLanguage // 听力语言
   tags: string[]
   tagDetails?: ErrorTag[]

@@ -46,11 +46,19 @@ function isError(error: unknown): error is Error {
   return error instanceof Error
 }
 
+interface AudioConfig {
+  volume: number
+  speed: number
+  autoplay: boolean
+  duration: string
+}
+
 // 自定义Hook用于邀请码管理
 function useInvitationCode() {
   const [invitationCode, setInvitationCode] = useState<string>("")
   const [isInvitationVerified, setIsInvitationVerified] = useState<boolean>(false)
   const [usageInfo, setUsageInfo] = useState<{ todayUsage: number; remainingUsage: number }>({ todayUsage: 0, remainingUsage: 5 })
+  const [recentTopics, setRecentTopics] = useState<string[]>(null as any)
   const [showInvitationDialog, setShowInvitationDialog] = useState<boolean>(false)
   const [hasAssessment, setHasAssessment] = useState<boolean>(false)
   const [userDifficultyLevel, setUserDifficultyLevel] = useState<number | null>(null)
@@ -126,8 +134,7 @@ function useInvitationCode() {
     setUsageInfo(usage)
     setShowInvitationDialog(false)
     
-    // 检查难度评估状态
-    await checkDifficultyAssessment(code)
+    checkDifficultyAssessment(code)
   }, [checkDifficultyAssessment])
 
   const handleLogout = useCallback(() => {

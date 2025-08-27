@@ -70,7 +70,12 @@ export function ExerciseSetup({
   let difficultyOptions = [...DIFFICULTY_LEVELS];
   if (assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel) {
     difficultyOptions = [
-      { value: "personalized", label: `Personalized - ${difficultyRange.name} (L${assessmentInfo.difficultyLevel})` },
+      { 
+        value: "personalized", 
+        label: difficultyRange 
+          ? `Personalized - ${difficultyRange.name} (L${assessmentInfo.difficultyLevel})`
+          : `Personalized - L${assessmentInfo.difficultyLevel}`
+      },
       ...DIFFICULTY_LEVELS
     ];
   }
@@ -123,7 +128,7 @@ export function ExerciseSetup({
                 onValueChange={(value: string) => {
                   if (value === 'personalized') {
                     if (recommendedLevel) {
-                      onFormDataChange({ difficulty: recommendedLevel });
+                      onFormDataChange({ difficulty: recommendedLevel as DifficultyLevel });
                     }
                   } else {
                     onFormDataChange({ difficulty: value as DifficultyLevel });

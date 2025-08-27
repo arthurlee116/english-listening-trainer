@@ -149,7 +149,7 @@ export const QuestionInterface = React.memo(function QuestionInterface({
   // 记忆化计算
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers])
   const progress = useMemo(() => (answeredCount / questions.length) * 100, [answeredCount, questions.length])
-  const canSubmit = useMemo(() => answeredCount === questions.length && !loading, [answeredCount, questions.length, loading])
+  const canSubmit = useMemo(() => answeredCount >= questions.length && !loading, [answeredCount, questions.length, loading])
 
   return (
     <div className="space-y-6">
