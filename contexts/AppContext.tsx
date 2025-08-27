@@ -213,5 +213,3 @@ export function useApp() {
   }
   return context
 }
-
-export type { AppState, AppAction, AppContextType }

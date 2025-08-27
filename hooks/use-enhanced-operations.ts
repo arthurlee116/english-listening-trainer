@@ -179,8 +179,8 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 // 增强操作Hook
-export function useEnhancedOperation<T>(
-  operation: (signal: AbortSignal, attempt: number) => Promise<T>,
+export function useEnhancedOperation<T, TArgs extends any[]>(
+  operation: (signal: AbortSignal, attempt: number, ...args: TArgs) => Promise<T>,
   config: OperationConfig = {}
 ) {
   const [state, setState] = useState<OperationState>(OperationState.IDLE)
@@ -212,7 +212,7 @@ export function useEnhancedOperation<T>(
   }, [])
 
   // 执行操作
-  const execute = useCallback(async (...args: any[]): Promise<T | undefined> => {
+  const execute = useCallback(async (...args: TArgs): Promise<T | undefined> => {
     // 取消之前的操作
     cleanup()
 
@@ -597,5 +597,3 @@ export function useCachedOperation<T>(
     isStale: cache.get(key)?.isStale || false
   }
 }
-
-export { OperationError }
