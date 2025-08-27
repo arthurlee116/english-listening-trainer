@@ -1,7 +1,7 @@
 // Client-side AI Service
 // 通过调用 Next.js API 路由，避免在浏览器暴露 ARK_API_KEY
 
-import type { Question, GradingResult, ListeningLanguage } from './types'
+import type { Question, GradingResult, ListeningLanguage, DifficultyLevel } from './types'
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(url, {
@@ -22,7 +22,7 @@ async function postJson<T>(url: string, body: Record<string, unknown>): Promise<
   return data as T
 }
 
-export async function generateTopics(difficulty: string, wordCount: number, language: ListeningLanguage = 'en-US', difficultyLevel?: number): Promise<string[]> {
+export async function generateTopics(difficulty: string, wordCount: number, language: ListeningLanguage = 'en-US', difficultyLevel?: DifficultyLevel): Promise<string[]> {
   const data = await postJson<{ success: boolean; topics: string[] }>(
     "/api/ai/topics",
     { difficulty, wordCount, language, difficultyLevel },
@@ -49,7 +49,7 @@ export async function generateQuestions(
   difficulty: string,
   transcript: string,
   language: ListeningLanguage = 'en-US',
-  duration?: number,
+  duration: number,
   difficultyLevel?: number,
 ): Promise<Question[]> {
   const data = await postJson<{ success: boolean; questions: Question[] }>(

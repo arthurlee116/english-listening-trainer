@@ -124,6 +124,9 @@ export function calculateDifficultyLevel(scores: number[]): number {
  * @returns 难度范围信息
  */
 export function getDifficultyRange(level: number): DifficultyRange {
+  if (typeof level !== 'number' || isNaN(level) || level < 1) {
+    throw new Error(`难度等级必须是大于0的数字，但接收到: ${level}`)
+  }
   const range = DIFFICULTY_RANGES.find(r => level >= r.min && level <= r.max)
   if (!range) {
     throw new Error(`无效的难度等级: ${level}`)
@@ -138,6 +141,9 @@ export function getDifficultyRange(level: number): DifficultyRange {
  * @returns 难度描述文本
  */
 export function getDifficultyPromptModifier(level: number, language: ListeningLanguage = 'en-US'): string {
+  if (typeof level !== 'number' || isNaN(level) || level < 1) {
+    throw new Error(`难度等级必须是大于0的数字，但接收到: ${level}`)
+  }
   const range = getDifficultyRange(level)
   
   const languageMap = {

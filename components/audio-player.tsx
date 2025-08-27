@@ -85,7 +85,6 @@ function useAudioPlayer(audioUrl: string) {
     isLoading,
     setIsLoading,
     audioRef,
-    rafRef,
     isScrubbingRef,
     scrubRafRef,
     pendingTimeRef,
@@ -135,6 +134,15 @@ export const AudioPlayer = React.memo(function AudioPlayer({
     if (!audio || !audioUrl) return
 
     setIsLoading(true)
+
+    // 当 audioUrl 变化时，重置播放状态和时间
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+    if (audio) {
+      audio.pause()
+      audio.currentTime = 0
+    }
 
     // 简化的事件处理函数
     const updateTime = () => {
@@ -192,7 +200,7 @@ export const AudioPlayer = React.memo(function AudioPlayer({
       audio.removeEventListener("error", handleError)
       cleanup()
     }
-  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup])
+  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup, setIsLoading, setIsPlaying, setCurrentTime, setDuration])
   
   useEffect(() => {
     if (audioRef.current) {
@@ -352,10 +360,7 @@ export const AudioPlayer = React.memo(function AudioPlayer({
                 onPointerDown={() => {
                   isScrubbingRef.current = true
                   // Pause the visual progress updates while user drags
-                  if (rafRef.current) {
-                    cancelAnimationFrame(rafRef.current)
-                    rafRef.current = null
-                  }
+                  stopProgressLoop()
                   const audio = audioRef.current
                   if (audio) {
                     wasPausedBeforeScrubRef.current = audio.paused

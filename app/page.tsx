@@ -50,7 +50,7 @@ interface AudioConfig {
   volume: number
   speed: number
   autoplay: boolean
-  duration: string
+  duration: number
 }
 
 // 自定义Hook用于邀请码管理
@@ -58,7 +58,7 @@ function useInvitationCode() {
   const [invitationCode, setInvitationCode] = useState<string>("")
   const [isInvitationVerified, setIsInvitationVerified] = useState<boolean>(false)
   const [usageInfo, setUsageInfo] = useState<{ todayUsage: number; remainingUsage: number }>({ todayUsage: 0, remainingUsage: 5 })
-  const [recentTopics, setRecentTopics] = useState<string[]>(null as any)
+  const [recentTopics, setRecentTopics] = useState<string[]>([])
   const [showInvitationDialog, setShowInvitationDialog] = useState<boolean>(false)
   const [hasAssessment, setHasAssessment] = useState<boolean>(false)
   const [userDifficultyLevel, setUserDifficultyLevel] = useState<number | null>(null)
@@ -134,7 +134,7 @@ function useInvitationCode() {
     setUsageInfo(usage)
     setShowInvitationDialog(false)
     
-    checkDifficultyAssessment(code)
+    await checkDifficultyAssessment(code)
   }, [checkDifficultyAssessment])
 
   const handleLogout = useCallback(() => {
@@ -228,7 +228,7 @@ export default function HomePage() {
 
   // 原有状态
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers">("setup")
-  const [difficulty, setDifficulty] = useState<string>("")
+  const [difficulty, setDifficulty] = useState<DifficultyLevel | "">("")
   const [duration, setDuration] = useState<number>(120)
   const [language, setLanguage] = useState<ListeningLanguage>(DEFAULT_LANGUAGE)
   const [topic, setTopic] = useState<string>("")
@@ -280,7 +280,11 @@ export default function HomePage() {
     setLoadingMessage("Generating topic suggestions...")
 
     try {
-      const topics = await generateTopics(difficulty, wordCount, language, userDifficultyLevel || undefined)
+      // 确保 userDifficultyLevel 为数字类型再传入
+      // 确保 userDifficultyLevel 为数字类型再传入，如果为 null 则传入 undefined
+      // 将 userDifficultyLevel 转换为 DifficultyLevel 类型
+      const mappedDifficulty = userDifficultyLevel ? `L${userDifficultyLevel}` as DifficultyLevel : undefined
+      const topics = await generateTopics(difficulty, wordCount, language, mappedDifficulty)
       setSuggestedTopics(topics)
       toast({
         title: "话题生成成功",
@@ -681,7 +685,7 @@ export default function HomePage() {
                   <Label htmlFor="difficulty" className="text-base font-medium">
                     Difficulty Level
                   </Label>
-                  <Select value={difficulty} onValueChange={setDifficulty}>
+                  <Select value={difficulty} onValueChange={(value) => setDifficulty(value as DifficultyLevel | "")}>
                     <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                       <SelectValue placeholder="Select difficulty level" />
                     </SelectTrigger>
