@@ -1,12 +1,13 @@
 "use client"
 
-import React from "react"
+import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Download, RotateCcw } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Progress } from "@/components/ui/progress"
+import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp } from "lucide-react"
 import type { Exercise } from "@/lib/types"
-import { useEffect } from "react"
 
 interface ResultsDisplayProps {
   exercise: Exercise
@@ -14,224 +15,158 @@ interface ResultsDisplayProps {
   onExport: () => void
 }
 
-export const ResultsDisplay = React.memo(function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplayProps) {
-  const { questions, results } = exercise
-
-  // 自动保存错题
-  useEffect(() => {
-    const saveWrongAnswers = async () => {
-      try {
-        const invitationCode = localStorage.getItem('invitation_code') || sessionStorage.getItem('invitation_code')
-        if (!invitationCode) return
-
-        // 检查是否有错题需要保存
-        const hasWrongAnswers = results.some(result => 
-          !result.is_correct && result.error_tags && result.error_tags.length > 0
-        )
-
-        if (hasWrongAnswers) {
-          const response = await fetch('/api/wrong-answers/save', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              exercise,
-              invitationCode
-            })
-          })
-
-          const data = await response.json()
-          if (data.success) {
-            console.log(`✅ 成功保存 ${data.savedCount} 个错题记录`)
-          } else {
-            console.error('保存错题失败:', data.error)
-          }
-        }
-      } catch (error) {
-        console.error('保存错题过程中发生错误:', error)
-      }
-    }
-
-    saveWrongAnswers()
-  }, [exercise, results])
-
-  // 辅助函数：根据选项内容获取对应的字母标识
-  const getOptionLabel = (question: any, answer: string) => {
-    if (question.type === "single" && question.options) {
-      const optionIndex = question.options.indexOf(answer)
-      if (optionIndex !== -1) {
-        return String.fromCharCode(65 + optionIndex) // A, B, C, D
-      }
-    }
-    return null
+export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplayProps) {
+  const [showDetails, setShowDetails] = useState(false)
+  
+  const correctAnswers = exercise.results.filter(result => result.is_correct).length
+  const totalQuestions = exercise.results.length
+  const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
+  
+  const getAccuracyColor = (acc: number) => {
+    if (acc >= 90) return "text-green-600"
+    if (acc >= 70) return "text-yellow-600"
+    return "text-red-600"
   }
 
-  // 调试日志
-  console.log('Questions:', questions)
-  console.log('Results:', results)
-
-  const singleChoiceResults = results.filter((r) => r.type === "single")
-  const shortAnswerResults = results.filter((r) => r.type === "short")
-
-  console.log('Single choice results:', singleChoiceResults)
-  console.log('Short answer results:', shortAnswerResults)
-
-  const correctCount = singleChoiceResults.filter((r) => r.is_correct).length
-  const totalSingleChoice = singleChoiceResults.length
-  const shortAnswerScore = shortAnswerResults[0]?.score || 0
-
-  // 防止除零错误
-  const overallScore = totalSingleChoice > 0 
-    ? Math.round(((correctCount / totalSingleChoice) * 0.7 + (shortAnswerScore / 10) * 0.3) * 100)
-    : Math.round((shortAnswerScore / 10) * 100)
+  const getAccuracyBadgeColor = (acc: number) => {
+    if (acc >= 90) return "bg-green-100 text-green-800 border-green-300"
+    if (acc >= 70) return "bg-yellow-100 text-yellow-800 border-yellow-300"
+    return "bg-red-100 text-red-800 border-red-300"
+  }
 
   return (
     <div className="space-y-6">
-      {/* Overall Score */}
+      {/* Header */}
       <Card className="glass-effect p-8 text-center">
-        <h2 className="text-3xl font-bold mb-4">Exercise Complete!</h2>
-        <div className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-          {overallScore}%
+        <div className="flex items-center justify-center mb-4">
+          <Trophy className="w-8 h-8 text-yellow-500 mr-3" />
+          <h2 className="text-2xl font-bold">练习完成！</h2>
         </div>
-        <div className="flex justify-center gap-8 text-sm text-gray-600 dark:text-gray-300">
-          <div>
-            <div className="font-medium">Multiple Choice</div>
-            <div>
-              {correctCount}/{totalSingleChoice} correct
-            </div>
+        
+        <div className="space-y-4">
+          <div className={`text-4xl font-bold ${getAccuracyColor(accuracy)}`}>
+            {accuracy}%
           </div>
-          <div>
-            <div className="font-medium">Short Answer</div>
-            <div>{shortAnswerScore}/10 points</div>
+          
+          <div className="flex items-center justify-center gap-4">
+            <Badge className={getAccuracyBadgeColor(accuracy)}>
+              {correctAnswers}/{totalQuestions} 正确
+            </Badge>
+            <Badge variant="outline">
+              {exercise.difficulty} 级别
+            </Badge>
+            <Badge variant="outline">
+              {exercise.language}
+            </Badge>
           </div>
+          
+          <Progress value={accuracy} className="w-full max-w-md mx-auto" />
+          
+          <p className="text-gray-600 dark:text-gray-300">
+            话题：{exercise.topic}
+          </p>
         </div>
-
       </Card>
 
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Button onClick={onRestart} className="flex-1 sm:flex-none">
+          <RotateCcw className="w-4 h-4 mr-2" />
+          开始新练习
+        </Button>
+        <Button onClick={onExport} variant="outline" className="flex-1 sm:flex-none">
+          <Download className="w-4 h-4 mr-2" />
+          导出结果
+        </Button>
+        <Button 
+          onClick={() => setShowDetails(!showDetails)} 
+          variant="outline"
+          className="flex-1 sm:flex-none"
+        >
+          {showDetails ? (
+            <>
+              <ChevronUp className="w-4 h-4 mr-2" />
+              隐藏详情
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4 mr-2" />
+              查看详情
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Detailed Results */}
-      {questions.map((question, index) => {
-        const result = results[index]
-        if (!result) {
-          return null
-        }
-        const isCorrect = result.is_correct
-
-        return (
-          <Card key={index} className="glass-effect p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-sm font-medium px-2 py-1 rounded">Q{index + 1}</span>
-                {question.type === "short" ? (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    Score: {result.score}/10
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant={isCorrect ? "default" : "destructive"}
-                    className={isCorrect ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : ""}
-                  >
+      {showDetails && (
+        <Card className="glass-effect p-6">
+          <h3 className="text-lg font-semibold mb-4">答题详情</h3>
+          <div className="space-y-4">
+            {exercise.questions.map((question, index) => {
+              const result = exercise.results[index]
+              const userAnswer = exercise.answers[index] || ""
+              const isCorrect = result?.is_correct || false
+              
+              return (
+                <div key={index} className="border rounded-lg p-4">
+                  <div className="flex items-start gap-3">
                     {isCorrect ? (
-                      <>
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Correct
-                      </>
+                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                     ) : (
-                      <>
-                        <XCircle className="w-3 h-3 mr-1" />
-                        Incorrect
-                      </>
+                      <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                     )}
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            <h3 className="font-medium mb-4">{question.question}</h3>
-
-            <div className="space-y-3">
-              <div>
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Your Answer:</span>
-                <p className="mt-1 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-gray-800 dark:text-gray-200">
-                  {question.type === "single" && getOptionLabel(question, result.user_answer) ? (
-                    <>
-                      <span className="font-semibold text-blue-600 mr-2">{getOptionLabel(question, result.user_answer)}.</span>
-                      {result.user_answer}
-                    </>
-                  ) : (
-                    result.user_answer
-                  )}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Correct Answer:</span>
-                <p className="mt-1 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-gray-800 dark:text-gray-200">
-                  {question.type === "single" && getOptionLabel(question, result.correct_answer) ? (
-                    <>
-                      <span className="font-semibold text-green-600 mr-2">{getOptionLabel(question, result.correct_answer)}.</span>
-                      {result.correct_answer}
-                    </>
-                  ) : (
-                    result.correct_answer
-                  )}
-                </p>
-              </div>
-
-  
-              {result.short_feedback && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Feedback:</span>
-                  <p className="mt-1 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-sm text-gray-800 dark:text-gray-200">{result.short_feedback}</p>
-                </div>
-              )}
-
-              {/* 显示错误标签 */}
-              {!isCorrect && result.error_tags && result.error_tags.length > 0 && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">错误类型:</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {result.error_tags.map((tag, tagIndex) => (
-                      <Badge 
-                        key={tagIndex}
-                        variant="outline" 
-                        className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
+                    
+                    <div className="flex-1 space-y-2">
+                      <div className="font-medium">
+                        问题 {index + 1}: {question.question}
+                      </div>
+                      
+                      {question.type === "multiple_choice" && question.options && (
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                          选项：{question.options.join(" / ")}
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-700 dark:text-gray-300">您的答案：</span>
+                          <span className={isCorrect ? "text-green-600" : "text-red-600"}>
+                            {userAnswer || "未回答"}
+                          </span>
+                        </div>
+                        
+                        {!isCorrect && result?.correct_answer && (
+                          <div>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">正确答案：</span>
+                            <span className="text-green-600">{result.correct_answer}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {result?.explanation && (
+                        <div className="text-sm bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                          <span className="font-medium text-blue-800 dark:text-blue-300">解析：</span>
+                          <span className="text-blue-700 dark:text-blue-200">{result.explanation}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
+              )
+            })}
+          </div>
+        </Card>
+      )}
 
-              {/* 显示错误分析 */}
-              {!isCorrect && result.error_analysis && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">错误分析:</span>
-                  <p className="mt-1 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-gray-800 dark:text-gray-200">{result.error_analysis}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        )
-      })}
-
-      {/* Action Buttons at Bottom */}
+      {/* Transcript Reference */}
       <Card className="glass-effect p-6">
-        <div className="flex gap-4 justify-center">
-          <Button
-            onClick={onRestart}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            New Exercise
-          </Button>
-          <Button variant="outline" onClick={onExport} className="glass-effect bg-transparent">
-            <Download className="w-4 h-4 mr-2" />
-            Export Results
-          </Button>
+        <h3 className="text-lg font-semibold mb-4">听力材料</h3>
+        <div className="prose dark:prose-invert max-w-none">
+          <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+            {exercise.transcript}
+          </p>
         </div>
       </Card>
     </div>
   )
-})
+}

@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
 import { getLanguageConfig } from './language-config'
+import { validateDeviceConfig, generateDeviceReport } from './device-detection'
 import type { ListeningLanguage } from './types'
 
 export interface KokoroRequest {
@@ -35,10 +36,24 @@ export class KokoroTTSService extends EventEmitter {
 
   private async initialize(): Promise<void> {
     try {
+      // 验证设备配置
+      const deviceValidation = await validateDeviceConfig()
+      if (!deviceValidation.valid) {
+        console.warn(`⚠️ ${deviceValidation.message}`)
+      } else {
+        console.log(`📱 ${deviceValidation.message}`)
+      }
+      
       await this.startPythonProcess()
       this.initialized = true
       this.emit('ready')
       console.log('✅ Kokoro TTS service initialized successfully')
+      
+      // 在开发环境下生成设备报告
+      if (process.env.NODE_ENV === 'development') {
+        const report = await generateDeviceReport()
+        console.log('\n' + report)
+      }
     } catch (error) {
       console.error('❌ Failed to initialize Kokoro TTS service:', error)
       this.emit('error', error)
@@ -56,12 +71,16 @@ export class KokoroTTSService extends EventEmitter {
 
       console.log('🚀 Starting Kokoro Python process...')
       
-      // 设置环境变量以启用Metal加速
+      // 设置环境变量以支持多种加速方式
+      const kokoroDevice = process.env.KOKORO_DEVICE || 'auto'
       const env = {
         ...process.env,
         PYTORCH_ENABLE_MPS_FALLBACK: '1',
+        KOKORO_DEVICE: kokoroDevice, // 传递设备选择给Python
         PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || '')
       }
+      
+      console.log(`📱 Kokoro device preference: ${kokoroDevice}`)
 
       const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python')
       const venvPath = path.join(process.cwd(), 'kokoro-local', 'venv')

@@ -16,14 +16,6 @@ import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { AudioPlayer } from "@/components/audio-player"
-import { QuestionInterface } from "@/components/question-interface"
-import { ResultsDisplay } from "@/components/results-display"
-import { HistoryPanel } from "@/components/history-panel"
-import { WrongAnswersBook } from "@/components/wrong-answers-book"
-import { AssessmentAudioPlayer } from "@/components/assessment-audio-player"
-import { AssessmentResult } from "@/components/assessment-result"
-import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 
@@ -161,7 +153,7 @@ export default function HomePage() {
   const { toast } = useToast()
 
   // 原有状态
-  const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
+  const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers">("setup")
   const [difficulty, setDifficulty] = useState<DifficultyLevel | "">("")
   const [duration, setDuration] = useState<number>(120)
   const [language, setLanguage] = useState<ListeningLanguage>(DEFAULT_LANGUAGE)
@@ -176,11 +168,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState<boolean>(false)
   const [loadingMessage, setLoadingMessage] = useState<string>("")
   const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
-  
-  // Assessment 相关状态
-  const [assessmentResult, setAssessmentResult] = useState<any>(null)
-  const [currentAssessmentIndex, setCurrentAssessmentIndex] = useState<number>(0)
-  const [assessmentAnswers, setAssessmentAnswers] = useState<Record<number, number>>({})
 
   const wordCount = useMemo(() => duration * 2, [duration])
 
@@ -508,41 +495,6 @@ export default function HomePage() {
     )
   }
 
-  if (step === "assessment") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="container mx-auto px-4 py-8">
-          <AssessmentInterface 
-            onBack={() => setStep("setup")}
-            onComplete={(result) => {
-              setAssessmentResult(result)
-              setStep("assessment-result")
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  if (step === "assessment-result" && assessmentResult) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="container mx-auto px-4 py-8">
-          <AssessmentResult 
-            result={assessmentResult}
-            onReturnHome={() => setStep("setup")}
-            onRetry={() => {
-              setAssessmentResult(null)
-              setCurrentAssessmentIndex(0)
-              setAssessmentAnswers({})
-              setStep("assessment")
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
@@ -577,10 +529,6 @@ export default function HomePage() {
             )}
             <div className="flex gap-2">
               <ThemeToggle />
-              <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="glass-effect">
-                <Sparkles className="w-4 h-4 mr-2" />
-                难度测试
-              </Button>
               <Button variant="outline" size="sm" onClick={() => setStep("history")} className="glass-effect">
                 <History className="w-4 h-4 mr-2" />
                 History

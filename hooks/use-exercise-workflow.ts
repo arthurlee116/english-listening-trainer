@@ -10,7 +10,7 @@ import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { mapDifficultyToCEFR } from "@/lib/difficulty-service"
 import type { Exercise, Question, DifficultyLevel } from "@/lib/types"
-import type { AssessmentInfo } from "./use-invitation-code"
+// 移除已删除的邀请码hook引用
 
 export type ExerciseStep = 'setup' | 'listening' | 'questions' | 'results'
 
@@ -52,7 +52,7 @@ type ExerciseAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET' }
 
-function createInitialState(assessmentInfo?: AssessmentInfo): ExerciseState {
+function createInitialState(assessmentInfo?: any): ExerciseState {
   // 根据用户评估结果设置推荐难度，如果没有评估则使用默认的B1
   let recommendedDifficulty: DifficultyLevel = 'B1'
   
@@ -119,7 +119,7 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
   }
 }
 
-export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
+export function useExerciseWorkflow(assessmentInfo?: any) {
   const [state, dispatch] = useReducer(exerciseReducer, createInitialState(assessmentInfo))
   const { toast } = useToast()
 
@@ -151,7 +151,7 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
   }, [state.formData.difficulty, state.formData.duration, toast])
 
   // 开始练习
-  const startExercise = useCallback(async (invitationCode: string) => {
+  const startExercise = useCallback(async (userId: string) => {
     const selectedTopic = state.formData.topic === 'custom' ? state.formData.customTopic : state.formData.topic
     
     if (!selectedTopic.trim()) {
@@ -242,7 +242,7 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
   }, [state.questions.length])
 
   // 提交答案
-  const submitAnswers = useCallback(async (invitationCode: string) => {
+  const submitAnswers = useCallback(async (userId: string) => {
     if (!state.exercise) {
       toast({
         title: "错误",

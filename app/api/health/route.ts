@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { databaseAdapter } from '@/lib/database-adapter'
+import { PrismaClient } from '@prisma/client'
 import fs from 'fs'
 import path from 'path'
 
@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
     let databaseStatus = 'unknown'
     try {
       // 尝试一个简单的数据库操作
-      await databaseAdapter.getAllInvitationCodes()
+      const prisma = new PrismaClient()
+      await prisma.user.count()
+      await prisma.$disconnect()
       databaseStatus = 'connected'
     } catch (error) {
       console.error('Database health check failed:', error)

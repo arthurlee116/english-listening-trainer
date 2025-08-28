@@ -82,7 +82,7 @@ export interface ErrorTag {
 
 export interface WrongAnswer {
   id: string
-  invitation_code: string
+  userId: string
   exercise_id: string
   question_index: number
   question_data: Question

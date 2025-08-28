@@ -4,212 +4,231 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Download, Trash2, Calendar, BookPlus, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, Filter } from "lucide-react"
 import { getHistory, clearHistory } from "@/lib/storage"
-import { exportToTxt } from "@/lib/export"
 import type { Exercise } from "@/lib/types"
 
 interface HistoryPanelProps {
   onBack: () => void
-  onRestore?: (exercise: Exercise) => void
+  onRestore: (exercise: Exercise) => void
 }
 
 export function HistoryPanel({ onBack, onRestore }: HistoryPanelProps) {
-  const [history, setHistory] = useState<Exercise[]>([])
-  const [collectingWrongAnswers, setCollectingWrongAnswers] = useState<boolean>(false)
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
+  const [languageFilter, setLanguageFilter] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<string>("newest")
 
   useEffect(() => {
-    loadHistory()
+    const history = getHistory()
+    setExercises(history)
+    setFilteredExercises(history)
   }, [])
 
-  const loadHistory = async () => {
-    try {
-      // 首先尝试从数据库获取历史记录
-      const invitationCode = localStorage.getItem('invitation_code') || sessionStorage.getItem('invitation_code')
-      
-      if (invitationCode) {
-        const response = await fetch(`/api/exercises/history?code=${encodeURIComponent(invitationCode)}&limit=20`)
-        if (response.ok) {
-          const data = await response.json()
-          setHistory(data.history)
-          return
-        }
-      }
-      
-      // 如果数据库获取失败，则从本地存储获取
-      setHistory(getHistory())
-    } catch (error) {
-      console.error('Failed to load history from database:', error)
-      // 回退到本地存储
-      setHistory(getHistory())
-    }
-  }
+  useEffect(() => {
+    let filtered = [...exercises]
 
-  const handleExport = (exercise: Exercise) => {
-    exportToTxt(exercise)
-  }
+    // 搜索过滤
+    if (searchTerm) {
+      filtered = filtered.filter(exercise =>
+        exercise.topic.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // 难度过滤
+    if (difficultyFilter !== "all") {
+      filtered = filtered.filter(exercise => exercise.difficulty === difficultyFilter)
+    }
+
+    // 语言过滤
+    if (languageFilter !== "all") {
+      filtered = filtered.filter(exercise => exercise.language === languageFilter)
+    }
+
+    // 排序
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "newest":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        case "oldest":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        case "score_high":
+          const aScore = Math.round((a.results.filter(r => r.is_correct).length / a.results.length) * 100)
+          const bScore = Math.round((b.results.filter(r => r.is_correct).length / b.results.length) * 100)
+          return bScore - aScore
+        case "score_low":
+          const aScoreLow = Math.round((a.results.filter(r => r.is_correct).length / a.results.length) * 100)
+          const bScoreLow = Math.round((b.results.filter(r => r.is_correct).length / b.results.length) * 100)
+          return aScoreLow - bScoreLow
+        default:
+          return 0
+      }
+    })
+
+    setFilteredExercises(filtered)
+  }, [exercises, searchTerm, difficultyFilter, languageFilter, sortBy])
 
   const handleClearHistory = () => {
-    if (confirm("Are you sure you want to clear all history?")) {
+    if (window.confirm("确定要清空所有练习历史吗？此操作不可撤销。")) {
       clearHistory()
-      setHistory([])
+      setExercises([])
+      setFilteredExercises([])
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return "text-green-600"
+    if (score >= 70) return "text-yellow-600"
+    return "text-red-600"
   }
 
-  const calculateScore = (exercise: Exercise) => {
-    const singleChoiceResults = exercise.results.filter((r) => r.type === "single")
-    const shortAnswerResults = exercise.results.filter((r) => r.type === "short")
-
-    const correctCount = singleChoiceResults.filter((r) => r.is_correct).length
-    const totalSingleChoice = singleChoiceResults.length
-    const shortAnswerScore = shortAnswerResults[0]?.score || 0
-
-    return Math.round(((correctCount / totalSingleChoice) * 0.7 + (shortAnswerScore / 10) * 0.3) * 100)
-  }
-
-  // 批量收集历史记录中的错题
-  const handleCollectWrongAnswers = async () => {
-    if (history.length === 0) {
-      alert('没有历史记录可以处理')
-      return
-    }
-
-    if (!confirm(`确定要收集所有 ${history.length} 条历史记录中的错题吗？这可能需要一些时间来重新分析和生成标签。`)) {
-      return
-    }
-
-    try {
-      setCollectingWrongAnswers(true)
-      const invitationCode = localStorage.getItem('invitation_code') || sessionStorage.getItem('invitation_code')
-      
-      if (!invitationCode) {
-        alert('无法获取邀请码，请重新登录')
-        return
-      }
-
-      const response = await fetch('/api/wrong-answers/collect-history', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          invitationCode,
-          exercises: history
-        })
-      })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        alert(`成功处理 ${data.processedCount} 条记录，收集了 ${data.wrongAnswersCount} 个错题！`)
-      } else {
-        alert('收集错题失败: ' + data.error)
-      }
-    } catch (error) {
-      console.error('收集错题过程中发生错误:', error)
-      alert('收集错题失败，请稍后重试')
-    } finally {
-      setCollectingWrongAnswers(false)
-    }
+  const getScoreBadgeColor = (score: number) => {
+    if (score >= 90) return "bg-green-100 text-green-800 border-green-300"
+    if (score >= 70) return "bg-yellow-100 text-yellow-800 border-yellow-300"
+    return "bg-red-100 text-red-800 border-red-300"
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <Card className="glass-effect p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={onBack} className="glass-effect bg-transparent">
+            <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h2 className="text-2xl font-bold">Practice History</h2>
+            <h2 className="text-2xl font-bold">练习历史</h2>
+            <Badge variant="outline">{filteredExercises.length} 条记录</Badge>
           </div>
-          {history.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCollectWrongAnswers}
-                disabled={collectingWrongAnswers}
-                className="text-orange-600 border-orange-300 hover:bg-orange-50 bg-transparent"
-              >
-                {collectingWrongAnswers ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <BookPlus className="w-4 h-4 mr-2" />
-                )}
-                {collectingWrongAnswers ? '处理中...' : '收集错题'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearHistory}
-                className="text-red-600 border-red-300 hover:bg-red-50 bg-transparent"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Clear All
-              </Button>
-            </div>
+          
+          {exercises.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleClearHistory}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              清空历史
+            </Button>
           )}
         </div>
       </Card>
 
-      {history.length === 0 ? (
+      {exercises.length === 0 ? (
         <Card className="glass-effect p-12 text-center">
-          <div className="text-gray-400 mb-4">
-            <Calendar className="w-16 h-16 mx-auto" />
+          <div className="text-gray-500 dark:text-gray-400">
+            <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <h3 className="text-lg font-medium mb-2">暂无练习记录</h3>
+            <p>完成练习后，记录将显示在这里</p>
           </div>
-          <h3 className="text-xl font-medium text-gray-600 mb-2">No Practice History</h3>
-          <p className="text-gray-500">Complete some exercises to see your history here</p>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {history.map((exercise) => (
-            <Card key={exercise.id} className="glass-effect p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200" 
-                  onClick={() => onRestore?.(exercise)}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline">{exercise.difficulty}</Badge>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      Score: {calculateScore(exercise)}%
-                    </Badge>
-                  </div>
-                  <h3 className="font-medium mb-2">{exercise.topic}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">{exercise.transcript.substring(0, 150)}...</p>
-                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {formatDate(exercise.createdAt)}
-                    </span>
-                    <span>{exercise.questions.length} questions</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-medium">Click to view results</span>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleExport(exercise)
-                  }}
-                  className="glass-effect ml-4"
-                >
-                  <Download className="w-4 h-4" />
-                </Button>
+        <>
+          {/* Filters */}
+          <Card className="glass-effect p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="搜索话题..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </Card>
-          ))}
-        </div>
+              
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="难度级别" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有难度</SelectItem>
+                  <SelectItem value="A1">A1 - Beginner</SelectItem>
+                  <SelectItem value="A2">A2 - Elementary</SelectItem>
+                  <SelectItem value="B1">B1 - Intermediate</SelectItem>
+                  <SelectItem value="B2">B2 - Upper Intermediate</SelectItem>
+                  <SelectItem value="C1">C1 - Advanced</SelectItem>
+                  <SelectItem value="C2">C2 - Proficient</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={languageFilter} onValueChange={setLanguageFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="语言" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有语言</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="zh">中文</SelectItem>
+                  <SelectItem value="ja">日本語</SelectItem>
+                  <SelectItem value="ko">한국어</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="排序方式" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">最新优先</SelectItem>
+                  <SelectItem value="oldest">最旧优先</SelectItem>
+                  <SelectItem value="score_high">得分从高到低</SelectItem>
+                  <SelectItem value="score_low">得分从低到高</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+
+          {/* Exercise List */}
+          <div className="grid gap-4">
+            {filteredExercises.map((exercise, index) => {
+              const correctAnswers = exercise.results.filter(result => result.is_correct).length
+              const totalQuestions = exercise.results.length
+              const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
+              const date = new Date(exercise.createdAt)
+
+              return (
+                <Card key={exercise.id} className="glass-effect p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold truncate">{exercise.topic}</h3>
+                        <Badge variant="outline">{exercise.difficulty}</Badge>
+                        <Badge variant="outline">{exercise.language}</Badge>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {date.toLocaleDateString('zh-CN')} {date.toLocaleTimeString('zh-CN', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Trophy className="w-4 h-4" />
+                          <span className={getScoreColor(accuracy)}>{accuracy}%</span>
+                        </div>
+                        <Badge className={getScoreBadgeColor(accuracy)}>
+                          {correctAnswers}/{totalQuestions} 正确
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => onRestore(exercise)}
+                      className="ml-4"
+                      size="sm"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      查看详情
+                    </Button>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
