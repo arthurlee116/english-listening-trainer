@@ -24,13 +24,18 @@ echo "📁 Creating directories..."
 mkdir -p kokoro-local/voices
 mkdir -p public/audio
 
-# 复制语音文件
-if [ -f "kokoro-main-ref/kokoro.js/voices/af_heart.bin" ]; then
+# 检查语音文件（支持.pt和.bin格式）
+if [ -f "kokoro-local/voices/af_heart.pt" ]; then
+    echo "✅ Voice file 'af_heart.pt' already exists"
+elif [ -f "kokoro-main-ref/kokoro.js/voices/af_heart.bin" ]; then
     cp kokoro-main-ref/kokoro.js/voices/af_heart.bin kokoro-local/voices/
     echo "✅ Voice file 'af_heart.bin' copied successfully"
+elif [ -f "kokoro-main-ref/kokoro.js/voices/af_heart.pt" ]; then
+    cp kokoro-main-ref/kokoro.js/voices/af_heart.pt kokoro-local/voices/
+    echo "✅ Voice file 'af_heart.pt' copied successfully"
 else
     echo "❌ Voice file not found. Please ensure the project structure is correct."
-    echo "   Expected: kokoro-main-ref/kokoro.js/voices/af_heart.bin"
+    echo "   Expected: kokoro-main-ref/kokoro.js/voices/af_heart.pt or af_heart.bin"
     exit 1
 fi
 
