@@ -5,7 +5,7 @@
 
 import { runDatabaseMigration } from './database-migration'
 import { createPerformanceMonitor, runPerformanceAnalysis } from '../lib/db-performance-monitor'
-import { optimizedDb } from '../lib/db-optimized-v2'
+import db from '../lib/db'
 import fs from 'fs'
 import path from 'path'
 
@@ -130,7 +130,7 @@ class DatabaseOptimizationImplementer {
     }
 
     // 执行确认
-    if (!this.confirmProceed(options.skipHighRisk)) {
+    if (!this.confirmProceed(options.skipHighRisk || false)) {
       return {
         success: false,
         results: [],

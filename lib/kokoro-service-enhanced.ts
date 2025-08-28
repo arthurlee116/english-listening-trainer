@@ -7,7 +7,7 @@ import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
-import { ErrorHandler, ErrorCode, ErrorSeverity } from './error-handler'
+import { ErrorHandler, ErrorCode, ErrorSeverity, AppError } from './error-handler'
 
 export interface KokoroRequest {
   text: string
@@ -25,10 +25,16 @@ export interface KokoroResponse {
 }
 
 interface PendingRequest {
-  resolve: (value: KokoroResponse) => void
-  reject: (error: Error) => void
-  timestamp: number
-  timeout?: NodeJS.Timeout
+  resolve: (value: KokoroResponse) => void;
+  reject: (error: AppError) => void;
+  timestamp: number;
+  timeout?: NodeJS.Timeout;
+}
+
+interface QueuedRequest extends KokoroRequest {
+  resolve: (value: KokoroResponse | PromiseLike<KokoroResponse>) => void;
+  reject: (reason?: any) => void;
+  queueTimeout: NodeJS.Timeout;
 }
 
 export class KokoroTTSServiceEnhanced extends EventEmitter {
@@ -41,7 +47,7 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
   private maxRestartAttempts = 3
   private restartCooldown = 5000 // 5秒冷却时间
   private lastRestartTime = 0
-  private requestQueue: KokoroRequest[] = []
+  private requestQueue: QueuedRequest[] = []
   private isProcessing = false
   private requestTimeout = 30000 // 30秒超时
   private maxConcurrentRequests = 1 // TTS服务限制并发
@@ -327,26 +333,27 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
 
     // 检查并发限制
     if (this.currentRequests >= this.maxConcurrentRequests) {
-      this.requestQueue.push(request)
-      return new Promise((resolve, reject) => {
+      return new Promise<KokoroResponse>((resolve, reject) => {
         const queueTimeout = setTimeout(() => {
-          const index = this.requestQueue.indexOf(request)
+          const index = this.requestQueue.findIndex(r => r.requestId === request.requestId);
           if (index > -1) {
-            this.requestQueue.splice(index, 1)
+            this.requestQueue.splice(index, 1);
           }
           reject(ErrorHandler.createError(
             ErrorCode.TIMEOUT_ERROR,
             'Request queued too long',
             ErrorSeverity.MEDIUM,
             '请求队列超时，请稍后重试'
-          ))
-        }, 60000) // 1分钟队列超时
+          ));
+        }, 60000); // 1分钟队列超时
 
-        // 将resolve和reject存储到请求中
-        (request as any).resolve = resolve;
-        (request as any).reject = reject;
-        (request as any).queueTimeout = queueTimeout
-      })
+        this.requestQueue.push({
+          ...request,
+          resolve,
+          reject,
+          queueTimeout,
+        });
+      });
     }
 
     return this.executeRequest(request)
@@ -405,22 +412,15 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     if (this.requestQueue.length > 0 && this.currentRequests < this.maxConcurrentRequests) {
       const request = this.requestQueue.shift()!
       
-      // 清理队列超时
-      if ((request as any).queueTimeout) {
-        clearTimeout((request as any).queueTimeout)
-      }
+      clearTimeout(request.queueTimeout);
 
       this.executeRequest(request)
-        .then((response) => {
-          if ((request as any).resolve) {
-            (request as any).resolve(response)
-          }
+        .then(response => {
+          request.resolve(response);
         })
-        .catch((error) => {
-          if ((request as any).reject) {
-            (request as any).reject(error)
-          }
-        })
+        .catch(error => {
+          request.reject(error);
+        });
     }
   }
 
@@ -454,19 +454,15 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     this.initialized = false
     
     // 清理队列
-    this.requestQueue.forEach((request) => {
-      if ((request as any).queueTimeout) {
-        clearTimeout((request as any).queueTimeout)
-      }
-      if ((request as any).reject) {
-        (request as any).reject(ErrorHandler.createError(
-          ErrorCode.TTS_SERVICE_ERROR,
-          'Service shutting down',
-          ErrorSeverity.LOW,
-          '服务正在关闭'
-        ))
-      }
-    })
+    this.requestQueue.forEach(request => {
+      clearTimeout(request.queueTimeout);
+      request.reject(ErrorHandler.createError(
+        ErrorCode.TTS_SERVICE_ERROR,
+        'Service shutting down',
+        ErrorSeverity.LOW,
+        '服务正在关闭'
+      ));
+    });
     this.requestQueue = []
     
     // 等待待处理请求完成或超时

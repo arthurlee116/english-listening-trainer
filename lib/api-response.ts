@@ -18,6 +18,7 @@ export interface ApiResponse<T = any> {
     timestamp: string
     version: string
     requestId?: string
+    [key: string]: any  // 允许额外的属性
   }
 }
 
@@ -47,6 +48,7 @@ export enum ErrorCode {
   INVITATION_CODE_EXPIRED = 'INVITATION_CODE_EXPIRED',
   DAILY_LIMIT_EXCEEDED = 'DAILY_LIMIT_EXCEEDED',
   ACCESS_DENIED = 'ACCESS_DENIED',
+  TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
   
   // 资源错误 (3xxx)
   RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
@@ -77,6 +79,7 @@ const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
   [ErrorCode.INVITATION_CODE_EXPIRED]: 401,
   [ErrorCode.DAILY_LIMIT_EXCEEDED]: 429,
   [ErrorCode.ACCESS_DENIED]: 403,
+  [ErrorCode.TOO_MANY_REQUESTS]: 429,
   
   [ErrorCode.RESOURCE_NOT_FOUND]: 404,
   [ErrorCode.RESOURCE_ALREADY_EXISTS]: 409,
@@ -104,6 +107,7 @@ const ERROR_MESSAGE_MAP: Record<ErrorCode, string> = {
   [ErrorCode.INVITATION_CODE_EXPIRED]: '邀请码已过期',
   [ErrorCode.DAILY_LIMIT_EXCEEDED]: '今日使用次数已达上限',
   [ErrorCode.ACCESS_DENIED]: '访问被拒绝',
+  [ErrorCode.TOO_MANY_REQUESTS]: '请求过于频繁，请稍后再试',
   
   [ErrorCode.RESOURCE_NOT_FOUND]: '请求的资源不存在',
   [ErrorCode.RESOURCE_ALREADY_EXISTS]: '资源已存在',
@@ -260,6 +264,7 @@ export const createApiError = {
   invalidInvitationCode: () => new ApiError(ErrorCode.INVALID_INVITATION_CODE),
   invitationCodeNotFound: () => new ApiError(ErrorCode.INVITATION_CODE_NOT_FOUND),
   dailyLimitExceeded: (current: number, limit: number) => new ApiError(ErrorCode.DAILY_LIMIT_EXCEEDED, `今日已使用${current}/${limit}次`, { current, limit }),
+  rateLimitExceeded: (message?: string) => new ApiError(ErrorCode.TOO_MANY_REQUESTS, message),
   resourceNotFound: (resource: string) => new ApiError(ErrorCode.RESOURCE_NOT_FOUND, `${resource}不存在`),
   databaseError: (details?: any) => new ApiError(ErrorCode.DATABASE_ERROR, undefined, details),
   aiServiceUnavailable: () => new ApiError(ErrorCode.AI_SERVICE_UNAVAILABLE),

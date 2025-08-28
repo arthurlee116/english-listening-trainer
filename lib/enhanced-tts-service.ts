@@ -7,7 +7,7 @@ import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
-import { AppError, ErrorType, ErrorSeverity, withRetry, withTimeout, OperationCanceller } from './enhanced-error-handler'
+import { AppError, ErrorType, ErrorSeverity, withRetry as retryFunction, withTimeout as timeoutFunction, OperationCanceller } from './enhanced-error-handler'
 
 export interface KokoroRequest {
   text: string
@@ -766,7 +766,7 @@ export class EnhancedKokoroTTSService extends EventEmitter {
 function withRetry(target: any, propertyName: string, descriptor: PropertyDescriptor) {
   const method = descriptor.value
   descriptor.value = function (...args: any[]) {
-    const retryWrapper = withRetry(method.bind(this), {
+    const retryWrapper = retryFunction(method.bind(this), {
       maxAttempts: 3,
       baseDelay: 2000,
       maxDelay: 10000,

@@ -4,8 +4,12 @@ import type { ListeningLanguage } from '@/lib/types'
 import { isLanguageSupported } from '@/lib/language-config'
 
 export async function POST(request: NextRequest) {
+  let text = ''
   try {
-    const { text, speed = 1.0, language = 'en-US' } = await request.json()
+    const body = await request.json()
+    text = body.text
+    const speed = body.speed || 1.0
+    const language = body.language || 'en-US'
     
     if (!text) {
       return NextResponse.json({ error: '文本内容不能为空' }, { status: 400 })

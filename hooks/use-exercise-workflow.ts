@@ -169,12 +169,13 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
 
       // 生成文稿
       dispatch({ type: 'SET_PROGRESS', payload: '正在生成听力文稿...' })
-      const transcript = await generateTranscript({
-        topic: selectedTopic,
-        difficulty: state.formData.difficulty,
-        duration: state.formData.duration,
-        focus: state.formData.focus
-      })
+      const transcript = await generateTranscript(
+        state.formData.difficulty,
+        state.formData.duration * 50, // 估算字数，50字/分钟
+        selectedTopic,
+        'en-US',
+        20 // 默认难度等级
+      )
       dispatch({ type: 'SET_TRANSCRIPT', payload: transcript })
 
       // 生成音频
@@ -184,28 +185,31 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
 
       // 生成问题  
       dispatch({ type: 'SET_PROGRESS', payload: '正在生成问题...' })
-      const questions = await generateQuestions({
+      const questions = await generateQuestions(
+        state.formData.difficulty,
         transcript,
-        difficulty: state.formData.difficulty,
-        questionCount: 5
-      })
+        'en-US',
+        state.formData.duration,
+        20 // 默认难度等级
+      )
       dispatch({ type: 'SET_QUESTIONS', payload: questions })
 
       // 创建练习对象
       const exercise: Exercise = {
         id: Date.now().toString(),
-        topic: selectedTopic,
         difficulty: state.formData.difficulty,
-        duration: state.formData.duration,
+        language: 'en-US',
+        topic: selectedTopic,
         transcript,
-        audioUrl,
         questions,
+        answers: {},
+        results: [],
         createdAt: new Date().toISOString()
       }
       dispatch({ type: 'SET_EXERCISE', payload: exercise })
 
       // 保存到历史记录
-      await saveToHistory(exercise, invitationCode)
+      saveToHistory(exercise)
 
       dispatch({ type: 'SET_STEP', payload: 'listening' })
       
@@ -252,17 +256,21 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
       dispatch({ type: 'SET_GENERATING', payload: true })
       dispatch({ type: 'SET_PROGRESS', payload: '正在评分...' })
 
-      const results = await gradeAnswers({
-        exercise: state.exercise,
-        userAnswers: state.userAnswers
-      }, invitationCode)
+      const results = await gradeAnswers(
+        state.exercise.transcript,
+        state.exercise.questions,
+        state.userAnswers.reduce((acc, answer, index) => ({ ...acc, [index]: answer }), {}),
+        'en-US'
+      )
 
       dispatch({ type: 'SET_RESULTS', payload: results })
       dispatch({ type: 'SET_STEP', payload: 'results' })
 
+      const correctCount = results.filter(r => r.is_correct).length
+      
       toast({
         title: "评分完成",
-        description: `您的得分：${results.score}/${results.totalQuestions}`,
+        description: `您的得分：${correctCount}/${results.length}`,
       })
 
       return true

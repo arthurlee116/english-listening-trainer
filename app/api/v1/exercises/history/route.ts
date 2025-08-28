@@ -9,7 +9,8 @@ import {
   withErrorHandler,
   validatePaginationParams,
   buildPaginationInfo,
-  createApiError
+  createApiError,
+  ApiError
 } from '@/lib/api-response'
 import { 
   validateQueryParams 
@@ -99,7 +100,7 @@ async function getExerciseHistoryHandler(request: NextRequest) {
     }
     
     // 从数据库获取数据
-    const { exercises, total } = compatibleDbOperations.getExerciseHistory(
+    const { exercises, total } = DatabaseOperations.getExerciseHistory(
       invitationCode,
       limit,
       offset

@@ -80,7 +80,7 @@ function useOptimizedAudioPlayer(audioUrl: string) {
 
 // 音频事件处理器
 const useAudioEventHandlers = (
-  audioRef: React.RefObject<HTMLAudioElement>,
+  audioRef: React.RefObject<HTMLAudioElement | null>,
   updateState: (updates: any) => void,
   toggleProgressLoop: (start: boolean) => void,
   isScrubbingRef: React.MutableRefObject<boolean>
@@ -127,7 +127,7 @@ const useAudioEventHandlers = (
 
 // 优化的音频控制
 const useAudioControls = (
-  audioRef: React.RefObject<HTMLAudioElement>,
+  audioRef: React.RefObject<HTMLAudioElement | null>,
   state: any,
   updateState: (updates: any) => void,
   toggleProgressLoop: (start: boolean) => void

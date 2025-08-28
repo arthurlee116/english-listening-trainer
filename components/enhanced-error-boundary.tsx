@@ -40,7 +40,7 @@ enum ErrorSeverity {
   CRITICAL = 'critical'
 }
 
-interface ErrorInfo {
+interface ErrorAnalysis {
   category: ErrorCategory
   severity: ErrorSeverity
   userMessage: string
@@ -52,7 +52,7 @@ interface ErrorInfo {
 interface Props {
   children: ReactNode
   fallback?: ReactNode
-  onError?: (error: Error, errorInfo: ErrorInfo) => void
+  onError?: (error: Error, errorInfo: ErrorAnalysis) => void
   showTechnicalDetails?: boolean
   allowReset?: boolean
   resetText?: string
@@ -64,7 +64,7 @@ interface State {
   hasError: boolean
   error?: Error
   errorInfo?: React.ErrorInfo
-  errorAnalysis?: ErrorInfo
+  errorAnalysis?: ErrorAnalysis
   retryAttempts: number
   maxRetries: number
   showDetails: boolean
@@ -109,7 +109,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  private analyzeError(error: Error, errorInfo: React.ErrorInfo): ErrorInfo {
+  private analyzeError(error: Error, errorInfo: React.ErrorInfo): ErrorAnalysis {
     const errorMessage = error.message.toLowerCase()
     const stackTrace = error.stack || ''
     
@@ -205,7 +205,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  private logError(error: Error, errorInfo: React.ErrorInfo, analysis: ErrorInfo): void {
+  private logError(error: Error, errorInfo: React.ErrorInfo, analysis: ErrorAnalysis): void {
     const logData = {
       timestamp: new Date().toISOString(),
       category: analysis.category,

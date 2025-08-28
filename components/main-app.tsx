@@ -94,8 +94,7 @@ export function MainApp() {
       <>
         <InvitationDialog
           open={showInvitationDialog}
-          onOpenChange={setShowInvitationDialog}
-          onVerified={handleInvitationCodeVerified}
+          onCodeVerified={handleInvitationCodeVerified}
         />
         <Toaster />
       </>
@@ -192,11 +191,11 @@ export function MainApp() {
           )}
 
           {currentView === 'history' && (
-            <HistoryPanel invitationCode={invitationCode} />
+            <HistoryPanel onBack={() => setCurrentView('exercise')} />
           )}
 
           {currentView === 'wrong-answers' && (
-            <WrongAnswersBook invitationCode={invitationCode} />
+            <WrongAnswersBook onBack={() => setCurrentView('exercise')} />
           )}
         </main>
 
@@ -263,9 +262,11 @@ function ExerciseView({
               {state.audioUrl && (
                 <div className="space-y-4">
                   <AudioPlayer
-                    src={state.audioUrl}
-                    title="听力材料"
-                    showSpeedControl={true}
+                    audioUrl={state.audioUrl}
+                    audioError={false}
+                    transcript={state.transcript || ""}
+                    difficulty={state.formData.difficulty}
+                    topic={state.formData.topic || state.formData.customTopic}
                   />
                   
                   <div className="text-center">
@@ -292,11 +293,17 @@ function ExerciseView({
         <div className="max-w-3xl mx-auto">
           <QuestionInterface
             questions={state.questions}
-            userAnswers={state.userAnswers}
-            audioUrl={state.audioUrl}
-            onAnswerChange={onUpdateAnswer}
+            answers={state.userAnswers.reduce((acc: Record<number, string>, answer: string, index: number) => ({ ...acc, [index]: answer }), {})}
+            onAnswerChange={(answers) => {
+              Object.entries(answers).forEach(([index, answer]) => {
+                onUpdateAnswer(parseInt(index), answer)
+              })
+            }}
             onSubmit={onSubmitAnswers}
-            canSubmit={canProceed}
+            loading={state.isGenerating}
+            loadingMessage={state.progressMessage || ""}
+            audioUrl={state.audioUrl}
+            transcript={state.transcript || ""}
           />
         </div>
       )
@@ -305,9 +312,9 @@ function ExerciseView({
       return (
         <div className="max-w-3xl mx-auto">
           <ResultsDisplay
-            results={state.results}
             exercise={state.exercise}
-            onReset={onReset}
+            onRestart={onReset}
+            onExport={() => {}}
           />
         </div>
       )

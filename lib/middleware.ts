@@ -5,7 +5,7 @@
 
 import { NextRequest } from 'next/server'
 import { dbOperations } from './db'
-import { ApiError, createApiError, generateRequestId } from './api-response'
+import { ApiError, createApiError, generateRequestId, ErrorCode } from './api-response'
 import { validateAndCleanInvitationCode } from './validation'
 
 // 请求上下文接口
@@ -88,7 +88,7 @@ export function withAdminAuth(request: NextRequest): void {
   const authHeader = request.headers.get('authorization')
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new ApiError('ACCESS_DENIED', '缺少认证信息')
+    throw new ApiError(ErrorCode.ACCESS_DENIED, '缺少认证信息')
   }
   
   const token = authHeader.substring(7)
@@ -97,7 +97,7 @@ export function withAdminAuth(request: NextRequest): void {
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
   
   if (token !== adminPassword) {
-    throw new ApiError('ACCESS_DENIED', '认证失败')
+    throw new ApiError(ErrorCode.ACCESS_DENIED, '认证失败')
   }
 }
 
@@ -166,7 +166,7 @@ export function withRateLimit(
   const result = limiter.checkLimit(ip)
   
   if (!result.allowed) {
-    throw new ApiError('TOO_MANY_REQUESTS', '请求过于频繁，请稍后再试', {
+    throw new ApiError(ErrorCode.TOO_MANY_REQUESTS, '请求过于频繁，请稍后再试', {
       resetTime: new Date(result.resetTime).toISOString(),
       remaining: result.remaining
     })

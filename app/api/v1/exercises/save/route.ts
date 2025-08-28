@@ -7,7 +7,8 @@ import { NextRequest } from 'next/server'
 import { 
   createSuccessResponse, 
   withErrorHandler, 
-  createApiError
+  createApiError,
+  ApiError
 } from '@/lib/api-response'
 import { 
   validateRequestBody, 
