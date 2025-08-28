@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证邀请码是否有效
-    const isValidCode = dbOperations.verifyInvitationCode(invitationCode)
+    const isValidCode = await databaseAdapter.verifyInvitationCode(invitationCode)
     if (!isValidCode) {
       return NextResponse.json(
         { error: '无效的邀请码' },
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 删除现有的难度评估记录（保留历史记录）
-    const deleteSuccess = dbOperations.deleteDifficultyAssessment(invitationCode)
+    const deleteSuccess = await databaseAdapter.deleteDifficultyAssessment(invitationCode)
 
     if (!deleteSuccess) {
       return NextResponse.json(

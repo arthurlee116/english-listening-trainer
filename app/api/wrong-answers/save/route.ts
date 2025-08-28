@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(request: NextRequest) {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // 保存所有错题到数据库
     let savedCount = 0
     for (const wrongAnswer of wrongAnswers) {
-      if (dbOperations.saveWrongAnswer(wrongAnswer)) {
+      if (await databaseAdapter.saveWrongAnswer(wrongAnswer)) {
         savedCount++
       }
     }

@@ -1,0 +1,164 @@
+// Prisma Schema - 英语听力训练应用
+// 支持多数据库适配器: SQLite, PostgreSQL, MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 数据库配置 - 根据环境变量切换
+datasource db {
+  provider = env("DATABASE_TYPE") // sqlite | postgresql | mysql
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 邀请码表 - 用户访问控制
+// ==========================================
+model Invitation {
+  code            String            @id // 邀请码
+  createdAt       DateTime          @default(now()) @map("created_at")
+  lastActiveAt    DateTime          @default(now()) @updatedAt @map("last_active_at")
+  
+  // 关联关系
+  exercises       Exercise[]
+  dailyUsage      DailyUsage[]
+  wrongAnswers    WrongAnswer[]
+  userDifficulty  UserDifficulty?
+  userWeakness    UserWeakness[]
+  assessmentHistory AssessmentHistory[]
+
+  @@map("invitations")
+}
+
+// ==========================================
+// 练习记录表 - 存储用户练习数据
+// ==========================================
+model Exercise {
+  id              String      @id // UUID
+  invitationCode  String      @map("invitation_code")
+  exerciseData    String      @map("exercise_data") // JSON 数据
+  difficulty      Int?        // 用户难度等级
+  createdAt       DateTime    @default(now()) @map("created_at")
+  
+  // 关联关系
+  invitation      Invitation  @relation(fields: [invitationCode], references: [code], onDelete: Cascade)
+  wrongAnswers    WrongAnswer[]
+
+  @@index([invitationCode, createdAt])
+  @@map("exercises")
+}
+
+// ==========================================
+// 每日使用次数表 - 限制用户每日使用
+// ==========================================
+model DailyUsage {
+  id              Int         @id @default(autoincrement())
+  invitationCode  String      @map("invitation_code")
+  date            String      // YYYY-MM-DD 格式
+  usageCount      Int         @default(0) @map("usage_count")
+  
+  // 关联关系
+  invitation      Invitation  @relation(fields: [invitationCode], references: [code], onDelete: Cascade)
+
+  @@unique([invitationCode, date])
+  @@map("daily_usage")
+}
+
+// ==========================================
+// 错题记录表 - 详细的错题分析
+// ==========================================
+model WrongAnswer {
+  id                          String      @id // UUID
+  invitationCode              String      @map("invitation_code")
+  exerciseId                  String      @map("exercise_id")
+  questionIndex               Int         @map("question_index")
+  questionData                String      @map("question_data") // JSON
+  userAnswer                  String      @map("user_answer")
+  correctAnswer               String      @map("correct_answer")
+  transcriptSnippet           String?     @map("transcript_snippet")
+  topic                       String
+  difficulty                  String
+  language                    String      @default("en-US")
+  tags                        String      // JSON 数组
+  errorAnalysis               String?     @map("error_analysis")
+  
+  // 详细分析字段
+  extendedErrorAnalysis       String?     @map("extended_error_analysis")
+  solutionTips                String?     @map("solution_tips")
+  highlightingAnnotations     String?     @map("highlighting_annotations") // JSON
+  detailedAnalysisStatus      String      @default("pending") @map("detailed_analysis_status")
+  
+  createdAt                   DateTime    @default(now()) @map("created_at")
+  
+  // 关联关系
+  invitation                  Invitation  @relation(fields: [invitationCode], references: [code], onDelete: Cascade)
+  exercise                    Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([invitationCode, createdAt])
+  @@index([exerciseId])
+  @@map("wrong_answers")
+}
+
+// ==========================================
+// 错题标签定义表 - 标签分类系统
+// ==========================================
+model ErrorTag {
+  id              Int         @id @default(autoincrement())
+  tagName         String      @unique @map("tag_name")
+  tagNameCn       String      @map("tag_name_cn") // 中文名称
+  category        String      // error-type | knowledge | context | difficulty
+  description     String?
+  color           String      // 颜色代码
+
+  @@map("error_tags")
+}
+
+// ==========================================
+// 用户薄弱点统计表 - 个性化分析
+// ==========================================
+model UserWeakness {
+  invitationCode      String      @map("invitation_code")
+  tagName             String      @map("tag_name")
+  frequency           Int         @default(1)
+  lastOccurrence      DateTime    @default(now()) @map("last_occurrence")
+  improvementRate     Float       @default(0.0) @map("improvement_rate")
+  
+  // 关联关系
+  invitation          Invitation  @relation(fields: [invitationCode], references: [code], onDelete: Cascade)
+
+  @@id([invitationCode, tagName])
+  @@map("user_weakness")
+}
+
+// ==========================================
+// 用户难度评估表 - 个性化难度等级
+// ==========================================
+model UserDifficulty {
+  id                  Int         @id @default(autoincrement())
+  invitationCode      String      @unique @map("invitation_code")
+  difficultyLevel     Int         @map("difficulty_level") // 1-30
+  testDate            DateTime    @default(now()) @map("test_date")
+  scores              String      // JSON: [score1, score2, score3, score4, score5]
+  
+  // 关联关系
+  invitation          Invitation  @relation(fields: [invitationCode], references: [code], onDelete: Cascade)
+
+  @@map("user_difficulty")
+}
+
+// ==========================================
+// 评估历史记录表 - 管理员统计功能
+// ==========================================
+model AssessmentHistory {
+  id                  Int         @id @default(autoincrement())
+  invitationCode      String      @map("invitation_code")
+  testDate            DateTime    @default(now()) @map("test_date")
+  scores              String      // JSON: [score1, score2, score3, score4, score5]
+  finalDifficulty     Int         @map("final_difficulty")
+  
+  // 关联关系
+  invitation          Invitation  @relation(fields: [invitationCode], references: [code], onDelete: Cascade)
+
+  @@index([testDate])
+  @@map("assessment_history")
+}

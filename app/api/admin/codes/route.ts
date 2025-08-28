@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 // 简单的管理员密码验证
 const ADMIN_PASSWORD = 'admin123'
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取所有邀请码
-    const codes = dbOperations.getAllInvitationCodes()
+    const codes = await databaseAdapter.getAllInvitationCodes()
     
     return NextResponse.json({ 
       success: true,
@@ -55,7 +55,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 删除邀请码
-    const success = dbOperations.deleteInvitationCode(code.trim().toUpperCase())
+    const success = await databaseAdapter.deleteInvitationCode(code.trim().toUpperCase())
     
     if (!success) {
       return NextResponse.json({ 

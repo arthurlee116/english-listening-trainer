@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '邀请码缺失' }, { status: 400 })
     }
 
-    const success = dbOperations.clearUserWrongAnswers(invitationCode)
+    const success = await databaseAdapter.clearUserWrongAnswers(invitationCode)
 
     if (success) {
       return NextResponse.json({ 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
 
-    const success = dbOperations.deleteWrongAnswer(id, invitationCode)
+    const success = await databaseAdapter.deleteWrongAnswer(id, invitationCode)
 
     if (success) {
       return NextResponse.json({ 

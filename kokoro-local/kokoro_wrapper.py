@@ -226,52 +226,79 @@ class KokoroTTSWrapper:
         return chunks
     
     async def generate_speech_chunked(self, text: str, speed: float = 1.0) -> str:
-        """分块生成音频并拼接"""
+        """分块生成音频并拼接（线程池并行 + 可配置并发度）"""
         chunks = self.split_text_intelligently(text)
-        print(f"🧩 Split text into {len(chunks)} chunks", file=sys.stderr)
-        
-        audio_chunks = []
-        
-        for i, chunk in enumerate(chunks):
-            print(f"🎵 Processing chunk {i+1}/{len(chunks)}: {len(chunk)} chars", file=sys.stderr)
-            
+        total = len(chunks)
+        print(f"🧩 Split text into {total} chunks for parallel processing", file=sys.stderr)
+
+        # 在本函数内定义同步的块生成函数，在线程池中执行
+        def _generate_chunk_hex_sync(chunk_text: str, s: float) -> str:
+            import torch
+            buffer = io.BytesIO()
+            audio_tensors = []
+            # 直接对该块运行一次pipeline（避免重复遍历）
+            for _, _, audio in self.pipeline(
+                chunk_text,
+                voice=self.voice,
+                speed=s,
+                split_pattern=r'\n+'
+            ):
+                if audio is not None:
+                    if self.device == 'mps':
+                        audio = audio.to('cpu')
+                    audio_tensors.append(audio)
+
+            if not audio_tensors:
+                raise Exception("No audio chunks were generated")
+
+            combined = torch.cat(audio_tensors)
+            sf.write(buffer, combined.numpy(), 24000, format='WAV')
+            return buffer.getvalue().hex()
+
+        # 并发度（默认2，可通过环境变量调整）
+        try:
+            max_concurrency = max(1, int(os.environ.get('KOKORO_TTS_MAX_CONCURRENCY', '2')))
+        except Exception:
+            max_concurrency = 2
+
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def worker(idx: int, chunk_text: str):
+            print(f"🚀 Starting chunk {idx+1}/{total}: {len(chunk_text)} chars", file=sys.stderr)
+            async with sem:
+                # 在线程池中执行CPU密集型任务
+                hex_data = await asyncio.to_thread(_generate_chunk_hex_sync, chunk_text, speed)
+                return idx, hex_data
+
+        tasks = [worker(i, c) for i, c in enumerate(chunks)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 处理结果并按原始顺序拼接
+        audio_chunks: list[bytes] = []
+        for result in sorted(
+            [r for r in results if not isinstance(r, Exception)], key=lambda x: x[0]
+        ):
+            idx, chunk_hex = result
             try:
-                # 为每个块生成音频
-                chunk_audio_hex = await self.generate_speech_single(chunk, speed)
-                
-                # 将十六进制转换为字节
-                chunk_audio_bytes = bytes.fromhex(chunk_audio_hex)
-                
-                # 解析WAV文件，提取音频数据部分（跳过WAV头）
-                if chunk_audio_bytes.startswith(b'RIFF'):
-                    # 找到data块的位置
-                    data_pos = chunk_audio_bytes.find(b'data')
+                chunk_bytes = bytes.fromhex(chunk_hex)
+                if chunk_bytes.startswith(b'RIFF'):
+                    data_pos = chunk_bytes.find(b'data')
                     if data_pos == -1:
-                        print(f"❌ No data chunk found in audio file", file=sys.stderr)
+                        print(f"❌ No 'data' chunk found in audio for chunk {idx+1}", file=sys.stderr)
                         continue
-                    
-                    # data块头部包含 'data' + 4字节大小信息
                     data_start = data_pos + 8
-                    
-                    # 验证data块大小
-                    if data_start >= len(chunk_audio_bytes):
-                        print(f"❌ Invalid data chunk position", file=sys.stderr)
+                    if data_start >= len(chunk_bytes):
+                        print(f"❌ Invalid data chunk position for chunk {idx+1}", file=sys.stderr)
                         continue
-                        
-                    audio_data = chunk_audio_bytes[data_start:]
+                    audio_data = chunk_bytes[data_start:]
                     audio_chunks.append(audio_data)
-                    print(f"✅ Extracted {len(audio_data)} bytes of audio data from chunk", file=sys.stderr)
                 else:
-                    # 如果不是标准WAV格式，直接使用
-                    audio_chunks.append(chunk_audio_bytes)
-                    print(f"✅ Using raw audio data: {len(chunk_audio_bytes)} bytes", file=sys.stderr)
-                
-                print(f"✅ Chunk {i+1} completed ({len(audio_data)} bytes)", file=sys.stderr)
-                
+                    audio_chunks.append(chunk_bytes)
+                print(f"✅ Chunk {idx+1} processed successfully.", file=sys.stderr)
             except Exception as e:
-                print(f"❌ Chunk {i+1} failed: {e}", file=sys.stderr)
-                # 继续处理其他块
+                print(f"❌ Error processing result for chunk {idx+1}: {e}", file=sys.stderr)
                 continue
+
         
         if not audio_chunks:
             raise Exception("No audio chunks were generated successfully")

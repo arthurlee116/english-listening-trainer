@@ -1,0 +1,91 @@
+# Docker 构建忽略文件
+# 排除不需要的文件以优化构建速度和镜像大小
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+.next
+out
+
+# 构建输出
+build
+dist
+
+# 环境配置文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 数据库文件
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 日志文件
+logs/
+*.log
+
+# 音频文件 (运行时生成)
+public/audio/*.wav
+public/tts_audio_*.wav
+
+# 测试相关
+coverage/
+__tests__/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# 开发工具
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# 文档
+README.md
+docs/
+*.md
+
+# 备份文件
+backups/
+*.backup
+*_backup*
+
+# 临时文件
+tmp/
+temp/
+.tmp
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+
+# Kokoro TTS 虚拟环境 (会在容器中重新创建)
+kokoro-local/venv/
+
+# 其他
+.dockerignore
+Dockerfile*
+docker-compose*.yml

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const limit = limitParam ? parseInt(limitParam, 10) : 10
     
     // 验证邀请码是否存在
-    const isValid = dbOperations.verifyInvitationCode(invitationCode)
+    const isValid = await databaseAdapter.verifyInvitationCode(invitationCode)
     
     if (!isValid) {
       return NextResponse.json({ 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取练习历史记录
-    const history = dbOperations.getExerciseHistory(invitationCode, limit)
+    const history = await databaseAdapter.getExerciseHistory(invitationCode, limit)
     
     return NextResponse.json({ 
       success: true,

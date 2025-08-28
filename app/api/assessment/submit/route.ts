@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 import { validateAssessmentScores, generateAssessmentSummary } from '@/lib/assessment-utils'
 import { calculateDifficultyLevel, getDifficultyRange } from '@/lib/difficulty-service'
 
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证邀请码是否有效
-    const isValidCode = dbOperations.verifyInvitationCode(invitationCode)
+    const isValidCode = await databaseAdapter.verifyInvitationCode(invitationCode)
     if (!isValidCode) {
       return NextResponse.json(
         { error: '无效的邀请码' },
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const summary = generateAssessmentSummary(scores, difficultyLevel)
 
     // 保存评估结果到数据库
-    const saveSuccess = dbOperations.saveDifficultyAssessment(
+    const saveSuccess = await databaseAdapter.saveDifficultyAssessment(
       invitationCode,
       scores,
       difficultyLevel

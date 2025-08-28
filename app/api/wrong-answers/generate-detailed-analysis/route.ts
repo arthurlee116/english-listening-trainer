@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
 
 export async function POST(request: NextRequest) {
@@ -14,14 +14,14 @@ export async function POST(request: NextRequest) {
 
     // 如果提供了特定错题ID，处理单个错题
     if (wrongAnswerId) {
-      const wrongAnswer = dbOperations.getWrongAnswerWithDetailedAnalysis(wrongAnswerId)
+      const wrongAnswer = await databaseAdapter.getWrongAnswerWithDetailedAnalysis(wrongAnswerId)
       if (wrongAnswer && wrongAnswer.detailed_analysis_status !== 'completed') {
         wrongAnswersToProcess = [wrongAnswer]
       }
     }
     // 否则批量处理该用户所有待分析的错题
     else if (invitationCode) {
-      wrongAnswersToProcess = dbOperations.getWrongAnswersForDetailedAnalysis(invitationCode, 5)
+      wrongAnswersToProcess = await databaseAdapter.getWrongAnswersForDetailedAnalysis(invitationCode, 5)
     }
 
     if (wrongAnswersToProcess.length === 0) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     for (const wrongAnswer of wrongAnswersToProcess) {
       try {
         // 标记为正在生成
-        dbOperations.updateDetailedAnalysisStatus(wrongAnswer.id, 'generating')
+        await databaseAdapter.updateDetailedAnalysisStatus(wrongAnswer.id, 'generating')
 
         const prompt = `你是一个资深的英语听力学习专家和教学辅导员，拥有多年的TOEFL、IELTS、大学四六级等听力考试辅导经验。请为以下错题进行深度学习分析。
 
@@ -135,7 +135,7 @@ ${wrongAnswer.question_data.options ? `选项：${wrongAnswer.question_data.opti
 
         if (result && result.extended_error_analysis && result.solution_tips && result.highlighting_annotations) {
           // 保存详细分析结果
-          const saveSuccess = dbOperations.saveDetailedAnalysis(wrongAnswer.id, {
+          const saveSuccess = await databaseAdapter.saveDetailedAnalysis(wrongAnswer.id, {
             extended_error_analysis: result.extended_error_analysis,
             solution_tips: result.solution_tips,
             highlighting_annotations: result.highlighting_annotations
@@ -146,18 +146,18 @@ ${wrongAnswer.question_data.options ? `选项：${wrongAnswer.question_data.opti
             console.log(`✅ 成功生成错题详细分析: ${wrongAnswer.topic} - 题目 ${wrongAnswer.question_index + 1}`)
           } else {
             console.error(`❌ 保存详细分析失败: ${wrongAnswer.id}`)
-            dbOperations.updateDetailedAnalysisStatus(wrongAnswer.id, 'failed')
+            await databaseAdapter.updateDetailedAnalysisStatus(wrongAnswer.id, 'failed')
           }
         } else {
           console.error(`❌ AI返回格式异常: ${wrongAnswer.id}`)
-          dbOperations.updateDetailedAnalysisStatus(wrongAnswer.id, 'failed')
+          await databaseAdapter.updateDetailedAnalysisStatus(wrongAnswer.id, 'failed')
         }
 
         processedCount++
 
       } catch (error) {
         console.error(`处理错题详细分析失败 ${wrongAnswer.id}:`, error)
-        dbOperations.updateDetailedAnalysisStatus(wrongAnswer.id, 'failed')
+        await databaseAdapter.updateDetailedAnalysisStatus(wrongAnswer.id, 'failed')
         processedCount++
       }
     }

@@ -3,12 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "prisma generate && next build",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
     "admin": "node admin-server.mjs",
     "admin-dev": "NODE_ENV=development node admin-server.mjs",
+    
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx scripts/seed-db.ts",
+    "db:reset": "prisma migrate reset --force",
+    "db:push": "prisma db push",
+    
+    "docker:dev-db": "./scripts/dev-db.sh",
+    "docker:init-db": "./scripts/init-db.sh",
+    
     "test-mcp": "node scripts/test-mcp.js",
     "fix-mcp": "npm cache clean --force && node scripts/test-mcp.js",
     "fix-mcp-sudo": "sudo npm cache clean --force && sudo npm install -g minimax-mcp-js && node scripts/test-mcp.js",
@@ -19,6 +31,7 @@
   "dependencies": {
     "@cerebras/cerebras_cloud_sdk": "^1.46.0",
     "@hookform/resolvers": "^3.9.1",
+    "@prisma/client": "^5.22.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -80,7 +93,9 @@
     "eslint": "^9.30.1",
     "eslint-config-next": "^15.3.5",
     "postcss": "^8.5",
+    "prisma": "^5.22.0",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.1",
     "typescript": "^5"
   }
 }

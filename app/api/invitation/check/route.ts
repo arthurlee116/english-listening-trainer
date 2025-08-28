@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const invitationCode = code.trim().toUpperCase()
     
     // 验证邀请码是否存在
-    const isValid = dbOperations.verifyInvitationCode(invitationCode)
+    const isValid = await databaseAdapter.verifyInvitationCode(invitationCode)
     
     if (!isValid) {
       return NextResponse.json({ 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取今日使用次数
-    const todayUsage = dbOperations.getTodayUsageCount(invitationCode)
+    const todayUsage = await databaseAdapter.getTodayUsageCount(invitationCode)
     const remainingUsage = Math.max(0, 5 - todayUsage)
     
     return NextResponse.json({ 

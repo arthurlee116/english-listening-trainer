@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations, generateInvitationCode } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
+import { generateInvitationCode } from '@/lib/db'
 
 // 简单的管理员密码验证
 const ADMIN_PASSWORD = 'admin123' // 在生产环境中应该使用环境变量
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 批量创建邀请码
-    const successCount = dbOperations.createMultipleInvitationCodes(codes)
+    const successCount = await databaseAdapter.createMultipleInvitationCodes(codes)
     
     if (successCount === 0) {
       return NextResponse.json({ 

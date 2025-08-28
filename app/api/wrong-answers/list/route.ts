@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +23,9 @@ export async function GET(request: NextRequest) {
       filters.category = category
     }
 
-    const wrongAnswers = dbOperations.getWrongAnswers(invitationCode, filters)
-    const tagStats = dbOperations.getUserTagStats(invitationCode)
-    const allTags = dbOperations.getAllErrorTags()
+    const wrongAnswers = await databaseAdapter.getWrongAnswers(invitationCode, filters)
+    const tagStats = await databaseAdapter.getUserTagStats(invitationCode)
+    const allTags = await databaseAdapter.getAllErrorTags()
 
     return NextResponse.json({
       success: true,

@@ -1,0 +1,188 @@
+# Docker Compose 配置 - 英语听力训练应用
+# 支持本地开发和生产部署
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # 主应用服务
+  # ==========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: english-listening-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      # 基础配置
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      
+      # 数据库配置
+      - DATABASE_TYPE=${DATABASE_TYPE:-sqlite}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DATABASE_PATH=/app/data/app.db
+      
+      # AI 服务配置  
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY}
+      - CEREBRAS_BASE_URL=${CEREBRAS_BASE_URL:-https://api.cerebras.ai}
+      
+      # TTS 配置
+      - TTS_MODE=${TTS_MODE:-local}
+      - PYTORCH_ENABLE_MPS_FALLBACK=1
+      
+      # 安全配置
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:3000}
+      
+      # 存储路径
+      - STORAGE_PATH=/app/storage
+      - AUDIO_PATH=/app/public/audio
+      
+    volumes:
+      # 持久化数据存储
+      - app_data:/app/data
+      - audio_files:/app/public/audio
+      - app_logs:/app/logs
+      
+      # TTS 模型缓存 (可选，提高启动速度)
+      - kokoro_models:/app/kokoro-local/voices
+      
+    networks:
+      - app_network
+    
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ==========================================
+  # PostgreSQL 数据库 (可选)
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: english-listening-db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-listening_app}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_INITDB_ARGS="--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-listening_app}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - postgres
+
+  # ==========================================  
+  # MySQL 数据库 (可选)
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: english-listening-mysql
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root}
+      - MYSQL_DATABASE=${DB_NAME:-listening_app}
+      - MYSQL_USER=${DB_USER:-user}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-password}
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init-mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USER:-user}", "-p${DB_PASSWORD:-password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - mysql
+
+  # ==========================================
+  # Redis 缓存 (可选)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: english-listening-cache
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - cache
+
+# ==========================================
+# 数据卷定义
+# ==========================================
+volumes:
+  app_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}
+      
+  audio_files:
+    driver: local
+    driver_opts:
+      type: none  
+      o: bind
+      device: ${AUDIO_PATH:-./public/audio}
+      
+  app_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind  
+      device: ${LOGS_PATH:-./logs}
+      
+  kokoro_models:
+    driver: local
+    
+  postgres_data:
+    driver: local
+    
+  mysql_data:
+    driver: local
+    
+  redis_data:
+    driver: local
+
+# ==========================================
+# 网络配置
+# ==========================================
+networks:
+  app_network:
+    driver: bridge

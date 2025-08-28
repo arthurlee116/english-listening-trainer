@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 import { generateAssessmentReport, formatAssessmentHistory } from '@/lib/assessment-utils'
 
 export async function GET(request: NextRequest) {
@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50', 10)
 
     // 获取评估历史记录
-    const assessmentHistory = dbOperations.getAssessmentHistory(limit)
+    const assessmentHistory = await databaseAdapter.getAssessmentHistory(limit)
     
     // 获取难度分布统计
-    const difficultyDistribution = dbOperations.getDifficultyDistribution()
+    const difficultyDistribution = await databaseAdapter.getDifficultyDistribution()
     
     // 生成报告数据
     const report = generateAssessmentReport(assessmentHistory)

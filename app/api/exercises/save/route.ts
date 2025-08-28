@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 import type { Exercise } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const code = invitationCode.trim().toUpperCase()
     
     // 验证邀请码是否存在
-    const isValid = dbOperations.verifyInvitationCode(code)
+    const isValid = await databaseAdapter.verifyInvitationCode(code)
     
     if (!isValid) {
       return NextResponse.json({ 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 保存练习记录
-    const success = dbOperations.saveExercise(exercise as Exercise, code)
+    const success = await databaseAdapter.saveExercise(exercise as Exercise, code)
     
     if (!success) {
       return NextResponse.json({ 

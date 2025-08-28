@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 验证邀请码是否有效
-    const isValidCode = dbOperations.verifyInvitationCode(invitationCode)
+    const isValidCode = await databaseAdapter.verifyInvitationCode(invitationCode)
     if (!isValidCode) {
       return NextResponse.json(
         { error: '无效的邀请码' },
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 检查用户是否已完成难度评估
-    const assessmentStatus = dbOperations.checkUserDifficultyAssessment(invitationCode)
+    const assessmentStatus = await databaseAdapter.checkUserDifficultyAssessment(invitationCode)
 
     return NextResponse.json({
       success: true,

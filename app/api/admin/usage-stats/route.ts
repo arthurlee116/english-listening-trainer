@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 // 简单的管理员密码验证
 const ADMIN_PASSWORD = 'admin123'
@@ -21,11 +21,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取使用统计
-    const exerciseStats = dbOperations.getUsageStats()
-    const dailyStats = dbOperations.getDailyUsageStats()
+    const exerciseStats = await databaseAdapter.getUsageStats()
+    const dailyStats = await databaseAdapter.getDailyUsageStats()
     
     // 计算总体统计
-    const totalInvitations = dbOperations.getAllInvitationCodes().length
+    const totalInvitations = (await databaseAdapter.getAllInvitationCodes()).length
     const totalExercises = exerciseStats.reduce((sum, stat) => sum + stat.total_exercises, 0)
     const activeToday = dailyStats.filter(stat => {
       const today = new Date().toISOString().split('T')[0]

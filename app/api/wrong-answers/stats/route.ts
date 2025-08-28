@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dbOperations } from '@/lib/db'
+import { databaseAdapter } from '@/lib/database-adapter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,9 +10,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '邀请码缺失' }, { status: 400 })
     }
 
-    const tagStats = dbOperations.getUserTagStats(invitationCode)
-    const userWeakness = dbOperations.getUserWeakness(invitationCode, 10)
-    const allTags = dbOperations.getAllErrorTags()
+    const tagStats = await databaseAdapter.getUserTagStats(invitationCode)
+    const userWeakness = await databaseAdapter.getUserWeakness(invitationCode, 10)
+    const allTags = await databaseAdapter.getAllErrorTags()
 
     // 按类别分组标签统计
     const statsByCategory = tagStats.reduce((acc, stat) => {
