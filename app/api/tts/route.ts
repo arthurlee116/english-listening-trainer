@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { kokoroTTS } from '@/lib/kokoro-service'
-import type { ListeningLanguage } from '@/lib/types'
 import { isLanguageSupported } from '@/lib/language-config'
 
 export async function POST(request: NextRequest) {

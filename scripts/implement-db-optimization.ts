@@ -4,8 +4,7 @@
  */
 
 import { runDatabaseMigration } from './database-migration'
-import { createPerformanceMonitor, runPerformanceAnalysis } from '../lib/db-performance-monitor'
-import db from '../lib/db'
+import { runPerformanceAnalysis } from '../lib/db-performance-monitor'
 import fs from 'fs'
 import path from 'path'
 

@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -100,7 +99,7 @@ function useAdminAuth() {
         })
         return false
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "网络错误",
         description: "登录失败，请稍后重试",
@@ -149,7 +148,7 @@ function useInvitationManagement(password: string) {
         const data = await response.json()
         setCodes(data.codes)
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load codes:', error)
       toast({
         title: "加载失败",
@@ -168,7 +167,7 @@ function useInvitationManagement(password: string) {
         const data = await response.json()
         setStats(data.data)
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load stats:', error)
       toast({
         title: "加载失败",
@@ -187,7 +186,7 @@ function useInvitationManagement(password: string) {
         const data = await response.json()
         setAssessmentStats(data.data)
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load assessment stats:', error)
       toast({
         title: "加载失败",
@@ -227,7 +226,7 @@ function useInvitationManagement(password: string) {
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "网络错误",
         description: "生成失败，请稍后重试",
@@ -264,7 +263,7 @@ function useInvitationManagement(password: string) {
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "网络错误",
         description: "删除失败，请稍后重试",
@@ -284,7 +283,7 @@ function useInvitationManagement(password: string) {
         title: "复制成功",
         description: `邀请码 ${code} 已复制到剪贴板`,
       })
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to copy:', error)
       toast({
         title: "复制失败",
@@ -329,7 +328,7 @@ export default function AdminPage() {
       invitationState.loadStats()
       invitationState.loadAssessmentStats()
     }
-  }, [authState.isAuthenticated, invitationState.loadCodes, invitationState.loadStats, invitationState.loadAssessmentStats])
+  }, [authState.isAuthenticated, invitationState, invitationState.loadCodes, invitationState.loadStats, invitationState.loadAssessmentStats])
 
   if (!authState.isAuthenticated) {
     return (
@@ -590,7 +589,7 @@ export default function AdminPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {invitationState.stats.dailyStats.map((stat, index) => (
+                        {invitationState.stats.dailyStats.map((stat, _index) => (
                           <TableRow key={`${stat.invitation_code}-${stat.date}`}>
                             <TableCell className="font-mono">{stat.invitation_code}</TableCell>
                             <TableCell>{stat.date}</TableCell>

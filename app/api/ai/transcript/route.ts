@@ -3,6 +3,10 @@ import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
 import { countWords, meetsLengthRequirement } from '@/lib/text-expansion'
 import type { ListeningLanguage } from '@/lib/types'
 
+interface TranscriptResponse {
+  transcript: string
+}
+
 // 语言名称映射
 const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
   'en-US': 'American English',
@@ -75,7 +79,7 @@ Generate the listening script in ${languageName}.`
         console.log(`生成尝试 ${genAttempt}: 目标 ${wordCount} 词`)
 
         const messages: ArkMessage[] = [{ role: 'user', content: basePrompt }]
-        const result = await callArkAPI(messages, schema, 'transcript_response') as any
+        const result = await callArkAPI(messages, schema, 'transcript_response') as TranscriptResponse
 
         if (result && typeof result.transcript === 'string') {
           transcript = result.transcript.trim()

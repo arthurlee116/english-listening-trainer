@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
 import type { ListeningLanguage } from '@/lib/types'
 
+interface GeneratedQuestion {
+  type: 'single' | 'short'
+  question: string
+  options: string[] | null
+  answer: string
+  focus_areas: string[]
+  explanation: string
+}
+
+interface QuestionsResponse {
+  questions: GeneratedQuestion[]
+}
+
 // 语言名称映射
 const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
   'en-US': 'American English',
@@ -100,7 +113,7 @@ Ensure high quality questions with accurate tags that effectively test ${languag
 
     const messages: ArkMessage[] = [{ role: 'user', content: prompt }]
 
-    const result = await callArkAPI(messages, schema, 'questions_response') as any
+    const result = await callArkAPI(messages, schema, 'questions_response') as QuestionsResponse
 
     if (result && Array.isArray(result.questions)) {
       return NextResponse.json({ success: true, questions: result.questions })

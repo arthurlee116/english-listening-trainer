@@ -28,6 +28,7 @@ export type StrictRecord<K extends string | number | symbol, T> = {
  * 获取对象的可选属性键
  */
 export type OptionalKeys<T> = {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   [K in keyof T]-?: {} extends Pick<T, K> ? K : never
 }[keyof T]
 
@@ -376,7 +377,7 @@ export function isValidInvitationCode(value: unknown): value is string {
   return isString(value) && /^[A-Z0-9]{6}$/.test(value)
 }
 
-export default {
+const typeUtils = {
   // 类型导出
   ErrorCode,
   AppError,
@@ -401,3 +402,5 @@ export default {
   isValidQuestionType,
   isValidInvitationCode
 }
+
+export default typeUtils

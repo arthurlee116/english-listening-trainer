@@ -1,4 +1,5 @@
 // 生成剩余的评估音频文件
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs')
 const path = require('path')
 

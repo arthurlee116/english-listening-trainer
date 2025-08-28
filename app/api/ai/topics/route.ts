@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
 import type { ListeningLanguage } from '@/lib/types'
-import { getLanguageConfig } from '@/lib/language-config'
+
+interface TopicsResponse {
+  topics: string[]
+}
 
 // 语言名称映射
 const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
@@ -59,7 +62,7 @@ Return exactly 5 topics in ${languageName}.`
 
     const messages: ArkMessage[] = [{ role: 'user', content: prompt }]
 
-    const result = await callArkAPI(messages, schema, 'topics_response') as any
+    const result = await callArkAPI(messages, schema, 'topics_response') as TopicsResponse
 
     if (result && Array.isArray(result.topics)) {
       return NextResponse.json({ success: true, topics: result.topics })

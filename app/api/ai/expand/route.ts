@@ -5,7 +5,10 @@ import {
   meetsLengthRequirement, 
   generateExpansionPrompt 
 } from '@/lib/text-expansion'
-import type { ListeningLanguage } from '@/lib/types'
+
+interface ExpansionResponse {
+  expanded_text: string
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
 
       try {
         const messages: ArkMessage[] = [{ role: 'user', content: prompt }]
-        const result = await callArkAPI(messages, schema, 'expansion_response') as any
+        const result = await callArkAPI(messages, schema, 'expansion_response') as ExpansionResponse
 
         if (result && typeof result.expanded_text === 'string') {
           currentText = result.expanded_text.trim()

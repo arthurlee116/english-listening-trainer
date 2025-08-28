@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ASSESSMENT_AUDIOS } from '@/lib/difficulty-service'
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // 返回评估音频信息（不包含完整transcript，避免泄露答案）
     const audioInfo = ASSESSMENT_AUDIOS.map(audio => ({

@@ -1,6 +1,6 @@
-const { createServer } = require('http')
-const { parse } = require('url')
-const next = require('next')
+import { createServer } from 'http'
+import { parse } from 'url'
+import next from 'next'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'

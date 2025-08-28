@@ -184,13 +184,13 @@ class DatabaseMigration {
     }
 
     // 邀请码表新字段
-    addColumnIfNotExists('invitations', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    addColumnIfNotExists('invitations', 'updated_at', 'DATETIME')
     addColumnIfNotExists('invitations', 'is_active', 'BOOLEAN DEFAULT 1')
     addColumnIfNotExists('invitations', 'max_daily_usage', 'INTEGER DEFAULT 5')
     addColumnIfNotExists('invitations', 'total_usage_count', 'INTEGER DEFAULT 0')
 
     // 练习表新字段
-    addColumnIfNotExists('exercises', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    addColumnIfNotExists('exercises', 'updated_at', 'DATETIME')
     addColumnIfNotExists('exercises', 'difficulty', 'TEXT')
     addColumnIfNotExists('exercises', 'topic', 'TEXT')
     addColumnIfNotExists('exercises', 'question_count', 'INTEGER DEFAULT 0')
@@ -201,10 +201,10 @@ class DatabaseMigration {
 
     // 日使用表新字段
     addColumnIfNotExists('daily_usage', 'date_int', 'INTEGER')
-    addColumnIfNotExists('daily_usage', 'last_updated', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    addColumnIfNotExists('daily_usage', 'last_updated', 'DATETIME')
 
     // 错题表新字段
-    addColumnIfNotExists('wrong_answers', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    addColumnIfNotExists('wrong_answers', 'updated_at', 'DATETIME')
   }
 
   // 迁移数据
@@ -241,8 +241,8 @@ class DatabaseMigration {
     `).all() as {id: string, tags: string}[]
 
     const insertTag = this.db.prepare(`
-      INSERT OR IGNORE INTO wrong_answer_tags (wrong_answer_id, tag_name, confidence_score)
-      VALUES (?, ?, ?)
+      INSERT OR IGNORE INTO wrong_answer_tags (wrong_answer_id, tag_name)
+      VALUES (?, ?)
     `)
 
     let migratedCount = 0
@@ -250,7 +250,7 @@ class DatabaseMigration {
       try {
         const tags = JSON.parse(wa.tags) as string[]
         for (const tag of tags) {
-          insertTag.run(wa.id, tag, 1.0)
+          insertTag.run(wa.id, tag)
           migratedCount++
         }
       } catch (error) {
@@ -320,7 +320,7 @@ class DatabaseMigration {
     const result = this.db.prepare(`
       INSERT OR REPLACE INTO user_statistics (
         invitation_code, total_exercises, total_wrong_answers, 
-        accuracy_rate, avg_score, last_activity_date
+        accuracy_rate, last_exercise_date
       )
       SELECT 
         i.code,
@@ -331,7 +331,6 @@ class DatabaseMigration {
             1.0 - (CAST(COUNT(DISTINCT wa.id) AS REAL) / (COUNT(DISTINCT e.id) * 5.0))
           ELSE 0.0 
         END,
-        AVG(e.score),
         MAX(COALESCE(e.completed_at, e.created_at))
       FROM invitations i
       LEFT JOIN exercises e ON i.code = e.invitation_code
@@ -348,16 +347,16 @@ class DatabaseMigration {
 
     const result = this.db.prepare(`
       INSERT OR REPLACE INTO tag_statistics (
-        tag_name, invitation_code, occurrence_count, last_occurrence
+        tag_name, total_occurrences, unique_users, last_occurrence
       )
       SELECT 
         wat.tag_name,
-        wa.invitation_code,
         COUNT(*),
+        COUNT(DISTINCT wa.invitation_code),
         MAX(wa.created_at)
       FROM wrong_answer_tags wat
       JOIN wrong_answers wa ON wat.wrong_answer_id = wa.id
-      GROUP BY wat.tag_name, wa.invitation_code
+      GROUP BY wat.tag_name
     `).run()
 
     console.log(`  ✓ Initialized ${result.changes} tag statistics`)
@@ -398,10 +397,10 @@ class DatabaseMigration {
         ON wrong_answer_tags(tag_name);
         
         CREATE INDEX IF NOT EXISTS idx_user_stats_activity 
-        ON user_statistics(last_activity_date DESC);
+        ON user_statistics(last_exercise_date DESC);
         
         CREATE INDEX IF NOT EXISTS idx_tag_stats_count 
-        ON tag_statistics(invitation_code, occurrence_count DESC);
+        ON tag_statistics(total_occurrences DESC);
       `)
     })
 

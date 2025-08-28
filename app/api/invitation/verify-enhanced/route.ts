@@ -116,7 +116,7 @@ export async function GET() {
         database: 'error'
       }, { status: 503 })
     }
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({
       status: 'error',
       timestamp: new Date().toISOString(),

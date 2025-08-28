@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
-import type { ListeningLanguage } from '@/lib/types'
+import type { ListeningLanguage, Question } from '@/lib/types'
+
+interface GradingResult {
+  type: 'single' | 'short'
+  user_answer: string
+  correct_answer: string
+  is_correct: boolean
+  standard_answer: string | null
+  score: number | null
+  short_feedback: string | null
+  error_tags: string[]
+  error_analysis: string | null
+}
+
+interface GradingResponse {
+  results: GradingResult[]
+}
 
 // 语言名称映射
 const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
@@ -24,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
 
-    const questionsWithAnswers = questions.map((q: any, index: number) => ({
+    const questionsWithAnswers = questions.map((q: Question, index: number) => ({
       question: q.question,
       type: q.type,
       options: q.options,
@@ -104,7 +120,7 @@ Difficulty Tags: accent-difficulty(口音理解), speed-issue(语速问题), com
 
     const messages: ArkMessage[] = [{ role: 'user', content: prompt }]
 
-    const result = await callArkAPI(messages, schema, 'grading_response') as any
+    const result = await callArkAPI(messages, schema, 'grading_response') as GradingResponse
 
     if (result && Array.isArray(result.results)) {
       return NextResponse.json({ success: true, results: result.results })

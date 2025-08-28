@@ -17,7 +17,7 @@ import {
 } from '@/lib/validation'
 import { withMiddleware } from '@/lib/middleware'
 import { DatabaseOperations } from '@/lib/db-unified'
-import { appCache, cacheKeys } from '@/lib/cache'
+import { appCache } from '@/lib/cache'
 
 /**
  * 练习历史查询处理器
@@ -67,13 +67,7 @@ async function getExerciseHistoryHandler(request: NextRequest) {
   
   const { data: filters } = validateQueryParams(searchParams, querySchema)
   
-  // 检查缓存
-  const cacheKey = cacheKeys.exerciseHistory(
-    invitationCode, 
-    limit, 
-    offset
-  ) + `:${JSON.stringify(filters)}`
-  
+  // 检查缓存  
   const cachedData = appCache.getCachedExerciseHistory(
     invitationCode, 
     limit, 
@@ -90,15 +84,6 @@ async function getExerciseHistoryHandler(request: NextRequest) {
   }
   
   try {
-    // 构建数据库查询参数
-    const dbFilters = {
-      ...filters,
-      limit,
-      offset,
-      sortBy: filters.sortBy || 'created_at',
-      sortOrder: filters.sortOrder || 'desc'
-    }
-    
     // 从数据库获取数据
     const { exercises, total } = DatabaseOperations.getExerciseHistory(
       invitationCode,

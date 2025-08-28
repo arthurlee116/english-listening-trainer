@@ -15,7 +15,6 @@ import {
   commonSchemas 
 } from '@/lib/validation'
 import { withMiddleware } from '@/lib/middleware'
-import { DatabaseOperations } from '@/lib/db-unified'
 import { appCache } from '@/lib/cache'
 import type { Exercise } from '@/lib/types'
 
