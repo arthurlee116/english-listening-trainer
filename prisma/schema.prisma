@@ -5,9 +5,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// 数据库配置 - 根据环境变量切换
+// 数据库配置 - 根据 DATABASE_URL 自动检测数据库类型
 datasource db {
-  provider = env("DATABASE_TYPE") // sqlite | postgresql | mysql
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

@@ -9,7 +9,6 @@
     "start": "next start",
     "admin": "node admin-server.mjs",
     "admin-dev": "NODE_ENV=development node admin-server.mjs",
-    
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -17,10 +16,12 @@
     "db:seed": "tsx scripts/seed-db.ts",
     "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
-    
     "docker:dev-db": "./scripts/dev-db.sh",
     "docker:init-db": "./scripts/init-db.sh",
     
+    "migrate-data": "tsx scripts/migrate-data.ts",
+    "migrate-data:verify": "tsx scripts/migrate-data.ts --verify-only",
+    "migrate-data:rollback": "tsx scripts/migrate-data.ts --rollback",
     "test-mcp": "node scripts/test-mcp.js",
     "fix-mcp": "npm cache clean --force && node scripts/test-mcp.js",
     "fix-mcp-sudo": "sudo npm cache clean --force && sudo npm install -g minimax-mcp-js && node scripts/test-mcp.js",
@@ -66,6 +67,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "commander": "^14.0.0",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "https-proxy-agent": "^7.0.6",
