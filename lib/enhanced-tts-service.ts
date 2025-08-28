@@ -276,7 +276,7 @@ export class EnhancedKokoroTTSService extends EventEmitter {
       const venvEnv = {
         ...env,
         VIRTUAL_ENV: venvPath,
-        PATH: `${venvPath}/bin:${env.PATH || process.env.PATH || ''}`,
+        PATH: `${venvPath}/bin:${process.env.PATH || ''}`,
         PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.13', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
       }
       
@@ -480,8 +480,6 @@ export class EnhancedKokoroTTSService extends EventEmitter {
     this.stats.averageResponseTime = (totalResponseTime + responseTime) / this.stats.totalRequests
   }
 
-  @withRetry
-  @withTimeout(90000)
   async generateAudio(text: string, speed: number = 1.0): Promise<string> {
     if (this.state === ServiceState.SHUTDOWN) {
       throw new AppError('TTS service is shut down', {
@@ -781,7 +779,7 @@ function withTimeout(timeoutMs: number) {
   return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value
     descriptor.value = function (...args: any[]) {
-      return withTimeout(method.bind(this), timeoutMs)(...args)
+      return timeoutFunction(method.bind(this), timeoutMs)(...args)
     }
   }
 }

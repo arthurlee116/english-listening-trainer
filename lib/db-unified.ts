@@ -3,7 +3,7 @@
  * 整合所有数据库功能，解决重复文件问题
  */
 
-import Database, { Transaction } from 'better-sqlite3'
+import Database, { Transaction, Database as DatabaseType } from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
 import { Exercise } from './types'
@@ -66,7 +66,7 @@ class DatabaseMetrics {
 }
 
 // 事务包装器
-function withTransaction<T>(operation: (db: Database) => T): T {
+function withTransaction<T>(operation: (db: DatabaseType) => T): T {
   const transaction = db.transaction(() => {
     return operation(db)
   })

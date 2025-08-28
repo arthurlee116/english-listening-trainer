@@ -13,6 +13,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 开发环境设置
 
+### 前置要求
+- Node.js 18+
+- Python 3.8-3.12（Kokoro TTS 不支持 Python 3.13+）
+- macOS（推荐，支持 Apple Silicon）
+- pnpm 包管理器（推荐）：`npm install -g pnpm`
+
 ### 必需环境变量
 ```bash
 # .env.local 
@@ -22,9 +28,9 @@ PYTORCH_ENABLE_MPS_FALLBACK=1
 
 ### 初始化和启动命令
 ```bash
-npm install                    # 安装依赖
+npm install                    # 安装依赖（推荐使用 pnpm install）
 npm run setup-kokoro          # 初始化 Kokoro TTS 环境
-node scripts/create-test-codes.js  # 创建测试邀请码
+pnpm exec ts-node scripts/database-migration.ts  # 数据库迁移
 npm run dev                   # 启动开发服务器
 ```
 
@@ -37,7 +43,7 @@ npm run lint                  # 代码检查
 
 ### 管理功能
 ```bash
-npm run admin                 # 启动管理服务器（端口3001）
+npm run admin                 # 启动管理服务器（端口3005）
 npm run admin-dev            # 开发模式管理服务器
 ```
 
@@ -113,9 +119,12 @@ npm run admin-dev            # 开发模式管理服务器
 4. 使用生成的测试邀请码进行功能验证
 
 ### 常见问题
+- **Python 版本问题**: 验证 Python 版本 (`python3 --version`)，需要 3.8-3.12
 - **TTS 初始化失败**: 重新运行 `npm run setup-kokoro`
+- **虚拟环境重建**: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`
 - **AI 生成失败**: 检查 API 密钥和网络连接
 - **邀请码验证失败**: 确认数据库文件存在且可写
+- **数据库架构问题**: 删除 `data/app.db` 重新初始化数据库
 
 ## 生产部署考虑
 

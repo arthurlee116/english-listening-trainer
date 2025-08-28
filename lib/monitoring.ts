@@ -5,6 +5,8 @@
 
 import { DatabaseOperations } from './db-unified'
 import { appCache } from './cache'
+import path from 'path'
+import fs from 'fs'
 
 // 日志级别
 export enum LogLevel {
@@ -219,6 +221,49 @@ export class Logger {
       )
       .slice(-limit)
   }
+
+  // 获取日志统计信息
+  getStats() {
+    const stats = {
+      total: this.logs.length,
+      byLevel: {
+        [LogLevel.DEBUG]: this.logs.filter(log => log.level === LogLevel.DEBUG).length,
+        [LogLevel.INFO]: this.logs.filter(log => log.level === LogLevel.INFO).length,
+        [LogLevel.WARN]: this.logs.filter(log => log.level === LogLevel.WARN).length,
+        [LogLevel.ERROR]: this.logs.filter(log => log.level === LogLevel.ERROR).length,
+        [LogLevel.FATAL]: this.logs.filter(log => log.level === LogLevel.FATAL).length,
+      },
+      lastLogTime: this.logs.length > 0 ? this.logs[this.logs.length - 1].timestamp : null
+    }
+    return stats
+  }
+
+  // 记录错误（兼容旧接口）
+  logError(error: Error, context?: any): void {
+    this.error(error.message, error, context)
+  }
+
+  // 轮转日志文件
+  rotateLog(filename: string): void {
+    const logDir = process.env.LOG_DIR || './logs'
+    const filepath = path.join(logDir, filename)
+    
+    if (!fs.existsSync(filepath)) {
+      this.warn(`Log file not found: ${filename}`)
+      return
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backupName = `${filename}.${timestamp}`
+    const backupPath = path.join(logDir, backupName)
+
+    try {
+      fs.renameSync(filepath, backupPath)
+      this.info(`Log rotated: ${filename} -> ${backupName}`)
+    } catch (error) {
+      this.error(`Failed to rotate log file: ${filename}`, error as Error)
+    }
+  }
 }
 
 /**
@@ -412,14 +457,14 @@ export class HealthChecker {
           status: 'pass',
           message: 'Database connection successful',
           duration,
-          details: result.details
+          details: result.metrics
         }
       } else {
         return {
           status: 'fail',
           message: 'Database connection failed',
           duration,
-          details: result.details
+          details: result.metrics
         }
       }
     } catch (error) {
@@ -521,7 +566,7 @@ export class HealthChecker {
   private async checkExternalServices(): Promise<HealthCheckResult['checks'][string]> {
     try {
       // 检查AI服务可用性
-      const checks = []
+      const checks: Array<{name: string, status: string}> = []
       
       // 这里可以添加对外部服务的ping检查
       // 例如：检查Cerebras API、TTS服务等

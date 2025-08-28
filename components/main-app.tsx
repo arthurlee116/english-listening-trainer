@@ -267,6 +267,9 @@ function ExerciseView({
                     transcript={state.transcript || ""}
                     difficulty={state.formData.difficulty}
                     topic={state.formData.topic || state.formData.customTopic}
+                    wordCount={state.transcript ? state.transcript.split(/\s+/).length : 0}
+                    onGenerateAudio={() => {}}
+                    onStartQuestions={onStartQuestions}
                   />
                   
                   <div className="text-center">
