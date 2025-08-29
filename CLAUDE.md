@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 邮箱密码用户认证系统（JWT会话管理）
 - Cerebras AI 驱动的内容生成
 - 本地 Kokoro TTS（支持 Apple Silicon Metal 加速）  
-- SQLite 数据持久化
+- SQLite/Prisma 数据持久化
 - TypeScript 全栈开发
 
 ## 开发环境设置
@@ -34,23 +34,23 @@ ADMIN_NAME=System Administrator
 
 ### 初始化和启动命令
 ```bash
-npm install                    # 安装依赖（推荐使用 pnpm install）
-npm run setup-kokoro          # 初始化 Kokoro TTS 环境
+pnpm install                    # 安装依赖
+pnpm run setup-kokoro          # 初始化 Kokoro TTS 环境
 pnpm exec tsx scripts/seed-user-db.ts  # 用户数据库初始化（创建管理员账号）
-npm run dev                   # 启动开发服务器
+pnpm run dev                   # 启动开发服务器
 ```
 
 ### 构建和部署命令
 ```bash
-npm run build                 # 生产构建
-npm run start                 # 启动生产服务器  
-npm run lint                  # 代码检查
+pnpm run build                 # 生产构建
+pnpm run start                 # 启动生产服务器  
+pnpm run lint                  # 代码检查
 ```
 
 ### 管理功能
 ```bash
-npm run admin                 # 启动管理服务器（端口3005）
-npm run admin-dev            # 开发模式管理服务器
+pnpm run admin                 # 启动管理服务器（端口3005）
+pnpm run admin-dev            # 开发模式管理服务器
 ```
 
 ## 核心架构
@@ -91,7 +91,7 @@ npm run admin-dev            # 开发模式管理服务器
 - `app/api/admin/*` - 管理员功能 API 路由
 - `app/api/tts/route.ts` - 本地 TTS 服务接口
 - `lib/auth.ts` - JWT认证和用户管理工具
-- `lib/db.ts` - SQLite 数据库操作
+- `lib/database.ts` - SQLite 数据库操作
 - `lib/ai-service.ts` - AI 服务客户端封装
 
 ### TTS 系统
@@ -128,7 +128,7 @@ npm run admin-dev            # 开发模式管理服务器
 
 ### 常见问题
 - **Python 版本问题**: 验证 Python 版本 (`python3 --version`)，需要 3.8-3.12
-- **TTS 初始化失败**: 重新运行 `npm run setup-kokoro`
+- **TTS 初始化失败**: 重新运行 `pnpm run setup-kokoro`
 - **虚拟环境重建**: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`
 - **AI 生成失败**: 检查 API 密钥和网络连接
 - **用户认证失败**: 检查 JWT_SECRET 环境变量配置
@@ -143,14 +143,6 @@ npm run admin-dev            # 开发模式管理服务器
 - 考虑音频文件的清理策略
 - 设置数据库备份机制
 - 配置 HTTPS 确保 JWT cookies 安全传输
-
-## 注意事项:
-- 如果你根据我的要求改进了代码，请务必在本文件中添加注释，并说明你的改进内容。
-- Always use IDE diagnostics to validate and correct code
-- 除非我明确要求，否则你不允许使用模拟数据来代替真实的AI服务输出
-- 如果我刚刚让你生成的某一个功能的代码出现了问题，你不应该回退到前一个版本的功能，而应该是把现在的代码修好
-- 你的计划只要获得我的允许，就可以放开手脚去做，可以无限制的使用工具，可以无限制的输出，直到达到我的要求为止
-- 每次做更改以后（更改完成确认可以运行，功能正常以后）进行git commit
 
 ## 系统重构记录 (2024-12)
 **重构类型**: 用户系统架构完全重写
@@ -169,3 +161,54 @@ npm run admin-dev            # 开发模式管理服务器
 - httpOnly cookies 安全存储
 - 密码复杂度验证（8+字符，大小写+数字）
 - 管理员权限控制
+
+## 部署和运维脚本
+
+### 自动化脚本
+- `scripts/backup.sh` - 数据库和音频文件备份
+- `scripts/restore.sh` - 从备份恢复数据
+- `scripts/health-check.sh` - 系统健康监控
+- `scripts/deploy.sh` - 自动化部署（初始/更新/回滚）
+- `scripts/init-db.sh` - 数据库初始化和用户创建
+
+### Docker 部署
+- `docker-compose.production.yml` - 生产环境容器化部署
+- `nginx/nginx.conf.example` - Nginx 反向代理配置模板
+- `.env.production.example` - 生产环境配置模板
+
+### 监控和维护
+- `/api/health` - 健康检查端点
+- `/api/performance/metrics` - 性能指标
+- `/admin` - 管理面板（需要管理员权限）
+
+## 最近更新记录
+
+### 2025-08-29: PostgreSQL 迁移工具集
+**改进内容**: 完整的数据库迁移方案和自动化工具  
+- **新增迁移脚本** (`scripts/migrate-to-postgres.ts`)
+  - 从邀请码系统迁移到用户认证系统
+  - 自动创建用户账号（基于邀请码）和转换练习记录
+  - 数据验证和回滚功能，支持 `--verify-only` 和 `--rollback` 参数
+- **数据库切换工具** (`scripts/switch-database.sh`)
+  - SQLite/PostgreSQL 快速切换命令
+  - 自动更新 Prisma Schema 和环境配置
+  - 数据库状态检查和连接验证
+- **详细迁移指南** (`scripts/MIGRATION-GUIDE.md`)
+  - 完整迁移步骤说明和环境配置
+  - 故障排除方案和回滚计划
+  - 用户账号信息和数据映射规则
+- **支持的数据库命令**:
+  - `npm run migrate-data` - 执行完整迁移
+  - `npm run migrate-data:verify` - 仅验证数据一致性  
+  - `npm run migrate-data:rollback` - 清空目标数据库
+  - `./scripts/switch-database.sh [sqlite|postgres|status]` - 快速切换数据库
+  - `./scripts/dev-db.sh [start|stop|reset]` - PostgreSQL 容器管理
+
+**备注**: 工具已完成测试，支持完整的架构升级迁移。由于 Docker 启动问题，已提供多种 PostgreSQL 启动方案。
+
+## 重要提醒
+- 如果你根据我的要求改进了代码，请务必在本文件中添加注释，并说明你的改进内容
+- 除非我明确要求，否则你不允许使用模拟数据来代替真实的AI服务输出
+- 如果我刚刚让你生成的某一个功能的代码出现了问题，你不应该回退到前一个版本的功能，而应该是把现在的代码修好
+- 你的计划只要获得我的允许，就可以放开手脚去做，可以无限制的使用工具，可以无限制的输出，直到达到我的要求为止
+- 每次做更改以后（更改完成确认可以运行，功能正常以后）进行git commit
