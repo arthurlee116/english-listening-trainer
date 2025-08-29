@@ -1,0 +1,432 @@
+# Docker Compose 生产环境配置 - 英语听力训练应用
+# 使用方法：docker-compose -f docker-compose.production.yml up -d
+
+version: '3.8'
+
+# 网络定义
+networks:
+  app-network:
+    driver: bridge
+  nginx-network:
+    driver: bridge
+
+# 数据卷定义
+volumes:
+  app-data:
+    driver: local
+  audio-files:
+    driver: local
+  logs-data:
+    driver: local
+  backup-data:
+    driver: local
+  nginx-certs:
+    driver: local
+  nginx-vhost:
+    driver: local
+  nginx-html:
+    driver: local
+
+services:
+  # Next.js 应用服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - NODE_ENV=production
+    container_name: listening-training-app
+    restart: unless-stopped
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    
+    env_file:
+      - .env.production
+    
+    volumes:
+      # 持久化数据
+      - app-data:/app/data
+      - audio-files:/app/public/audio
+      - logs-data:/app/logs
+      - backup-data:/app/backups
+      
+      # Kokoro TTS 模型文件（如果需要持久化）
+      - ./kokoro-local/voices:/app/kokoro-local/voices:ro
+    
+    networks:
+      - app-network
+    
+    ports:
+      - "127.0.0.1:3000:3000"
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    depends_on:
+      - init-db
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+    
+    # 安全配置
+    security_opt:
+      - no-new-privileges:true
+    
+    # 用户权限
+    user: "1000:1000"
+
+  # 数据库初始化服务
+  init-db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: listening-training-init-db
+    
+    environment:
+      - NODE_ENV=production
+    
+    env_file:
+      - .env.production
+    
+    volumes:
+      - app-data:/app/data
+      - ./scripts:/app/scripts:ro
+    
+    networks:
+      - app-network
+    
+    command: ["./scripts/init-db.sh"]
+    
+    restart: "no"
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: listening-training-nginx
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      # Nginx 配置
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      
+      # SSL 证书
+      - nginx-certs:/etc/letsencrypt:ro
+      - nginx-vhost:/etc/nginx/vhost.d
+      - nginx-html:/usr/share/nginx/html
+      
+      # 静态文件（可选）
+      - ./public:/var/www/html/static:ro
+      
+      # 日志
+      - logs-data:/var/log/nginx
+    
+    networks:
+      - nginx-network
+      - app-network
+    
+    depends_on:
+      - app
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  # SSL 证书管理（Let's Encrypt）
+  certbot:
+    image: certbot/certbot:latest
+    container_name: listening-training-certbot
+    
+    volumes:
+      - nginx-certs:/etc/letsencrypt
+      - nginx-html:/var/www/certbot
+    
+    # 定期更新证书
+    command: ["sh", "-c", "trap exit TERM; while :; do certbot renew; sleep 12h & wait; done"]
+    
+    restart: unless-stopped
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+
+  # 定时备份服务
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: listening-training-backup
+    
+    environment:
+      - NODE_ENV=production
+    
+    env_file:
+      - .env.production
+    
+    volumes:
+      - app-data:/app/data:ro
+      - audio-files:/app/public/audio:ro
+      - logs-data:/app/logs:ro
+      - backup-data:/app/backups
+      - ./scripts:/app/scripts:ro
+    
+    networks:
+      - app-network
+    
+    # 每日凌晨 2 点执行备份
+    command: ["sh", "-c", "while true; do sleep 86400; ./scripts/backup.sh --compress --cleanup; done"]
+    
+    restart: unless-stopped
+    
+    depends_on:
+      - app
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # 监控和日志管理
+  logrotate:
+    image: alpine:latest
+    container_name: listening-training-logrotate
+    
+    volumes:
+      - logs-data:/var/log/app
+      - ./scripts:/scripts:ro
+    
+    # 每天轮转日志
+    command: ["sh", "-c", "while true; do find /var/log/app -name '*.log' -size +100M -exec truncate -s 0 {} \\;; sleep 86400; done"]
+    
+    restart: unless-stopped
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+
+  # 健康检查和监控服务
+  healthcheck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: listening-training-healthcheck
+    
+    environment:
+      - NODE_ENV=production
+    
+    env_file:
+      - .env.production
+    
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - logs-data:/app/logs
+    
+    networks:
+      - app-network
+    
+    # 每 5 分钟执行健康检查
+    command: ["sh", "-c", "while true; do ./scripts/health-check.sh >> /app/logs/health.log 2>&1; sleep 300; done"]
+    
+    restart: unless-stopped
+    
+    depends_on:
+      - app
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+
+  # 可选：Redis 缓存服务
+  redis:
+    image: redis:alpine
+    container_name: listening-training-redis
+    restart: unless-stopped
+    
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-defaultpassword}"
+    
+    volumes:
+      - redis-data:/data
+    
+    networks:
+      - app-network
+    
+    ports:
+      - "127.0.0.1:6379:6379"
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    
+    profiles:
+      - redis
+
+  # 可选：PostgreSQL 数据库服务
+  postgres:
+    image: postgres:15-alpine
+    container_name: listening-training-postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: ${DB_NAME:-listening_training}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts:/docker-entrypoint-initdb.d:ro
+    
+    networks:
+      - app-network
+    
+    ports:
+      - "127.0.0.1:5432:5432"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    profiles:
+      - postgres
+
+# 额外数据卷（可选服务）
+volumes:
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+# 配置说明和使用方法
+# 
+# 基本启动：
+# docker-compose -f docker-compose.production.yml up -d
+# 
+# 包含 Redis 缓存：
+# docker-compose -f docker-compose.production.yml --profile redis up -d
+# 
+# 包含 PostgreSQL 数据库：
+# docker-compose -f docker-compose.production.yml --profile postgres up -d
+# 
+# 完整配置（包含所有可选服务）：
+# docker-compose -f docker-compose.production.yml --profile redis --profile postgres up -d
+# 
+# 查看日志：
+# docker-compose -f docker-compose.production.yml logs -f app
+# 
+# 停止服务：
+# docker-compose -f docker-compose.production.yml down
+# 
+# 停止并删除数据卷：
+# docker-compose -f docker-compose.production.yml down -v
+# 
+# 重新构建应用：
+# docker-compose -f docker-compose.production.yml build --no-cache app
+# 
+# 执行备份：
+# docker-compose -f docker-compose.production.yml exec backup ./scripts/backup.sh
+# 
+# 进入应用容器：
+# docker-compose -f docker-compose.production.yml exec app sh
+# 
+# 查看健康状态：
+# docker-compose -f docker-compose.production.yml ps
+# 
+# 重要配置提醒：
+# 1. 确保 .env.production 文件已正确配置
+# 2. 更新 nginx/nginx.conf 中的域名配置
+# 3. 配置 SSL 证书路径
+# 4. 根据服务器资源调整资源限制
+# 5. 定期更新容器镜像版本
+# 
+# 安全建议：
+# 1. 使用非 root 用户运行容器
+# 2. 定期更新基础镜像
+# 3. 启用容器安全扫描
+# 4. 配置防火墙规则
+# 5. 监控容器资源使用情况
+# 
+# 数据持久化：
+# - 数据库文件: app-data 卷
+# - 音频文件: audio-files 卷  
+# - 日志文件: logs-data 卷
+# - 备份文件: backup-data 卷
+# 
+# 备份和恢复：
+# - 定期备份数据卷: docker volume ls
+# - 导出数据卷: docker run --rm -v app-data:/data -v $(pwd):/backup alpine tar czf /backup/app-data.tar.gz -C /data .
+# - 恢复数据卷: docker run --rm -v app-data:/data -v $(pwd):/backup alpine tar xzf /backup/app-data.tar.gz -C /data

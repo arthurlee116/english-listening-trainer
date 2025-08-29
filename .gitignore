@@ -93,6 +93,67 @@ test-core-functionality.js
 public/tts_audio_*.wav
 warmup_audio.wav
 
+# Production environment files
+.env.production
+.env.production.local
+
+# Backup files and directories
+/backups/
+*.backup
+*.tar.gz
+*.restore_backup_*
+
+# Health check temporary files
+temp_*.js
+temp_*.txt
+
+# Docker files
+docker-compose.override.yml
+.dockerignore
+
+# SSL certificates and keys
+/nginx/certs/
+/nginx/ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary directories and files
+/tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
 # Development temporary files
 docs/
 *.backup
+
+# Deployment artifacts
+.deploy/
+deploy_*.tar.gz
+
+# Performance and monitoring logs
+performance.log
+monitoring.log
+health-check.log
+
+# System generated files
+.fuse_hidden*
+
+# Editor specific files
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# Build artifacts
+.build/
+dist/
+build/
