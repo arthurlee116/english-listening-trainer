@@ -40,7 +40,8 @@
       "Bash(find:*)",
       "Bash(git clone:*)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "Bash(sqlite3:*)"
     ],
     "deny": [],
     "ask": [],
