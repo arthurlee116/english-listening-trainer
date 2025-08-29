@@ -36,6 +36,16 @@ const DIFFICULTY_LEVELS = [
   { value: "C2", label: "C2 - Proficient" },
 ]
 
+// 等级与个性化难度范围映射（参考 `components/assessment-interface.tsx` 的区间定义）
+const DIFFICULTY_RANGE_MAP: Record<DifficultyLevel, { min: number; max: number }> = {
+  A1: { min: 1, max: 5 },
+  A2: { min: 6, max: 10 },
+  B1: { min: 11, max: 15 },
+  B2: { min: 16, max: 20 },
+  C1: { min: 21, max: 25 },
+  C2: { min: 26, max: 30 },
+}
+
 const DURATION_OPTIONS = [
   { value: 60, label: "1 minute (~120 words)" },
   { value: 120, label: "2 minutes (~240 words)" },
@@ -575,6 +585,13 @@ export default function HomePage() {
                 </Button>
               </div>
             )}
+            {/* 个性化难度徽章（完成难度测试后显示） */}
+            {assessmentResult && (
+              <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50">
+                个性化难度：{assessmentResult.difficultyRange.name}
+                <span className="ml-1">({assessmentResult.difficultyRange.min}-{assessmentResult.difficultyRange.max})</span>
+              </Badge>
+            )}
             <div className="flex gap-2">
               <ThemeToggle />
               <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="glass-effect">
@@ -624,6 +641,10 @@ export default function HomePage() {
                       {DIFFICULTY_LEVELS.map((level) => (
                         <SelectItem key={level.value} value={level.value}>
                           {level.label}
+                          {" "}
+                          <span className="text-xs text-gray-500">
+                            ({DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].min}-{DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].max})
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

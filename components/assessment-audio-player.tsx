@@ -66,6 +66,28 @@ export function AssessmentAudioPlayer({
     }
   }, [onEnded])
 
+  // 当音频源发生变化时，重置内部状态，避免沿用上一段音频的“已播放”状态
+  useEffect(() => {
+    // 重置 UI 状态
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+    setHasPlayed(false)
+
+    // 重置音频元素播放进度
+    const audio = audioRef.current
+    if (audio) {
+      try {
+        audio.pause()
+        audio.currentTime = 0
+      } catch (_) {
+        // 某些浏览器可能禁止直接设置 currentTime，忽略即可
+      }
+      // 触发浏览器重新加载新的音频资源
+      audio.load()
+    }
+  }, [src])
+
   const handlePlayPause = () => {
     if (!audioRef.current) return
     

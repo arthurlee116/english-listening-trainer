@@ -31,6 +31,7 @@ echo_error() {
 check_env() {
     echo_info "检查环境变量配置..."
     
+    # 检查数据库配置
     if [ -z "$DATABASE_URL" ]; then
         echo_warning "DATABASE_URL 未设置，使用默认 SQLite"
         export DATABASE_TYPE=sqlite
@@ -41,8 +42,36 @@ check_env() {
         export DATABASE_TYPE=sqlite
     fi
     
+    # 检查 JWT 密钥
+    if [ -z "$JWT_SECRET" ]; then
+        echo_warning "JWT_SECRET 未设置，生成临时密钥"
+        export JWT_SECRET=$(openssl rand -hex 32)
+        echo_warning "生产环境请设置固定的 JWT_SECRET: $JWT_SECRET"
+    fi
+    
+    # 检查管理员账户配置
+    if [ -z "$ADMIN_EMAIL" ]; then
+        export ADMIN_EMAIL="admin@listeningtrain.com"
+        echo_info "使用默认管理员邮箱: $ADMIN_EMAIL"
+    fi
+    
+    if [ -z "$ADMIN_PASSWORD" ]; then
+        export ADMIN_PASSWORD="Admin123456"
+        echo_warning "使用默认管理员密码，生产环境请修改"
+    fi
+    
+    if [ -z "$ADMIN_NAME" ]; then
+        export ADMIN_NAME="System Administrator"
+    fi
+    
+    # 检查 Cerebras API 密钥
+    if [ -z "$CEREBRAS_API_KEY" ]; then
+        echo_warning "CEREBRAS_API_KEY 未设置，AI 功能将不可用"
+    fi
+    
     echo_info "数据库类型: $DATABASE_TYPE"
     echo_info "数据库连接: $DATABASE_URL"
+    echo_info "管理员邮箱: $ADMIN_EMAIL"
 }
 
 # 等待数据库服务启动
@@ -140,25 +169,102 @@ run_migrations() {
 seed_database() {
     echo_info "初始化种子数据..."
     
-    # 检查是否存在种子脚本
-    if [ -f "/app/scripts/seed-db.ts" ]; then
-        echo_info "运行数据库种子脚本..."
-        npm run db:seed
+    # 检查并运行用户系统种子脚本
+    if [ -f "./scripts/seed-user-db.ts" ]; then
+        echo_info "运行用户系统种子脚本..."
+        if command -v pnpm >/dev/null 2>&1; then
+            pnpm exec tsx scripts/seed-user-db.ts
+        else
+            npx tsx scripts/seed-user-db.ts
+        fi
         
         if [ $? -eq 0 ]; then
-            echo_success "种子数据初始化完成"
+            echo_success "用户系统初始化完成"
         else
-            echo_warning "种子数据初始化失败，继续启动应用"
+            echo_warning "用户系统初始化失败，将尝试手动创建管理员账户"
+            create_admin_user
         fi
     else
-        echo_info "未找到种子脚本，跳过种子数据初始化"
+        echo_info "未找到用户种子脚本，尝试手动创建管理员账户"
+        create_admin_user
     fi
     
-    # 创建初始邀请码（如果配置了）
-    if [ -n "$INITIAL_INVITE_CODES" ]; then
-        echo_info "创建初始邀请码: $INITIAL_INVITE_CODES"
-        # 这里可以添加创建初始邀请码的逻辑
-        # 或通过 API 调用来创建
+    # 检查是否存在其他种子脚本
+    if [ -f "./scripts/seed-db.ts" ]; then
+        echo_info "运行额外的数据库种子脚本..."
+        if command -v npm >/dev/null 2>&1; then
+            npm run db:seed 2>/dev/null || echo_warning "额外种子脚本执行失败，继续启动应用"
+        fi
+    fi
+}
+
+# 创建管理员账户
+create_admin_user() {
+    echo_info "创建管理员账户..."
+    
+    # 检查是否已存在管理员账户
+    if command -v node >/dev/null 2>&1; then
+        cat > temp_check_admin.js << 'EOF'
+const { PrismaClient } = require('@prisma/client');
+
+async function checkAdmin() {
+    const prisma = new PrismaClient();
+    try {
+        const admin = await prisma.user.findFirst({
+            where: { 
+                OR: [
+                    { role: 'admin' },
+                    { email: process.env.ADMIN_EMAIL || 'admin@listeningtrain.com' }
+                ]
+            }
+        });
+        
+        if (admin) {
+            console.log('ADMIN_EXISTS');
+            return;
+        }
+        
+        // 创建管理员账户
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin123456', 12);
+        
+        const newAdmin = await prisma.user.create({
+            data: {
+                email: process.env.ADMIN_EMAIL || 'admin@listeningtrain.com',
+                name: process.env.ADMIN_NAME || 'System Administrator',
+                password: hashedPassword,
+                role: 'admin',
+                emailVerified: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        });
+        
+        console.log('ADMIN_CREATED');
+    } catch (error) {
+        console.error('ADMIN_ERROR:', error.message);
+    } finally {
+        await prisma.$disconnect();
+    }
+}
+
+checkAdmin();
+EOF
+        
+        # 运行检查脚本
+        node temp_check_admin.js 2>/dev/null
+        result=$?
+        
+        # 清理临时文件
+        rm -f temp_check_admin.js
+        
+        if [ $result -eq 0 ]; then
+            echo_success "管理员账户配置完成"
+        else
+            echo_warning "管理员账户创建可能有问题，请手动检查"
+        fi
+    else
+        echo_warning "Node.js 不可用，跳过管理员账户创建"
     fi
 }
 

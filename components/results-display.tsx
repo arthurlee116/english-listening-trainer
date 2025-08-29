@@ -16,7 +16,8 @@ interface ResultsDisplayProps {
 }
 
 export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplayProps) {
-  const [showDetails, setShowDetails] = useState(false)
+  const [showDetails, setShowDetails] = useState(true)
+  const [showTranscript, setShowTranscript] = useState(false)
   
   const correctAnswers = exercise.results.filter(result => result.is_correct).length
   const totalQuestions = exercise.results.length
@@ -68,20 +69,12 @@ export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplay
         </div>
       </Card>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Button onClick={onRestart} className="flex-1 sm:flex-none">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          开始新练习
-        </Button>
-        <Button onClick={onExport} variant="outline" className="flex-1 sm:flex-none">
-          <Download className="w-4 h-4 mr-2" />
-          导出结果
-        </Button>
-        <Button 
-          onClick={() => setShowDetails(!showDetails)} 
+      {/* 详情开关按钮 */}
+      <div className="flex justify-center">
+        <Button
+          onClick={() => setShowDetails(!showDetails)}
           variant="outline"
-          className="flex-1 sm:flex-none"
+          className="w-full sm:w-auto"
         >
           {showDetails ? (
             <>
@@ -121,7 +114,7 @@ export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplay
                         问题 {index + 1}: {question.question}
                       </div>
                       
-                      {question.type === "multiple_choice" && question.options && (
+                      {question.type === "single" && question.options && (
                         <div className="text-sm text-gray-600 dark:text-gray-300">
                           选项：{question.options.join(" / ")}
                         </div>
@@ -143,10 +136,10 @@ export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplay
                         )}
                       </div>
                       
-                      {result?.explanation && (
+                      {question.explanation && (
                         <div className="text-sm bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
                           <span className="font-medium text-blue-800 dark:text-blue-300">解析：</span>
-                          <span className="text-blue-700 dark:text-blue-200">{result.explanation}</span>
+                          <span className="text-blue-700 dark:text-blue-200">{question.explanation}</span>
                         </div>
                       )}
                     </div>
@@ -158,15 +151,50 @@ export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplay
         </Card>
       )}
 
+      {/* 底部操作按钮 */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Button onClick={onRestart} className="flex-1 sm:flex-none">
+          <RotateCcw className="w-4 h-4 mr-2" />
+          开始新练习
+        </Button>
+        <Button onClick={onExport} variant="outline" className="flex-1 sm:flex-none">
+          <Download className="w-4 h-4 mr-2" />
+          导出结果
+        </Button>
+      </div>
+
+      {/* Transcript Toggle */}
+      <div className="flex justify-center">
+        <Button
+          onClick={() => setShowTranscript(!showTranscript)}
+          variant="outline"
+          className="w-full sm:w-auto"
+        >
+          {showTranscript ? (
+            <>
+              <ChevronUp className="w-4 h-4 mr-2" />
+              隐藏听力原文
+            </> 
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4 mr-2" />
+              查看听力原文
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Transcript Reference */}
-      <Card className="glass-effect p-6">
-        <h3 className="text-lg font-semibold mb-4">听力材料</h3>
-        <div className="prose dark:prose-invert max-w-none">
-          <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-            {exercise.transcript}
-          </p>
-        </div>
-      </Card>
+      {showTranscript && (
+        <Card className="glass-effect p-6">
+          <h3 className="text-lg font-semibold mb-4">听力材料</h3>
+          <div className="prose dark:prose-invert max-w-none">
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+              {exercise.transcript}
+            </p>
+          </div>
+        </Card>
+      )}
     </div>
   )
 }
