@@ -6,7 +6,7 @@
 import { LRUCache } from 'lru-cache'
 
 // 内存缓存管理
-export class MemoryCache<V> {
+export class MemoryCache<V extends {}> {
   private cache: LRUCache<string, V>
   
   constructor(maxSize: number = 100, ttl: number = 5 * 60 * 1000) { // 5分钟TTL
@@ -48,13 +48,13 @@ export class MemoryCache<V> {
 }
 
 // API响应缓存
-export const apiCache = new MemoryCache<unknown>(50, 10 * 60 * 1000) // 10分钟TTL
+export const apiCache = new MemoryCache<Record<string, unknown>>(50, 10 * 60 * 1000) // 10分钟TTL
 
 // 音频文件缓存
-export const audioCache = new MemoryCache<unknown>(20, 30 * 60 * 1000) // 30分钟TTL
+export const audioCache = new MemoryCache<Record<string, unknown>>(20, 30 * 60 * 1000) // 30分钟TTL
 
 // AI生成内容缓存
-export const aiCache = new MemoryCache<unknown>(30, 20 * 60 * 1000) // 20分钟TTL
+export const aiCache = new MemoryCache<Record<string, unknown>>(30, 20 * 60 * 1000) // 20分钟TTL
 
 // 请求防抖器
 export class RequestDebouncer {

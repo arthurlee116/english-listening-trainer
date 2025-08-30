@@ -307,7 +307,7 @@ export const MainApp = () => {
   }, [transcript, language, toast])
 
   const handleStartQuestions = useCallback(async () => {
-    if (!transcript) return
+    if (!transcript || !difficulty) return
 
     setLoading(true)
     setLoadingMessage("Generating questions...")
