@@ -45,7 +45,7 @@ export interface AppError {
   message: string
   severity: ErrorSeverity
   userMessage: string
-  details?: any
+  details?: Record<string, unknown>
   timestamp: Date
   stack?: string
 }
@@ -60,7 +60,7 @@ export class ErrorHandler {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     userMessage?: string,
-    details?: any
+    details?: Record<string, unknown>
   ): AppError {
     const error: AppError = {
       code,
@@ -247,8 +247,8 @@ export class ErrorHandler {
   }
 
   // 熔断器模式
-  static createCircuitBreaker<T>(
-    operation: () => Promise<T>,
+  static createCircuitBreaker<T extends unknown[], R>(
+    operation: (...args: T) => Promise<R>,
     failureThreshold: number = 5,
     resetTimeout: number = 60000
   ) {
@@ -256,7 +256,7 @@ export class ErrorHandler {
     let lastFailureTime = 0
     let state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED'
 
-    return async (): Promise<T> => {
+    return async (...args: T): Promise<R> => {
       const now = Date.now()
 
       if (state === 'OPEN') {
@@ -273,7 +273,7 @@ export class ErrorHandler {
       }
 
       try {
-        const result = await operation()
+        const result = await operation(...args);
         
         if (state === 'HALF_OPEN') {
           state = 'CLOSED'

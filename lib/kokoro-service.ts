@@ -6,6 +6,11 @@ import { getLanguageConfig } from './language-config'
 import { validateDeviceConfig, generateDeviceReport } from './device-detection'
 import type { ListeningLanguage } from './types'
 
+interface PendingRequest {
+  resolve: (response: KokoroResponse) => void
+  reject: (error: Error) => void
+}
+
 export interface KokoroRequest {
   text: string
   speed?: number
@@ -24,7 +29,7 @@ export interface KokoroResponse {
 export class KokoroTTSService extends EventEmitter {
   private process: ChildProcess | null = null
   private initialized = false
-  private pendingRequests: Map<number, { resolve: Function; reject: Function }> = new Map()
+  private pendingRequests: Map<number, PendingRequest> = new Map()
   private requestIdCounter = 0
   private restartAttempts = 0
   private maxRestartAttempts = 3
@@ -89,7 +94,7 @@ export class KokoroTTSService extends EventEmitter {
       const venvEnv = {
         ...env,
         VIRTUAL_ENV: venvPath,
-        PATH: `${venvPath}/bin:${(env as any).PATH || process.env.PATH || ''}`,
+        PATH: `${venvPath}/bin:${(env as Record<string, string | undefined>).PATH || process.env.PATH || ''}`,
         PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.12', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
       }
       
@@ -129,7 +134,7 @@ export class KokoroTTSService extends EventEmitter {
               const response: KokoroResponse = JSON.parse(line)
               this.handleResponse(response)
               jsonBuffer = '' // 清空缓冲区
-            } catch (lineError) {
+            } catch {
               // 忽略解析错误
             }
           })

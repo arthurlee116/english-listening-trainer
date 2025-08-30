@@ -36,6 +36,7 @@ export type OptionalKeys<T> = {
  * 获取对象的必需属性键
  */
 export type RequiredKeys<T> = {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   [K in keyof T]-?: {} extends Pick<T, K> ? never : K
 }[keyof T]
 

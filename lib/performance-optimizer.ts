@@ -6,8 +6,8 @@
 import { LRUCache } from 'lru-cache'
 
 // 内存缓存管理
-export class MemoryCache {
-  private cache: LRUCache<string, any>
+export class MemoryCache<V> {
+  private cache: LRUCache<string, V>
   
   constructor(maxSize: number = 100, ttl: number = 5 * 60 * 1000) { // 5分钟TTL
     this.cache = new LRUCache({
@@ -18,11 +18,11 @@ export class MemoryCache {
     })
   }
   
-  get(key: string): any {
+  get(key: string): V | undefined {
     return this.cache.get(key)
   }
   
-  set(key: string, value: any, ttl?: number): void {
+  set(key: string, value: V, ttl?: number): void {
     this.cache.set(key, value, { ttl })
   }
   
@@ -48,17 +48,17 @@ export class MemoryCache {
 }
 
 // API响应缓存
-export const apiCache = new MemoryCache(50, 10 * 60 * 1000) // 10分钟TTL
+export const apiCache = new MemoryCache<unknown>(50, 10 * 60 * 1000) // 10分钟TTL
 
 // 音频文件缓存
-export const audioCache = new MemoryCache(20, 30 * 60 * 1000) // 30分钟TTL
+export const audioCache = new MemoryCache<unknown>(20, 30 * 60 * 1000) // 30分钟TTL
 
 // AI生成内容缓存
-export const aiCache = new MemoryCache(30, 20 * 60 * 1000) // 20分钟TTL
+export const aiCache = new MemoryCache<unknown>(30, 20 * 60 * 1000) // 20分钟TTL
 
 // 请求防抖器
 export class RequestDebouncer {
-  private pending: Map<string, Promise<any>> = new Map()
+  private pending: Map<string, Promise<unknown>> = new Map()
   
   async debounce<T>(key: string, fn: () => Promise<T>): Promise<T> {
     if (this.pending.has(key)) {
@@ -125,7 +125,7 @@ export class PerformanceMonitor {
   }
   
   getAllStats() {
-    const stats: Record<string, any> = {}
+    const stats: Record<string, unknown> = {}
     for (const [label] of this.metrics) {
       stats[label] = this.getStats(label)
     }

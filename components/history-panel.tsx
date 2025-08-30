@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, Filter } from "lucide-react"
+import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2 } from "lucide-react"
 import { getHistory, clearHistory } from "@/lib/storage"
 import type { Exercise } from "@/lib/types"
 
@@ -15,7 +15,7 @@ interface HistoryPanelProps {
   onRestore: (exercise: Exercise) => void
 }
 
-export function HistoryPanel({ onBack, onRestore }: HistoryPanelProps) {
+export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -181,7 +181,7 @@ export function HistoryPanel({ onBack, onRestore }: HistoryPanelProps) {
 
           {/* Exercise List */}
           <div className="grid gap-4">
-            {filteredExercises.map((exercise, index) => {
+            {filteredExercises.map((exercise, _index) => {
               const correctAnswers = exercise.results.filter(result => result.is_correct).length
               const totalQuestions = exercise.results.length
               const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
@@ -233,3 +233,5 @@ export function HistoryPanel({ onBack, onRestore }: HistoryPanelProps) {
     </div>
   )
 }
+
+HistoryPanel.displayName = "HistoryPanel"

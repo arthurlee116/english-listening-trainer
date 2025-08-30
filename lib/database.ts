@@ -137,21 +137,21 @@ export async function checkDatabaseHealth(): Promise<{ healthy: boolean; message
 /**
  * 批量操作工具
  */
-export class BatchOperations {
-  private operations: Array<() => Promise<any>> = []
+export class BatchOperations<T> {
+  private operations: Array<() => Promise<T>> = []
   private batchSize = 100
 
   constructor(batchSize: number = 100) {
     this.batchSize = batchSize
   }
 
-  add<T>(operation: () => Promise<T>): BatchOperations {
+  add(operation: () => Promise<T>): BatchOperations<T> {
     this.operations.push(operation)
     return this
   }
 
-  async execute(): Promise<any[]> {
-    const results: any[] = []
+  async execute(): Promise<(T | Error)[]> {
+    const results: (T | Error)[] = []
     
     for (let i = 0; i < this.operations.length; i += this.batchSize) {
       const batch = this.operations.slice(i, i + this.batchSize)
@@ -159,9 +159,16 @@ export class BatchOperations {
         batch.map(op => op())
       )
       
-      results.push(...batchResults.map(result => 
-        result.status === 'fulfilled' ? result.value : result.reason
-      ))
+      results.push(...batchResults.map(result => {
+        if (result.status === 'fulfilled') {
+          return result.value
+        }
+        // 确保 reason 是一个 Error 对象
+        if (result.reason instanceof Error) {
+          return result.reason
+        }
+        return new Error(String(result.reason))
+      }))
     }
     
     return results

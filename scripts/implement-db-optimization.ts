@@ -21,7 +21,7 @@ interface OptimizationResult {
   success: boolean
   duration: number
   error?: string
-  metrics?: any
+  metrics?: unknown
 }
 
 class DatabaseOptimizationImplementer {

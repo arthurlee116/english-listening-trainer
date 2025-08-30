@@ -20,8 +20,16 @@ interface AudioPlayerProps {
   loadingMessage?: string
 }
 
+interface AudioPlayerState {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  isLoading: boolean;
+}
+
 // 优化的音频控制Hook
-function useOptimizedAudioPlayer(audioUrl: string) {
+function useOptimizedAudioPlayer() {
   const [state, setState] = useState({
     isPlaying: false,
     currentTime: 0,
@@ -81,7 +89,7 @@ function useOptimizedAudioPlayer(audioUrl: string) {
 // 音频事件处理器
 const useAudioEventHandlers = (
   audioRef: React.RefObject<HTMLAudioElement | null>,
-  updateState: (updates: any) => void,
+  updateState: (updates: Partial<AudioPlayerState>) => void,
   toggleProgressLoop: (start: boolean) => void,
   isScrubbingRef: React.MutableRefObject<boolean>
 ) => {
@@ -128,9 +136,8 @@ const useAudioEventHandlers = (
 // 优化的音频控制
 const useAudioControls = (
   audioRef: React.RefObject<HTMLAudioElement | null>,
-  state: any,
-  updateState: (updates: any) => void,
-  toggleProgressLoop: (start: boolean) => void
+  state: AudioPlayerState,
+  updateState: (updates: Partial<AudioPlayerState>) => void
 ) => {
   const controls = useMemo(() => ({
     togglePlayPause: () => {
@@ -190,9 +197,9 @@ export const OptimizedAudioPlayer = React.memo(function OptimizedAudioPlayer({
   loading = false,
   loadingMessage = ""
 }: AudioPlayerProps) {
-  const { state, updateState, audioRef, isScrubbingRef, toggleProgressLoop } = useOptimizedAudioPlayer(audioUrl)
+  const { state, updateState, audioRef, isScrubbingRef, toggleProgressLoop } = useOptimizedAudioPlayer()
   const handlers = useAudioEventHandlers(audioRef, updateState, toggleProgressLoop, isScrubbingRef)
-  const controls = useAudioControls(audioRef, state, updateState, toggleProgressLoop)
+  const controls = useAudioControls(audioRef, state, updateState)
   
   // 音频元素事件绑定
   useEffect(() => {
@@ -213,7 +220,7 @@ export const OptimizedAudioPlayer = React.memo(function OptimizedAudioPlayer({
         audio.removeEventListener(eventName, handler)
       })
     }
-  }, [audioUrl, handlers, updateState])
+  }, [audioUrl, handlers, updateState, audioRef])
   
   // 格式化时间
   const formatTime = useCallback((time: number) => {
@@ -276,9 +283,17 @@ export const OptimizedAudioPlayer = React.memo(function OptimizedAudioPlayer({
     </div>
   )
 })
+OptimizedAudioPlayer.displayName = 'OptimizedAudioPlayer'
+
+interface AudioErrorDisplayProps {
+  loading: boolean;
+  loadingMessage: string;
+  onRetry: () => void;
+  onSkip: () => void;
+}
 
 // 分离的子组件
-const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip }: any) => (
+const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip }: AudioErrorDisplayProps) => (
   <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
     <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
     <h3 className="font-medium text-red-800 mb-2">音频生成失败</h3>
@@ -320,8 +335,13 @@ const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip
     </div>
   </div>
 ))
+AudioErrorDisplay.displayName = 'AudioErrorDisplay'
 
-const AudioLoadingDisplay = React.memo(({ loadingMessage }: any) => (
+interface AudioLoadingDisplayProps {
+  loadingMessage: string;
+}
+
+const AudioLoadingDisplay = React.memo(({ loadingMessage }: AudioLoadingDisplayProps) => (
   <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
     <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
     <h3 className="font-medium text-blue-800 mb-2">
@@ -332,8 +352,24 @@ const AudioLoadingDisplay = React.memo(({ loadingMessage }: any) => (
     </p>
   </div>
 ))
+AudioLoadingDisplay.displayName = 'AudioLoadingDisplay'
 
-const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, formatTime, isScrubbingRef }: any) => (
+interface AudioPlayerInterfaceProps {
+  audioRef: React.RefObject<HTMLAudioElement | null>;
+  audioUrl: string;
+  state: AudioPlayerState;
+  controls: {
+    togglePlayPause: () => void;
+    seek: (value: number[]) => void;
+    skipBackward: () => void;
+    skipForward: () => void;
+    setVolume: (value: number[]) => void;
+  };
+  formatTime: (time: number) => string;
+  isScrubbingRef: React.MutableRefObject<boolean>;
+}
+
+const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, formatTime, isScrubbingRef }: AudioPlayerInterfaceProps) => (
   <>
     <audio ref={audioRef} src={audioUrl} preload="metadata" />
     
@@ -401,6 +437,7 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
     </div>
   </>
 ))
+AudioPlayerInterface.displayName = 'AudioPlayerInterface'
 
 const AudioReadyDisplay = React.memo(() => (
   <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
@@ -413,6 +450,16 @@ const AudioReadyDisplay = React.memo(() => (
     </p>
   </div>
 ))
+AudioReadyDisplay.displayName = 'AudioReadyDisplay'
+
+interface PlayerControlsProps {
+  audioUrl: string;
+  audioError: boolean;
+  loading: boolean;
+  onGenerateAudio: () => void;
+  onStartQuestions: () => void;
+  onRegenerate?: () => void;
+}
 
 const PlayerControls = React.memo(({ 
   audioUrl, 
@@ -421,7 +468,7 @@ const PlayerControls = React.memo(({
   onGenerateAudio, 
   onStartQuestions, 
   onRegenerate 
-}: any) => (
+}: PlayerControlsProps) => (
   <div className="space-y-3">
     {!audioUrl && !audioError && !loading && (
       <Button
@@ -454,6 +501,7 @@ const PlayerControls = React.memo(({
     )}
   </div>
 ))
+PlayerControls.displayName = 'PlayerControls'
 
 const TranscriptDisplay = React.memo(({ transcript }: { transcript: string }) => (
   <Card className="glass-effect p-6">
@@ -466,3 +514,4 @@ const TranscriptDisplay = React.memo(({ transcript }: { transcript: string }) =>
     </div>
   </Card>
 ))
+TranscriptDisplay.displayName = 'TranscriptDisplay'

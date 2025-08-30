@@ -32,7 +32,17 @@ export interface ErrorContext {
   component?: string
   userId?: string
   operation?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
+}
+
+export interface ErrorStats {
+  errorCounts: Record<string, number>
+  circuitBreakers: Record<string, {
+    failures: number
+    lastFailure: Date
+    state: 'CLOSED' | 'OPEN' | 'HALF_OPEN'
+  }>
+  timestamp: string
 }
 
 export interface RetryConfig {
@@ -91,7 +101,7 @@ class ErrorMonitor {
     this.logError(context, error)
   }
 
-  private updateCircuitBreaker(key: string, error: Error): void {
+  private updateCircuitBreaker(key: string, _error: Error): void {
     const breaker = this.circuitBreakers.get(key) || {
       failures: 0,
       lastFailure: new Date(),
@@ -163,7 +173,7 @@ class ErrorMonitor {
     }
   }
 
-  getErrorStats(): Record<string, any> {
+  getErrorStats(): ErrorStats {
     return {
       errorCounts: Object.fromEntries(this.errorCounts),
       circuitBreakers: Object.fromEntries(this.circuitBreakers),
@@ -173,65 +183,68 @@ class ErrorMonitor {
 }
 
 // 重试装饰器
-export function withRetry<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
-  config: Partial<RetryConfig> = {}
-): T {
-  const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...config }
-  
-  return (async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
-    let lastError: Error
-    
+export function withRetry<P extends unknown[], R>(
+  fn: (...args: P) => Promise<R>,
+  config: Partial<RetryConfig> = {},
+  operationName?: string
+): (...args: P) => Promise<R> {
+  const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
+
+  return async (...args: P): Promise<R> => {
+    let lastError: Error | undefined;
+
     for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt++) {
       try {
-        const result = await fn(...args)
-        
+        const result = await fn(...args);
+
         // 成功时重置熔断器
-        const monitor = ErrorMonitor.getInstance()
-        monitor.recordSuccess(`${fn.name}:retry`)
-        
-        return result
+        const monitor = ErrorMonitor.getInstance();
+        const opName = operationName || fn.name || 'unknown_operation'
+        monitor.recordSuccess(`${opName}:retry`);
+
+        return result;
       } catch (error) {
-        lastError = error as Error
-        
+        lastError = error as Error;
+
         // 检查是否应该重试
-        const shouldRetry = attempt < retryConfig.maxAttempts && 
-          isRetryableError(lastError, retryConfig.retryableErrors || [])
-        
+        const shouldRetry =
+          attempt < retryConfig.maxAttempts &&
+          isRetryableError(lastError, retryConfig.retryableErrors || []);
+
         if (!shouldRetry) {
-          break
+          break;
         }
 
         // 计算延迟时间（指数退避）
         const delay = Math.min(
           retryConfig.baseDelay * Math.pow(retryConfig.backoffFactor, attempt - 1),
           retryConfig.maxDelay
-        )
-
-        console.warn(`🔄 Retry attempt ${attempt}/${retryConfig.maxAttempts} for ${fn.name} in ${delay}ms`)
-        await sleep(delay)
+        );
+        const opName = operationName || fn.name || 'unknown_operation'
+        console.warn(`🔄 Retry attempt ${attempt}/${retryConfig.maxAttempts} for ${opName} in ${delay}ms`);
+        await sleep(delay);
       }
     }
-    
-    throw lastError!
-  }) as T
+
+    throw lastError!;
+  };
 }
 
 // 超时装饰器
-export function withTimeout<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export function withTimeout<P extends unknown[], R>(
+  fn: (...args: P) => Promise<R>,
   timeoutMs: number
-): T {
-  return (async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
+): (...args: P) => Promise<R> {
+  return async (...args: P): Promise<R> => {
     return Promise.race([
       fn(...args),
       new Promise<never>((_, reject) => {
         setTimeout(() => {
-          reject(new Error(`Operation timeout after ${timeoutMs}ms`))
-        }, timeoutMs)
-      })
-    ])
-  }) as T
+          reject(new Error(`Operation timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  };
 }
 
 // 错误包装器

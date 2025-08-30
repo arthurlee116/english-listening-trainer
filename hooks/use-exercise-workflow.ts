@@ -3,13 +3,13 @@
  * 从主页面组件中提取的练习流程状态管理逻辑
  */
 
-import { useState, useCallback, useReducer, useMemo } from "react"
+import { useCallback, useReducer, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
 import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { mapDifficultyToCEFR } from "@/lib/difficulty-service"
-import type { Exercise, Question, DifficultyLevel } from "@/lib/types"
+import type { Exercise, Question, DifficultyLevel, GradingResult } from "@/lib/types"
 // 移除已删除的邀请码hook引用
 
 export type ExerciseStep = 'setup' | 'listening' | 'questions' | 'results'
@@ -22,6 +22,11 @@ export interface ExerciseFormData {
   focus: string
 }
 
+export interface AssessmentInfo {
+  hasAssessment: boolean
+  difficultyLevel: number
+}
+
 interface ExerciseState {
   currentStep: ExerciseStep
   formData: ExerciseFormData
@@ -31,7 +36,7 @@ interface ExerciseState {
   audioUrl: string
   questions: Question[]
   userAnswers: string[]
-  results: any | null
+  results: GradingResult[] | null
   exercise: Exercise | null
   suggestedTopics: string[]
   error: string | null
@@ -46,13 +51,13 @@ type ExerciseAction =
   | { type: 'SET_AUDIO_URL'; payload: string }
   | { type: 'SET_QUESTIONS'; payload: Question[] }
   | { type: 'SET_USER_ANSWERS'; payload: string[] }
-  | { type: 'SET_RESULTS'; payload: any }
+  | { type: 'SET_RESULTS'; payload: GradingResult[] }
   | { type: 'SET_EXERCISE'; payload: Exercise }
   | { type: 'SET_SUGGESTED_TOPICS'; payload: string[] }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET' }
 
-function createInitialState(assessmentInfo?: any): ExerciseState {
+function createInitialState(assessmentInfo?: AssessmentInfo): ExerciseState {
   // 根据用户评估结果设置推荐难度，如果没有评估则使用默认的B1
   let recommendedDifficulty: DifficultyLevel = 'B1'
   
@@ -119,7 +124,7 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
   }
 }
 
-export function useExerciseWorkflow(assessmentInfo?: any) {
+export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
   const [state, dispatch] = useReducer(exerciseReducer, createInitialState(assessmentInfo))
   const { toast } = useToast()
 
@@ -151,7 +156,7 @@ export function useExerciseWorkflow(assessmentInfo?: any) {
   }, [state.formData.difficulty, state.formData.duration, toast])
 
   // 开始练习
-  const startExercise = useCallback(async (userId: string) => {
+  const startExercise = useCallback(async () => {
     const selectedTopic = state.formData.topic === 'custom' ? state.formData.customTopic : state.formData.topic
     
     if (!selectedTopic.trim()) {
@@ -242,7 +247,7 @@ export function useExerciseWorkflow(assessmentInfo?: any) {
   }, [state.questions.length])
 
   // 提交答案
-  const submitAnswers = useCallback(async (userId: string) => {
+  const submitAnswers = useCallback(async () => {
     if (!state.exercise) {
       toast({
         title: "错误",

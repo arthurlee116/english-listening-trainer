@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, BookX, Lightbulb, Eye, Trash2 } from "lucide-react"
+import { ArrowLeft, Search, BookX, Lightbulb, Eye } from "lucide-react"
 import { getHistory } from "@/lib/storage"
-import type { Exercise, GradingResult } from "@/lib/types"
+import type { Exercise } from "@/lib/types"
 
 interface WrongAnswer {
   exerciseId: string
@@ -19,7 +19,7 @@ interface WrongAnswer {
   questionIndex: number
   question: string
   questionType: string
-  options?: string[]
+  options?: string[] | null
   userAnswer: string
   correctAnswer: string
   explanation?: string
@@ -40,7 +40,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    const history = getHistory()
+    const history: Exercise[] = getHistory()
     const allWrongAnswers: WrongAnswer[] = []
 
     history.forEach(exercise => {
@@ -61,7 +61,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
             options: question.options,
             userAnswer,
             correctAnswer: result.correct_answer || "",
-            explanation: result.explanation,
+            explanation: question.explanation,
             transcript: exercise.transcript
           })
         }
@@ -235,7 +235,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
 
           {/* Wrong Answers List */}
           <div className="grid gap-4">
-            {filteredAnswers.map((answer, index) => {
+            {filteredAnswers.map((answer, _index) => {
               const cardId = `${answer.exerciseId}-${answer.questionIndex}`
               const isExpanded = expandedCards.has(cardId)
               const date = new Date(answer.exerciseDate)

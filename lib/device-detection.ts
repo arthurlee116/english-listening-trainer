@@ -65,14 +65,13 @@ except Exception as e:
     })
 
     let output = ''
-    let error = ''
 
     process.stdout.on('data', (data) => {
       output += data.toString()
     })
 
-    process.stderr.on('data', (data) => {
-      error += data.toString()
+    process.stderr.on('data', (_data) => {
+      // stderr is ignored
     })
 
     process.on('close', (code) => {
@@ -103,7 +102,7 @@ except Exception as e:
             recommended: false
           })
         }
-      } catch (e) {
+      } catch {
         resolve({
           type: 'cuda',
           available: false,
@@ -193,7 +192,7 @@ except Exception as e:
             recommended: false
           })
         }
-      } catch (e) {
+      } catch {
         resolve({
           type: 'metal',
           available: false,

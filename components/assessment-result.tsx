@@ -31,7 +31,7 @@ interface AssessmentResultProps {
   onRetry?: () => void
 }
 
-export function AssessmentResult({ result, onReturnHome, onRetry }: AssessmentResultProps) {
+export const AssessmentResult = ({ result, onReturnHome, onRetry }: AssessmentResultProps) => {
   const averageScore = result.scores.reduce((sum, score) => sum + score, 0) / result.scores.length
 
   const getPerformanceColor = (performance: string) => {
@@ -154,3 +154,5 @@ export function AssessmentResult({ result, onReturnHome, onRetry }: AssessmentRe
     </div>
   )
 }
+
+AssessmentResult.displayName = "AssessmentResult"

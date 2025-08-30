@@ -22,7 +22,7 @@ async function postJson<T>(url: string, body: Record<string, unknown>): Promise<
   return data as T
 }
 
-export async function generateTopics(difficulty: string, wordCount: number, language: ListeningLanguage = 'en-US', difficultyLevel?: DifficultyLevel): Promise<string[]> {
+export async function generateTopics(difficulty: DifficultyLevel, wordCount: number, language: ListeningLanguage = 'en-US', difficultyLevel?: DifficultyLevel): Promise<string[]> {
   const data = await postJson<{ success: boolean; topics: string[] }>(
     "/api/ai/topics",
     { difficulty, wordCount, language, difficultyLevel },
@@ -32,7 +32,7 @@ export async function generateTopics(difficulty: string, wordCount: number, lang
 
 // 生成听力稿
 export async function generateTranscript(
-  difficulty: string,
+  difficulty: DifficultyLevel,
   wordCount: number,
   topic: string,
   language: ListeningLanguage = 'en-US',
@@ -46,7 +46,7 @@ export async function generateTranscript(
 }
 
 export async function generateQuestions(
-  difficulty: string,
+  difficulty: DifficultyLevel,
   transcript: string,
   language: ListeningLanguage = 'en-US',
   duration: number,
@@ -78,7 +78,7 @@ export async function expandText(
   text: string,
   targetWordCount: number,
   topic: string,
-  difficulty: string,
+  difficulty: DifficultyLevel,
   language: ListeningLanguage = 'en-US',
   maxAttempts?: number,
 ): Promise<{

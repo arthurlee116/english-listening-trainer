@@ -12,7 +12,7 @@ interface AssessmentAudioPlayerProps {
   className?: string
 }
 
-export function AssessmentAudioPlayer({ 
+export default function AssessmentAudioPlayer({ 
   src, 
   onEnded, 
   disabled = false,
@@ -80,7 +80,7 @@ export function AssessmentAudioPlayer({
       try {
         audio.pause()
         audio.currentTime = 0
-      } catch (_) {
+      } catch {
         // 某些浏览器可能禁止直接设置 currentTime，忽略即可
       }
       // 触发浏览器重新加载新的音频资源
@@ -148,3 +148,5 @@ export function AssessmentAudioPlayer({
     </div>
   )
 }
+
+AssessmentAudioPlayer.displayName = "AssessmentAudioPlayer"

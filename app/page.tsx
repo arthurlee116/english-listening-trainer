@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,7 +23,6 @@ import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
 import { HistoryPanel } from "@/components/history-panel"
 import { WrongAnswersBook } from "@/components/wrong-answers-book"
-import { AssessmentAudioPlayer } from "@/components/assessment-audio-player"
 import { AssessmentResult } from "@/components/assessment-result"
 import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
@@ -56,6 +57,28 @@ const DURATION_OPTIONS = [
 // Type guard for Error objects
 function isError(error: unknown): error is Error {
   return error instanceof Error
+}
+
+// 评估结果类型
+interface AssessmentResultType {
+  difficultyLevel: number
+  difficultyRange: {
+    min: number
+    max: number
+    name: string
+    nameEn: string
+    description: string
+  }
+  scores: number[]
+  summary: string
+  details: Array<{
+    audioId: number
+    topic: string
+    userScore: number
+    difficulty: number
+    performance: string
+  }>
+  recommendation: string
 }
 
 // 用户信息接口
@@ -105,7 +128,7 @@ function useUserAuth() {
   }, [])
 
   // 用户登录成功处理
-  const handleUserAuthenticated = useCallback((userData: UserInfo, token: string) => {
+  const handleUserAuthenticated = useCallback((userData: UserInfo, _token: string) => {
     setUser(userData)
     setIsAuthenticated(true)
     setShowAuthDialog(false)
@@ -158,7 +181,7 @@ function useUserAuth() {
   }
 }
 
-export default function HomePage() {
+function HomePage() {
   const {
     user,
     isAuthenticated,
@@ -188,9 +211,7 @@ export default function HomePage() {
   const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
   
   // Assessment 相关状态
-  const [assessmentResult, setAssessmentResult] = useState<any>(null)
-  const [currentAssessmentIndex, setCurrentAssessmentIndex] = useState<number>(0)
-  const [assessmentAnswers, setAssessmentAnswers] = useState<Record<number, number>>({})
+  const [assessmentResult, setAssessmentResult] = useState<AssessmentResultType | null>(null)
 
   const wordCount = useMemo(() => duration * 2, [duration])
 
@@ -198,14 +219,6 @@ export default function HomePage() {
   const isSetupComplete = useMemo(() => {
     return Boolean(difficulty && topic)
   }, [difficulty, topic])
-
-  const canGenerateQuestions = useMemo(() => {
-    return Boolean(transcript)
-  }, [transcript])
-
-  const canSubmitAnswers = useMemo(() => {
-    return questions.length > 0 && Object.keys(answers).length === questions.length
-  }, [questions, answers])
 
   const handleGenerateTopics = useCallback(async () => {
     if (!difficulty) return
@@ -320,7 +333,7 @@ export default function HomePage() {
   }, [transcript, language, toast])
 
   const handleStartQuestions = useCallback(async () => {
-    if (!transcript) return
+    if (!transcript || !difficulty) return
 
     setLoading(true)
     setLoadingMessage("Generating questions...")
@@ -543,8 +556,6 @@ export default function HomePage() {
             onReturnHome={() => setStep("setup")}
             onRetry={() => {
               setAssessmentResult(null)
-              setCurrentAssessmentIndex(0)
-              setAssessmentAnswers({})
               setStep("assessment")
             }}
           />
@@ -814,3 +825,7 @@ export default function HomePage() {
     </div>
   )
 }
+
+HomePage.displayName = "HomePage"
+
+export default HomePage

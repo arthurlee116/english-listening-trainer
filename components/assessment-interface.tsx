@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Volume2, CheckCircle } from "lucide-react"
-import { AssessmentAudioPlayer } from "@/components/assessment-audio-player"
+import AssessmentAudioPlayer from "@/components/assessment-audio-player"
 import { Slider } from "@/components/ui/slider"
 interface AssessmentQuestion {
   id: number
@@ -16,9 +16,30 @@ interface AssessmentQuestion {
   description: string
 }
 
+interface AssessmentResultType {
+  difficultyLevel: number
+  difficultyRange: {
+    min: number
+    max: number
+    name: string
+    nameEn: string
+    description: string
+  }
+  scores: number[]
+  summary: string
+  details: Array<{
+    audioId: number
+    topic: string
+    userScore: number
+    difficulty: number
+    performance: string
+  }>
+  recommendation: string
+}
+
 interface AssessmentInterfaceProps {
   onBack: () => void
-  onComplete: (result: any) => void
+  onComplete: (result: AssessmentResultType) => void
 }
 
 const ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [

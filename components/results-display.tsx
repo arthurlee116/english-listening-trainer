@@ -4,7 +4,6 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp } from "lucide-react"
 import type { Exercise } from "@/lib/types"
@@ -15,7 +14,7 @@ interface ResultsDisplayProps {
   onExport: () => void
 }
 
-export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplayProps) {
+export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplayProps) => {
   const [showDetails, setShowDetails] = useState(true)
   const [showTranscript, setShowTranscript] = useState(false)
   
@@ -198,3 +197,5 @@ export function ResultsDisplay({ exercise, onRestart, onExport }: ResultsDisplay
     </div>
   )
 }
+
+ResultsDisplay.displayName = "ResultsDisplay"

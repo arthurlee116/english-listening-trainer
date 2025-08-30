@@ -1,20 +1,12 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
 import nextPlugin from "@next/eslint-plugin-next";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import typescriptEslint from "@typescript-eslint/eslint-plugin";
+import typescriptParser from "@typescript-eslint/parser";
 
 export default [
   {
     ignores: [
       ".next/**",
-      "dist/**", 
+      "dist/**",
       "build/**",
       "out/**",
       "node_modules/**",
@@ -22,19 +14,29 @@ export default [
       "kokoro-local/venv/**",
       "public/audio/**",
       "*.log",
-      "logs/**"
-    ]
+      "logs/**",
+    ],
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    plugins: {
+      "@next/next": nextPlugin,
+      "@typescript-eslint": typescriptEslint,
+    },
+    languageOptions: {
+      parser: typescriptParser,
+    },
     rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      ...typescriptEslint.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { 
-          "argsIgnorePattern": "^_",
-          "varsIgnorePattern": "^_"
-        }
-      ]
-    }
-  }
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ];

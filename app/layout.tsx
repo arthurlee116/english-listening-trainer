@@ -3,6 +3,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ErrorBoundary } from '@/components/error-boundary'
 import '../lib/kokoro-init'
+import React from 'react'
 
 export const metadata: Metadata = {
   title: 'English Listening Trainer',
@@ -10,11 +11,11 @@ export const metadata: Metadata = {
   generator: 'Arthur',
 }
 
-export default function RootLayout({
+const RootLayout = ({
   children,
 }: Readonly<{
   children: React.ReactNode
-}>) {
+}>): React.ReactElement => {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
@@ -32,3 +33,7 @@ export default function RootLayout({
     </html>
   )
 }
+
+RootLayout.displayName = 'RootLayout'
+
+export default RootLayout

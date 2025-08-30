@@ -16,13 +16,13 @@ export enum OperationState {
 }
 
 // 操作配置
-export interface OperationConfig {
+export interface OperationConfig<T> {
   timeout?: number
   retries?: number
   retryDelay?: number
   showSuccessToast?: boolean
   showErrorToast?: boolean
-  onSuccess?: (result: any) => void
+  onSuccess?: (result: T) => void
   onError?: (error: Error) => void
   onCancel?: () => void
 }
@@ -179,9 +179,9 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 // 增强操作Hook
-export function useEnhancedOperation<T, TArgs extends any[]>(
+export function useEnhancedOperation<T, TArgs extends unknown[]>(
   operation: (signal: AbortSignal, attempt: number, ...args: TArgs) => Promise<T>,
-  config: OperationConfig = {}
+  config: OperationConfig<T> = {}
 ) {
   const [state, setState] = useState<OperationState>(OperationState.IDLE)
   const [data, setData] = useState<T | undefined>(undefined)
@@ -380,7 +380,7 @@ function getErrorMessage(error: Error): string {
 // 批量操作Hook
 export function useBatchOperation<T, R>(
   operation: (item: T, signal: AbortSignal) => Promise<R>,
-  config: OperationConfig & {
+  config: OperationConfig<R> & {
     batchSize?: number
     concurrency?: number
     onItemSuccess?: (result: R, item: T, index: number) => void
@@ -523,7 +523,7 @@ export function useBatchOperation<T, R>(
 export function useCachedOperation<T>(
   key: string,
   operation: (signal: AbortSignal) => Promise<T>,
-  config: OperationConfig & {
+  config: OperationConfig<T> & {
     cacheTime?: number
     staleTime?: number
   } = {}

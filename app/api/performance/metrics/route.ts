@@ -22,8 +22,14 @@ export async function GET(request: NextRequest) {
     // 获取当前时间戳
     const timestamp = new Date().toISOString()
     
+    // 定义缓存统计信息的接口
+    interface CacheStats {
+      size?: number
+      maxSize?: number
+    }
+
     // 计算缓存命中率（如果有相关数据）
-    const calculateCacheHitRate = (stats: any) => {
+    const calculateCacheHitRate = (stats: CacheStats) => {
       const total = stats.size || 0
       const max = stats.maxSize || 1
       return total > 0 ? (total / max * 100).toFixed(2) : "0.00"
@@ -113,17 +119,24 @@ function formatUptime(seconds: number): string {
   }
 }
 
+// 定义性能历史记录项的接口
+interface PerformanceHistoryItem {
+  latest: number
+  trend: 'improving' | 'stable' | 'degrading'
+  reliability: 'high' | 'medium' | 'low'
+}
+
 // 获取性能历史数据
 function getPerformanceHistory() {
   const stats = performanceMonitor.getAllStats()
-  const history: Record<string, any> = {}
+  const history: Record<string, PerformanceHistoryItem> = {}
   
   for (const [label, data] of Object.entries(stats)) {
-    if (data) {
+    if (data && typeof data === 'object' && data !== null && 'average' in data && 'count' in data) {
       history[label] = {
-        latest: data.average,
+        latest: (data as { average: number }).average,
         trend: calculateTrend(label),
-        reliability: data.count > 10 ? 'high' : data.count > 5 ? 'medium' : 'low'
+        reliability: (data as { count: number }).count > 10 ? 'high' : (data as { count: number }).count > 5 ? 'medium' : 'low'
       }
     }
   }

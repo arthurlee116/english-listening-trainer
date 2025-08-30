@@ -43,6 +43,13 @@ enum ServiceState {
 }
 
 // 音频文件管理器
+interface AudioFileManagerStats {
+  totalFiles: number;
+  totalSize: number;
+  oldestFile: Date | null;
+  newestFile: Date | null;
+}
+
 class AudioFileManager {
   private static instance: AudioFileManager
   private audioFiles: Map<string, { path: string; createdAt: Date; accessed: Date }> = new Map()
@@ -134,12 +141,7 @@ class AudioFileManager {
     }
   }
 
-  getStats(): {
-    totalFiles: number
-    totalSize: number
-    oldestFile: Date | null
-    newestFile: Date | null
-  } {
+  getStats(): AudioFileManagerStats {
     let totalSize = 0
     let oldestFile: Date | null = null
     let newestFile: Date | null = null
@@ -178,7 +180,21 @@ class AudioFileManager {
   }
 }
 
-export class EnhancedKokoroTTSService extends EventEmitter {
+export interface TTSServiceStats {
+  state: ServiceState
+  totalRequests: number
+  successfulRequests: number
+  failedRequests: number
+  successRate: number
+  averageResponseTime: number
+  concurrentRequests: number
+  queueLength: number
+  uptime: number
+  lastErrorTime: Date | null
+  audioFileStats: AudioFileManagerStats
+}
+
+class EnhancedKokoroTTSService extends EventEmitter {
   private process: ChildProcess | null = null
   private state: ServiceState = ServiceState.INITIALIZING
   private requestQueue: Map<string, QueuedRequest> = new Map()
@@ -663,19 +679,7 @@ export class EnhancedKokoroTTSService extends EventEmitter {
     return this.state === ServiceState.READY
   }
 
-  getStats(): {
-    state: ServiceState
-    totalRequests: number
-    successfulRequests: number
-    failedRequests: number
-    successRate: number
-    averageResponseTime: number
-    concurrentRequests: number
-    queueLength: number
-    uptime: number
-    lastErrorTime: Date | null
-    audioFileStats: any
-  } {
+  getStats(): TTSServiceStats {
     const now = Date.now()
     return {
       state: this.state,
@@ -761,27 +765,45 @@ export class EnhancedKokoroTTSService extends EventEmitter {
 }
 
 // 装饰器实现
-function withRetry(target: any, propertyName: string, descriptor: PropertyDescriptor) {
-  const method = descriptor.value
-  descriptor.value = function (...args: any[]) {
-    const retryWrapper = retryFunction(method.bind(this), {
-      maxAttempts: 3,
-      baseDelay: 2000,
-      maxDelay: 10000,
-      backoffFactor: 2,
-      retryableErrors: ['ECONNRESET', 'timeout', 'not ready', 'process exited']
-    })
+function withRetry<P extends unknown[], R>(
+  target: any,
+  propertyName: string,
+  descriptor: TypedPropertyDescriptor<(...args: P) => Promise<R>>
+) {
+  const method = descriptor.value;
+  if (!method) return;
+
+  descriptor.value = function (this: EnhancedKokoroTTSService, ...args: P): Promise<R> {
+    const operationName = `${target.constructor.name}.${propertyName}`
+    const retryWrapper = retryFunction(
+      method.bind(this),
+      {
+        maxAttempts: 3,
+        baseDelay: 2000,
+        maxDelay: 10000,
+        backoffFactor: 2,
+        retryableErrors: ['ECONNRESET', 'timeout', 'not ready', 'process exited']
+      },
+      operationName
+    )
     return retryWrapper(...args)
   }
 }
 
 function withTimeout(timeoutMs: number) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
-    const method = descriptor.value
-    descriptor.value = function (...args: any[]) {
-      return timeoutFunction(method.bind(this), timeoutMs)(...args)
+  return function <P extends unknown[], R>(
+    target: any,
+    propertyName: string,
+    descriptor: TypedPropertyDescriptor<(...args: P) => Promise<R>>
+  ) {
+    const method = descriptor.value;
+    if (!method) return;
+
+    descriptor.value = function (this: EnhancedKokoroTTSService, ...args: P): Promise<R> {
+      const timeoutWrapper = timeoutFunction(method.bind(this), timeoutMs);
+      return timeoutWrapper(...args)
     }
-  }
+  };
 }
 
 // 导出单例实例

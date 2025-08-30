@@ -33,7 +33,7 @@ interface PendingRequest {
 
 interface QueuedRequest extends KokoroRequest {
   resolve: (value: KokoroResponse | PromiseLike<KokoroResponse>) => void;
-  reject: (reason?: any) => void;
+  reject: (reason?: AppError) => void;
   queueTimeout: NodeJS.Timeout;
 }
 
@@ -77,7 +77,7 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     if (this.initializing) {
       return new Promise((resolve, reject) => {
         this.once('ready', resolve)
-        this.once('error', reject)
+        this.once('error', (error: AppError) => reject(error))
       })
     }
 
@@ -207,7 +207,7 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
         resolve()
       })
 
-      this.once('error', (error) => {
+      this.once('error', (error: AppError) => {
         clearTimeout(initTimeout)
         reject(error)
       })

@@ -23,7 +23,7 @@ interface AuthDialogProps {
   onUserAuthenticated: (user: User, token: string) => void
 }
 
-export const AuthDialog = React.memo(function AuthDialog({ open, onUserAuthenticated }: AuthDialogProps) {
+const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -56,7 +56,7 @@ export const AuthDialog = React.memo(function AuthDialog({ open, onUserAuthentic
 
   // 验证密码强度
   const passwordValidation = useMemo(() => {
-    const { password } = formData
+    const password = formData.password
     const errors: string[] = []
     
     if (password.length < 8) errors.push('至少8位字符')
@@ -474,4 +474,8 @@ export const AuthDialog = React.memo(function AuthDialog({ open, onUserAuthentic
       </DialogContent>
     </Dialog>
   )
-})
+}
+
+AuthDialogComponent.displayName = "AuthDialog"
+
+export const AuthDialog = React.memo(AuthDialogComponent)

@@ -109,7 +109,7 @@ interface QuestionInterfaceProps {
   transcript: string
 }
 
-export const QuestionInterface = React.memo(function QuestionInterface({
+const QuestionInterfaceComponent = ({
   questions,
   answers,
   onAnswerChange,
@@ -118,7 +118,7 @@ export const QuestionInterface = React.memo(function QuestionInterface({
   loadingMessage,
   audioUrl,
   transcript,
-}: QuestionInterfaceProps) {
+}: QuestionInterfaceProps) => {
   const {
     isPlaying,
     currentTime,
@@ -290,4 +290,8 @@ export const QuestionInterface = React.memo(function QuestionInterface({
       </Card>
     </div>
   )
-})
+}
+
+QuestionInterfaceComponent.displayName = "QuestionInterface"
+
+export const QuestionInterface = React.memo(QuestionInterfaceComponent)

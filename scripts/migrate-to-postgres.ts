@@ -7,7 +7,6 @@
 
 import { PrismaClient } from '@prisma/client'
 import Database from 'better-sqlite3'
-import bcrypt from 'bcryptjs'
 import { createUser } from '../lib/auth'
 import path from 'path'
 
@@ -81,7 +80,7 @@ async function main() {
     const tables = sourceDb.prepare(`
       SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'
     `).all()
-    console.log('📊 源数据库表：', tables.map((t: any) => t.name).join(', '))
+    console.log('📊 源数据库表：', tables.map((t: unknown) => (t as { name: string }).name).join(', '))
 
     // 第一步：读取源数据库统计
     console.log('\n📈 分析源数据库...')
@@ -223,7 +222,7 @@ async function main() {
     // 显示用户账号信息
     if (stats.createdUsers > 0) {
       console.log('\n👥 创建的用户账号 (基于邀请码):')
-      for (const [inviteCode, userId] of userMap) {
+      for (const [_inviteCode, userId] of userMap) {
         const user = await targetDb.user.findUnique({ where: { id: userId } })
         if (user) {
           console.log(`   📧 ${user.email} (密码: Temp123456)`)

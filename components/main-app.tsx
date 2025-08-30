@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, History, MessageSquare, User, Settings, LogOut, Book } from "lucide-react"
+import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthDialog } from "@/components/auth-dialog"
@@ -21,11 +21,31 @@ import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
 import { HistoryPanel } from "@/components/history-panel"
 import { WrongAnswersBook } from "@/components/wrong-answers-book"
-import { AssessmentAudioPlayer } from "@/components/assessment-audio-player"
 import { AssessmentResult } from "@/components/assessment-result"
 import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
+
+interface AssessmentResultData {
+  difficultyLevel: number;
+  difficultyRange: {
+    min: number;
+    max: number;
+    name: string;
+    nameEn: string;
+    description: string;
+  };
+  scores: number[];
+  summary: string;
+  details: Array<{
+    audioId: number;
+    topic: string;
+    userScore: number;
+    difficulty: number;
+    performance: string;
+  }>;
+  recommendation: string;
+}
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", label: "A1 - Beginner" },
@@ -95,7 +115,7 @@ function useUserAuth() {
   }, [])
 
   // 用户登录成功处理
-  const handleUserAuthenticated = useCallback((userData: UserInfo, token: string) => {
+  const handleUserAuthenticated = useCallback((userData: UserInfo) => {
     setUser(userData)
     setIsAuthenticated(true)
     setShowAuthDialog(false)
@@ -148,7 +168,7 @@ function useUserAuth() {
   }
 }
 
-export function MainApp() {
+export const MainApp = () => {
   const {
     user,
     isAuthenticated,
@@ -178,9 +198,7 @@ export function MainApp() {
   const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
 
   // Assessment 相关状态
-  const [assessmentResult, setAssessmentResult] = useState<any>(null)
-  const [currentAssessmentIndex, setCurrentAssessmentIndex] = useState<number>(0)
-  const [assessmentAnswers, setAssessmentAnswers] = useState<Record<number, number>>({})
+  const [assessmentResult, setAssessmentResult] = useState<AssessmentResultData | null>(null)
 
   const wordCount = useMemo(() => duration * 2, [duration])
 
@@ -189,13 +207,6 @@ export function MainApp() {
     return Boolean(difficulty && topic)
   }, [difficulty, topic])
 
-  const canGenerateQuestions = useMemo(() => {
-    return Boolean(transcript)
-  }, [transcript])
-
-  const canSubmitAnswers = useMemo(() => {
-    return questions.length > 0 && Object.keys(answers).length === questions.length
-  }, [questions, answers])
 
   const handleGenerateTopics = useCallback(async () => {
     if (!difficulty) return
@@ -533,8 +544,6 @@ export function MainApp() {
             onReturnHome={() => {
               setStep("assessment")
               setAssessmentResult(null)
-              setCurrentAssessmentIndex(0)
-              setAssessmentAnswers({})
             }}
           />
         )}
@@ -736,3 +745,5 @@ export function MainApp() {
     </div>
   )
 }
+
+MainApp.displayName = "MainApp"

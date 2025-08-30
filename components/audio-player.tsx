@@ -21,12 +21,12 @@ interface AudioPlayerProps {
 }
 
 // 自定义Hook用于音频控制
-function useAudioPlayer(audioUrl: string) {
+function useAudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
-  const [isLoading, setIsLoading] = useState(false)
+  const [, setIsLoading] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -82,7 +82,6 @@ function useAudioPlayer(audioUrl: string) {
     setDuration,
     volume,
     setVolume,
-    isLoading,
     setIsLoading,
     audioRef,
     isScrubbingRef,
@@ -95,19 +94,19 @@ function useAudioPlayer(audioUrl: string) {
   }
 }
 
-export const AudioPlayer = React.memo(function AudioPlayer({ 
+const AudioPlayerComponent = ({ 
   audioUrl, 
   audioError, 
   transcript,
-  difficulty: _difficulty,
-  topic: _topic,
-  wordCount: _wordCount,
+  // difficulty, // unused
+  // topic, // unused
+  // wordCount, // unused
   onGenerateAudio,
   onStartQuestions, 
   onRegenerate, 
   loading = false, 
   loadingMessage = "" 
-}: AudioPlayerProps) {
+}: AudioPlayerProps) => {
   const {
     isPlaying,
     setIsPlaying,
@@ -117,7 +116,6 @@ export const AudioPlayer = React.memo(function AudioPlayer({
     setDuration,
     volume,
     setVolume,
-    isLoading,
     setIsLoading,
     audioRef,
     isScrubbingRef,
@@ -127,7 +125,7 @@ export const AudioPlayer = React.memo(function AudioPlayer({
     startProgressLoop,
     stopProgressLoop,
     cleanup
-  } = useAudioPlayer(audioUrl)
+  } = useAudioPlayer()
 
   useEffect(() => {
     const audio = audioRef.current
@@ -221,7 +219,7 @@ export const AudioPlayer = React.memo(function AudioPlayer({
         setIsPlaying(false)
       })
     }
-  }, [])
+  }, [audioRef, setIsPlaying])
 
   const handleSeek = useCallback((value: number[]) => {
     const audio = audioRef.current
@@ -251,19 +249,19 @@ export const AudioPlayer = React.memo(function AudioPlayer({
       audio.pause()
       wasPausedBeforeScrubRef.current = false
     }
-  }, [duration, startProgressLoop])
+  }, [audioRef, duration, setCurrentTime, startProgressLoop])
 
   const skipBackward = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
     audio.currentTime = Math.max(0, audio.currentTime - 10)
-  }, [])
+  }, [audioRef])
 
   const skipForward = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
     audio.currentTime = Math.min(duration, audio.currentTime + 10)
-  }, [duration])
+  }, [audioRef, duration])
 
   const handleVolumeChange = useCallback((value: number[]) => {
     const audio = audioRef.current
@@ -271,7 +269,7 @@ export const AudioPlayer = React.memo(function AudioPlayer({
     const newVolume = value[0] / 100
     audio.volume = newVolume
     setVolume(newVolume)
-  }, [])
+  }, [audioRef, setVolume])
 
   const formatTime = useMemo(() => (time: number) => {
     const minutes = Math.floor(time / 60)
@@ -510,4 +508,8 @@ export const AudioPlayer = React.memo(function AudioPlayer({
       </Card>
     </div>
   )
-})
+}
+
+AudioPlayerComponent.displayName = "AudioPlayer"
+
+export const AudioPlayer = React.memo(AudioPlayerComponent)

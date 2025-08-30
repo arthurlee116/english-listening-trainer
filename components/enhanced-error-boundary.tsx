@@ -5,7 +5,7 @@
 
 "use client"
 
-import React, { Component, ErrorInfo, ReactNode } from 'react'
+import React, { Component, ReactNode } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,10 +17,28 @@ import {
   ChevronDown, 
   ChevronUp,
   Clock,
-  User,
   Zap,
   Shield
 } from 'lucide-react'
+
+interface ErrorLogData {
+  timestamp: string;
+  category: ErrorCategory;
+  severity: ErrorSeverity;
+  component: string;
+  userId?: string;
+  error: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+  reactErrorInfo: {
+    componentStack?: string | null;
+  };
+  userAgent: string;
+  url: string;
+  retryAttempts: number;
+}
 
 // 错误类型分类
 enum ErrorCategory {
@@ -245,7 +263,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     this.sendErrorToMonitoring(logData)
   }
 
-  private sendErrorToMonitoring(errorData: any): void {
+  private sendErrorToMonitoring(errorData: ErrorLogData): void {
     // 这里可以集成第三方错误监控服务
     // 例如：Sentry, LogRocket, Bugsnag 等
     
@@ -386,7 +404,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
                 </div>
                 
                 {errorAnalysis && (
-                  <Badge variant={this.getSeverityColor(errorAnalysis.severity) as any}>
+                  <Badge variant={this.getSeverityColor(errorAnalysis.severity) as "default" | "destructive" | "secondary" | "outline" | null | undefined}>
                     {errorAnalysis.severity.toUpperCase()}
                   </Badge>
                 )}
@@ -566,7 +584,7 @@ export function useAsyncErrorHandler() {
     }, 0)
   }
 
-  const handleAsyncError = (asyncFn: () => Promise<any>) => {
+  const handleAsyncError = (asyncFn: () => Promise<unknown>) => {
     return asyncFn().catch(throwError)
   }
 

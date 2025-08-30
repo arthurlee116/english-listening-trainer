@@ -52,6 +52,35 @@ export interface AppConfig {
   }
 }
 
+export interface ConfigSummary {
+  environment: 'development' | 'production' | 'test';
+  port: number;
+  host: string;
+  features: AppConfig['features'];
+  ai: {
+    baseUrl: string;
+    timeout: number;
+    maxRetries: number;
+    defaultModel: string;
+    hasApiKey: boolean;
+  };
+  tts: {
+    timeout: number;
+    maxConcurrentRequests: number;
+    maxRestartAttempts: number;
+  };
+  database: {
+    path: string;
+    journalMode: string;
+    foreignKeys: boolean;
+  };
+  security: {
+    corsOrigins: string[];
+    maxRequestsPerMinute: number;
+    hasCustomAdminPassword: boolean;
+  };
+}
+
 class ConfigurationManager {
   private static instance: ConfigurationManager | null = null
   private config: AppConfig | null = null
@@ -253,7 +282,7 @@ class ConfigurationManager {
   }
 
   // 获取配置摘要（用于调试，不包含敏感信息）
-  getConfigSummary(): Record<string, any> {
+  getConfigSummary(): ConfigSummary {
     const config = this.getConfig()
     
     return {

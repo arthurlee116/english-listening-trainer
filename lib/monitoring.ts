@@ -21,12 +21,12 @@ export interface LogEntry {
   timestamp: string
   level: LogLevel
   message: string
-  context?: any
+  context?: Record<string, unknown>
   error?: Error
   requestId?: string
   userId?: string
   duration?: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 // 性能指标接口
@@ -46,7 +46,7 @@ export interface HealthCheckResult {
     status: 'pass' | 'fail' | 'warn'
     message?: string
     duration?: number
-    details?: any
+    details?: Record<string, unknown>
   }>
   uptime: number
   version: string
@@ -70,7 +70,7 @@ export class Logger {
   private createLogEntry(
     level: LogLevel,
     message: string,
-    context?: any,
+    context?: Record<string, unknown>,
     error?: Error,
     requestId?: string,
     userId?: string,
@@ -135,28 +135,28 @@ export class Logger {
     return colors[level] || '\x1b[0m'
   }
 
-  private async sendToExternalLogging(entry: LogEntry): Promise<void> {
+  private async sendToExternalLogging(_entry: LogEntry): Promise<void> {
     // 这里可以集成外部日志服务，如 Sentry、LogRocket、DataDog 等
     // 例如：await sentry.captureException(entry.error, { extra: entry.context })
   }
 
-  debug(message: string, context?: any, requestId?: string): void {
+  debug(message: string, context?: Record<string, unknown>, requestId?: string): void {
     this.log(this.createLogEntry(LogLevel.DEBUG, message, context, undefined, requestId))
   }
 
-  info(message: string, context?: any, requestId?: string): void {
+  info(message: string, context?: Record<string, unknown>, requestId?: string): void {
     this.log(this.createLogEntry(LogLevel.INFO, message, context, undefined, requestId))
   }
 
-  warn(message: string, context?: any, requestId?: string): void {
+  warn(message: string, context?: Record<string, unknown>, requestId?: string): void {
     this.log(this.createLogEntry(LogLevel.WARN, message, context, undefined, requestId))
   }
 
-  error(message: string, error?: Error, context?: any, requestId?: string): void {
+  error(message: string, error?: Error, context?: Record<string, unknown>, requestId?: string): void {
     this.log(this.createLogEntry(LogLevel.ERROR, message, context, error, requestId))
   }
 
-  fatal(message: string, error?: Error, context?: any, requestId?: string): void {
+  fatal(message: string, error?: Error, context?: Record<string, unknown>, requestId?: string): void {
     this.log(this.createLogEntry(LogLevel.FATAL, message, context, error, requestId))
   }
 
@@ -168,7 +168,7 @@ export class Logger {
     duration: number,
     requestId: string,
     userId?: string,
-    requestBody?: any,
+    requestBody?: Record<string, unknown>,
     responseSize?: number
   ): void {
     this.info('API Request', {
@@ -238,7 +238,7 @@ export class Logger {
   }
 
   // 记录错误（兼容旧接口）
-  logError(error: Error, context?: any): void {
+  logError(error: Error, context?: Record<string, unknown>): void {
     this.error(error.message, error, context)
   }
 
@@ -456,14 +456,14 @@ export class HealthChecker {
           status: 'pass',
           message: 'Database connection successful',
           duration,
-          details: result.metrics
+          details: { healthy: result.healthy }
         }
       } else {
         return {
           status: 'fail',
           message: 'Database connection failed',
           duration,
-          details: result.metrics
+          details: { healthy: result.healthy }
         }
       }
     } catch (error) {
@@ -606,7 +606,7 @@ process.on('uncaughtException', (error) => {
   process.exit(1)
 })
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
   logger.error('Unhandled Promise Rejection', reason instanceof Error ? reason : new Error(String(reason)), {
     promise: promise.toString()
   })

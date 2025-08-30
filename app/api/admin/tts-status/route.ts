@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
-import { detectSystemDevices, getCurrentDeviceConfig, validateDeviceConfig, generateDeviceReport } from '@/lib/device-detection'
+import { detectSystemDevices, getCurrentDeviceConfig, validateDeviceConfig, generateDeviceReport, SystemInfo } from '@/lib/device-detection'
 
 export async function GET(request: NextRequest) {
   try {
@@ -98,11 +98,11 @@ export async function GET(request: NextRequest) {
 /**
  * 根据系统信息生成性能建议
  */
-function generateRecommendations(systemInfo: any): string[] {
+function generateRecommendations(systemInfo: SystemInfo): string[] {
   const recommendations: string[] = []
   
   // 检查CUDA设备
-  const cudaDevice = systemInfo.devices.find((d: any) => d.type === 'cuda')
+  const cudaDevice = systemInfo.devices.find((d) => d.type === 'cuda')
   if (cudaDevice?.available) {
     if (cudaDevice.memory && cudaDevice.memory >= 8) {
       recommendations.push('🚀 检测到高性能CUDA GPU，推荐使用CUDA加速以获得最佳性能')
@@ -114,7 +114,7 @@ function generateRecommendations(systemInfo: any): string[] {
   }
   
   // 检查Metal设备
-  const metalDevice = systemInfo.devices.find((d: any) => d.type === 'metal')
+  const metalDevice = systemInfo.devices.find((d) => d.type === 'metal')
   if (metalDevice?.available && systemInfo.arch === 'arm64') {
     recommendations.push('🍎 检测到Apple Silicon，推荐使用Metal加速以获得最佳性能')
   }

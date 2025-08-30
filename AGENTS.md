@@ -27,14 +27,14 @@ ADMIN_NAME=System Administrator
 ```
 
 ## 常用命令速查
-- 安装依赖：pnpm install
-- 初始化 Kokoro TTS：pnpm run setup-kokoro
-- 初始化管理员账号：pnpm exec tsx scripts/seed-user-db.ts
-- 启动开发：pnpm run dev（Next.js 开发服务器）
-- 构建生产：pnpm run build
-- 启动生产：pnpm run start
-- 代码检查：pnpm run lint
-- 管理后台（3005）：pnpm run admin（或 pnpm run admin-dev）
+- 安装依赖：npm install
+- 初始化 Kokoro TTS：npm run setup-kokoro
+- 初始化管理员账号：npm run seed-user-db
+- 启动开发：npm run dev（Next.js 开发服务器）
+- 构建生产：npm run build
+- 启动生产：npm run start
+- 代码检查：npm run lint
+- 管理后台（3005）：npm run admin（或 npm run admin-dev）
 
 package.json 中可用脚本（节选）：
 - dev、build、start、lint
@@ -89,7 +89,7 @@ package.json 中可用脚本（节选）：
 - TTS 首次加载 3–5s；生成音频约 2–8s；内存占用约 1–2GB
 
 ## 校验与联调建议（无正式测试框架）
-- 运行 pnpm run lint 保持类型与 Lint 清洁
+- 运行 npm run lint 保持类型与 Lint 清洁
 - 本地核验清单：
   1) Kokoro TTS 初始化成功（scripts/setup-kokoro.sh）
   2) CEREBRAS_API_KEY 生效
@@ -105,7 +105,7 @@ package.json 中可用脚本（节选）：
 
 ## 故障排查（常见问题）
 - Python 版本：必须 3.8–3.12（python3 --version）
-- TTS 初始化失败：重跑 pnpm run setup-kokoro
+- TTS 初始化失败：重跑 npm run setup-kokoro
 - 虚拟环境异常：删除并重建 venv（例如 python3.12 -m venv venv）
 - AI 生成失败：检查 API Key 与网络/代理
 - 认证异常：检查 JWT_SECRET、数据库可写性
@@ -117,7 +117,7 @@ package.json 中可用脚本（节选）：
 - 管理面板：/admin（仅管理员）
 
 ## 面向智能代理的工作准则
-- 若你对代码进行了改进，请在 CLAUDE.md 与相关代码处添加注释，说明改动与原因
+- 若你对代码进行了改进，请在 CLAUDE.md、AGENTS.md 与相关代码处添加注释，说明改动与原因
 - 除非我明确要求，禁止用模拟数据代替真实 AI 服务输出（可通过 feature flag 或兜底分支隔离）
 - 若新代码存在问题，请修复当前实现，不要回退到旧版本功能
 - 每次完成可运行的改动后进行小步提交（信息清晰、范围单一）
