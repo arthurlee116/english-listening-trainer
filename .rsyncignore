@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.git/
+*.log
+.DS_Store
+public/audio/*.wav
+kokoro-local/venv/
+kokoro-local/__pycache__/
+scripts/fix-*.sh

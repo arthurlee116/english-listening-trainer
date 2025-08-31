@@ -3,8 +3,8 @@ import { parse } from 'url'
 import next from 'next'
 
 const dev = process.env.NODE_ENV !== 'production'
-const hostname = 'localhost'
-const port = 3005
+const hostname = process.env.HOSTNAME || '0.0.0.0'
+const port = process.env.PORT || 3005
 
 // 创建 Next.js 应用实例，使用完整的应用配置
 const app = next({ dev, hostname, port, dir: './' })
