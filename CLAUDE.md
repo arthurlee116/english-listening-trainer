@@ -123,16 +123,16 @@ pnpm run admin-dev            # 开发模式管理服务器
 1. 确保 Kokoro TTS 环境已正确设置
 2. 验证 Cerebras API 密钥配置
 3. 检查 SQLite 数据库文件权限
-4. 运行 `pnpm exec tsx scripts/seed-user-db.ts` 创建管理员账号
+4. 运行 `npm exec tsx scripts/seed-user-db.ts` 创建管理员账号
 5. 使用创建的管理员账号或注册新账号进行功能验证
 
 ### 常见问题
 - **Python 版本问题**: 验证 Python 版本 (`python3 --version`)，需要 3.8-3.12
-- **TTS 初始化失败**: 重新运行 `pnpm run setup-kokoro`
+- **TTS 初始化失败**: 重新运行 `npm run setup-kokoro`
 - **虚拟环境重建**: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`
 - **AI 生成失败**: 检查 API 密钥和网络连接
 - **用户认证失败**: 检查 JWT_SECRET 环境变量配置
-- **管理员账号问题**: 运行 `pnpm exec tsx scripts/seed-user-db.ts` 重新创建
+- **管理员账号问题**: 运行 `npm exec tsx scripts/seed-user-db.ts` 重新创建
 - **数据库架构问题**: 删除 `data/app.db` 并运行数据库初始化脚本重新创建
 
 ## 生产部署考虑
@@ -203,8 +203,23 @@ pnpm run admin-dev            # 开发模式管理服务器
   - `npm run migrate-data:rollback` - 清空目标数据库
   - `./scripts/switch-database.sh [sqlite|postgres|status]` - 快速切换数据库
   - `./scripts/dev-db.sh [start|stop|reset]` - PostgreSQL 容器管理
+  - `./scripts/dev-db-fallback.sh` - 本地 PostgreSQL 备用方案（当Docker有问题时）
 
-**备注**: 工具已完成测试，支持完整的架构升级迁移。由于 Docker 启动问题，已提供多种 PostgreSQL 启动方案。
+**备注**: 工具已完成测试，支持完整的架构升级迁移。**Docker 启动问题已修复**，同时提供本地 PostgreSQL 备用方案。
+
+## 系统默认账号信息
+
+### 管理员账号（固定）
+- **邮箱**：admin@listeningtrain.com
+- **密码**：Admin123456  
+- **权限**：系统管理员，可访问管理界面 `/admin`
+- **说明**：此为系统固定管理员账号，用于所有开发和测试环境
+
+### 测试用户账号
+- **邮箱**：test@example.com
+- **密码**：Test123456
+- **权限**：普通用户
+- **说明**：标准测试用户账号，用于验证普通用户功能
 
 ## 重要提醒
 - 如果你根据我的要求改进了代码，请务必在本文件中添加注释，并说明你的改进内容
