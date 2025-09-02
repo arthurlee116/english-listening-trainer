@@ -249,7 +249,7 @@ export function getAuthCookieOptions(rememberMe: boolean = false) {
   
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // 修复：允许HTTP连接使用cookie，避免在非HTTPS环境下cookie无法发送
     sameSite: 'lax' as const,
     maxAge,
     path: '/'
