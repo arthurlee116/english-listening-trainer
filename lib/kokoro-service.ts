@@ -67,7 +67,8 @@ export class KokoroTTSService extends EventEmitter {
 
   private async startPythonProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper_interactive.py')
+      // 使用真实的Kokoro包装器而不是模拟版本
+      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper_real.py')
       
       if (!fs.existsSync(pythonPath)) {
         reject(new Error(`Kokoro wrapper not found at ${pythonPath}`))
@@ -82,10 +83,15 @@ export class KokoroTTSService extends EventEmitter {
         ...process.env,
         PYTORCH_ENABLE_MPS_FALLBACK: '1',
         KOKORO_DEVICE: kokoroDevice, // 传递设备选择给Python
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || '')
+        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || ''),
+        // 添加CUDA路径支持
+        PATH: `/usr/local/cuda-12.2/bin:${(process.env.PATH || '')}`,
+        LD_LIBRARY_PATH: `/usr/local/cuda-12.2/lib64:${(process.env.LD_LIBRARY_PATH || '')}`
       }
       
       console.log(`📱 Kokoro device preference: ${kokoroDevice}`)
+      console.log(`🔧 CUDA PATH: ${env.PATH}`)
+      console.log(`🔧 CUDA LD_LIBRARY_PATH: ${env.LD_LIBRARY_PATH}`)
 
       const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python3')
       const venvPath = path.join(process.cwd(), 'kokoro-local', 'venv')
