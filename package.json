@@ -24,6 +24,7 @@
     "test-mcp": "node scripts/test-mcp.js",
     "fix-mcp": "npm cache clean --force && node scripts/test-mcp.js",
     "fix-mcp-sudo": "sudo npm cache clean --force && sudo npm install -g minimax-mcp-js && node scripts/test-mcp.js",
+    "mcp-health": "node scripts/mcp-health-check.js",
     "clean": "npm cache clean --force && rm -rf node_modules && rm -rf .next && npm install",
     "setup-kokoro": "./scripts/setup-kokoro.sh",
     "dev-kokoro": "npm run setup-kokoro && next dev --port 3001"

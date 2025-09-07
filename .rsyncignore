@@ -3,7 +3,8 @@ node_modules/
 .git/
 *.log
 .DS_Store
+.env.local
+data/app.db
 public/audio/*.wav
 kokoro-local/venv/
 kokoro-local/__pycache__/
-scripts/fix-*.sh

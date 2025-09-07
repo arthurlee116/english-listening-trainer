@@ -15,7 +15,7 @@ if (!CEREBRAS_API_KEY) {
 }
 
 // 代理配置（远程服务器代理）
-const PROXY_URL = 'http://81.71.93.183:10811'
+const PROXY_URL = 'http://127.0.0.1:7890'
 const proxyAgent = new HttpsProxyAgent(PROXY_URL)
 
 // 初始化 Cerebras 客户端，使用代理

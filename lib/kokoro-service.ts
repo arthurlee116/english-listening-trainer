@@ -67,7 +67,7 @@ export class KokoroTTSService extends EventEmitter {
 
   private async startPythonProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper.py')
+      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper_interactive.py')
       
       if (!fs.existsSync(pythonPath)) {
         reject(new Error(`Kokoro wrapper not found at ${pythonPath}`))
@@ -87,7 +87,7 @@ export class KokoroTTSService extends EventEmitter {
       
       console.log(`📱 Kokoro device preference: ${kokoroDevice}`)
 
-      const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python')
+      const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python3')
       const venvPath = path.join(process.cwd(), 'kokoro-local', 'venv')
       
       // 设置虚拟环境的环境变量
@@ -95,7 +95,7 @@ export class KokoroTTSService extends EventEmitter {
         ...env,
         VIRTUAL_ENV: venvPath,
         PATH: `${venvPath}/bin:${(env as Record<string, string | undefined>).PATH || process.env.PATH || ''}`,
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.12', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
+        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.10', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
       }
       
       // 启动Python进程
