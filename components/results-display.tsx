@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp } from "lucide-react"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 import type { Exercise } from "@/lib/types"
 
 interface ResultsDisplayProps {
@@ -17,6 +18,7 @@ interface ResultsDisplayProps {
 export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplayProps) => {
   const [showDetails, setShowDetails] = useState(true)
   const [showTranscript, setShowTranscript] = useState(false)
+  const { t } = useBilingualText()
   
   const correctAnswers = exercise.results.filter(result => result.is_correct).length
   const totalQuestions = exercise.results.length
@@ -40,7 +42,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
       <Card className="glass-effect p-8 text-center">
         <div className="flex items-center justify-center mb-4">
           <Trophy className="w-8 h-8 text-yellow-500 mr-3" />
-          <h2 className="text-2xl font-bold">练习完成！</h2>
+          <h2 className="text-2xl font-bold">{t('components.resultsDisplay.exerciseComplete')}</h2>
         </div>
         
         <div className="space-y-4">
@@ -50,10 +52,10 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           
           <div className="flex items-center justify-center gap-4">
             <Badge className={getAccuracyBadgeColor(accuracy)}>
-              {correctAnswers}/{totalQuestions} 正确
+              {correctAnswers}/{totalQuestions} {t('components.resultsDisplay.correct')}
             </Badge>
             <Badge variant="outline">
-              {exercise.difficulty} 级别
+              {t(`common.difficultyLevels.${exercise.difficulty}`)} {t('components.resultsDisplay.level')}
             </Badge>
             <Badge variant="outline">
               {exercise.language}
@@ -63,12 +65,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           <Progress value={accuracy} className="w-full max-w-md mx-auto" />
           
           <p className="text-gray-600 dark:text-gray-300">
-            话题：{exercise.topic}
+            {t('common.labels.topic')}：{exercise.topic}
           </p>
         </div>
       </Card>
 
-      {/* 详情开关按钮 */}
+      {/* Details toggle button */}
       <div className="flex justify-center">
         <Button
           onClick={() => setShowDetails(!showDetails)}
@@ -78,12 +80,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           {showDetails ? (
             <>
               <ChevronUp className="w-4 h-4 mr-2" />
-              隐藏详情
+              {t('components.resultsDisplay.hideDetails')}
             </>
           ) : (
             <>
               <ChevronDown className="w-4 h-4 mr-2" />
-              查看详情
+              {t('components.resultsDisplay.showDetails')}
             </>
           )}
         </Button>
@@ -92,7 +94,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
       {/* Detailed Results */}
       {showDetails && (
         <Card className="glass-effect p-6">
-          <h3 className="text-lg font-semibold mb-4">答题详情</h3>
+          <h3 className="text-lg font-semibold mb-4">{t('components.resultsDisplay.answerDetails')}</h3>
           <div className="space-y-4">
             {exercise.questions.map((question, index) => {
               const result = exercise.results[index]
@@ -110,26 +112,26 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                     
                     <div className="flex-1 space-y-2">
                       <div className="font-medium">
-                        问题 {index + 1}: {question.question}
+                        {t('components.resultsDisplay.question')} {index + 1}: {question.question}
                       </div>
                       
                       {question.type === "single" && question.options && (
                         <div className="text-sm text-gray-600 dark:text-gray-300">
-                          选项：{question.options.join(" / ")}
+                          {t('components.resultsDisplay.options')}：{question.options.join(" / ")}
                         </div>
                       )}
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="font-medium text-gray-700 dark:text-gray-300">您的答案：</span>
+                          <span className="font-medium text-gray-700 dark:text-gray-300">{t('components.resultsDisplay.yourAnswer')}：</span>
                           <span className={isCorrect ? "text-green-600" : "text-red-600"}>
-                            {userAnswer || "未回答"}
+                            {userAnswer || t('components.resultsDisplay.noAnswer')}
                           </span>
                         </div>
                         
                         {!isCorrect && result?.correct_answer && (
                           <div>
-                            <span className="font-medium text-gray-700 dark:text-gray-300">正确答案：</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">{t('components.resultsDisplay.correctAnswer')}：</span>
                             <span className="text-green-600">{result.correct_answer}</span>
                           </div>
                         )}
@@ -137,7 +139,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                       
                       {question.explanation && (
                         <div className="text-sm bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                          <span className="font-medium text-blue-800 dark:text-blue-300">解析：</span>
+                          <span className="font-medium text-blue-800 dark:text-blue-300">{t('components.resultsDisplay.explanation')}：</span>
                           <span className="text-blue-700 dark:text-blue-200">{question.explanation}</span>
                         </div>
                       )}
@@ -150,15 +152,15 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
         </Card>
       )}
 
-      {/* 底部操作按钮 */}
+      {/* Action buttons */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
         <Button onClick={onRestart} className="flex-1 sm:flex-none">
           <RotateCcw className="w-4 h-4 mr-2" />
-          开始新练习
+          {t('components.resultsDisplay.startNewPractice')}
         </Button>
         <Button onClick={onExport} variant="outline" className="flex-1 sm:flex-none">
           <Download className="w-4 h-4 mr-2" />
-          导出结果
+          {t('components.resultsDisplay.exportResults')}
         </Button>
       </div>
 
@@ -172,12 +174,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           {showTranscript ? (
             <>
               <ChevronUp className="w-4 h-4 mr-2" />
-              隐藏听力原文
+              {t('components.resultsDisplay.hideTranscript')}
             </> 
           ) : (
             <>
               <ChevronDown className="w-4 h-4 mr-2" />
-              查看听力原文
+              {t('components.resultsDisplay.showTranscript')}
             </>
           )}
         </Button>
@@ -186,7 +188,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
       {/* Transcript Reference */}
       {showTranscript && (
         <Card className="glass-effect p-6">
-          <h3 className="text-lg font-semibold mb-4">听力材料</h3>
+          <h3 className="text-lg font-semibold mb-4">{t('components.resultsDisplay.listeningMaterial')}</h3>
           <div className="prose dark:prose-invert max-w-none">
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
               {exercise.transcript}

@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { Slider } from "@/components/ui/slider"
 import { Loader2, Play, Pause, SkipBack, SkipForward } from "lucide-react"
 import type { Question } from "@/lib/types"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 // 简化的音频播放器Hook，专门用于问题界面
 function useSimpleAudioPlayer(audioUrl: string) {
@@ -119,6 +120,7 @@ const QuestionInterfaceComponent = ({
   audioUrl,
   transcript,
 }: QuestionInterfaceProps) => {
+  const { t } = useBilingualText()
   const {
     isPlaying,
     currentTime,
@@ -156,7 +158,7 @@ const QuestionInterfaceComponent = ({
       {/* 音频播放器 */}
       {audioUrl && (
         <Card className="glass-effect p-6">
-          <h3 className="text-lg font-medium mb-4 text-center">音频播放器</h3>
+          <h3 className="text-lg font-medium mb-4 text-center">{t('components.questionInterface.audioPlayer')}</h3>
           
           <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
@@ -209,9 +211,9 @@ const QuestionInterfaceComponent = ({
       {/* 答题进度 */}
       <Card className="glass-effect p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">Questions</h2>
+          <h2 className="text-2xl font-bold">{t('components.questionInterface.questions')}</h2>
           <div className="text-sm text-gray-600">
-            {answeredCount} / {questions.length} answered
+            {answeredCount} / {questions.length} {t('components.questionInterface.answered')}
           </div>
         </div>
         <Progress value={progress} className="mb-6" />
@@ -222,9 +224,9 @@ const QuestionInterfaceComponent = ({
         <Card key={index} className="glass-effect p-6">
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded">Q{index + 1}</span>
+              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded">{t('components.questionInterface.questionNumber')}{index + 1}</span>
               {question.type === "short" && (
-                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded">Short Answer</span>
+                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded">{t('components.questionInterface.shortAnswer')}</span>
               )}
             </div>
             <h3 className="text-lg font-medium mb-4">{question.question}</h3>
@@ -252,7 +254,7 @@ const QuestionInterfaceComponent = ({
             <Textarea
               value={answers[index] || ""}
               onChange={(e) => handleShortAnswer(index, e.target.value)}
-              placeholder="Write your answer here..."
+              placeholder={t('components.questionInterface.writeAnswerPlaceholder')}
               className="min-h-[120px]"
             />
           )}
@@ -272,7 +274,7 @@ const QuestionInterfaceComponent = ({
               {loadingMessage}
             </>
           ) : (
-            "Submit Answers"
+            t('components.questionInterface.submitAnswers')
           )}
         </Button>
       </Card>
@@ -281,7 +283,7 @@ const QuestionInterfaceComponent = ({
       <Card className="glass-effect p-4">
         <details>
           <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
-            紧急情况：显示听力稿 (请尽量先听音频！)
+            {t('components.questionInterface.emergencyTranscriptHint')}
           </summary>
           <div className="mt-3 p-3 bg-gray-50 rounded text-sm text-gray-700">
             {transcript}

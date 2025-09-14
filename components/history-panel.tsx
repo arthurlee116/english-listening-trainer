@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2 } from "lucide-react"
 import { getHistory, clearHistory } from "@/lib/storage"
 import type { Exercise } from "@/lib/types"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { BilingualText } from "@/components/ui/bilingual-text"
 
 interface HistoryPanelProps {
   onBack: () => void
@@ -16,6 +18,7 @@ interface HistoryPanelProps {
 }
 
 export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
+  const { t } = useBilingualText()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -73,7 +76,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   }, [exercises, searchTerm, difficultyFilter, languageFilter, sortBy])
 
   const handleClearHistory = () => {
-    if (window.confirm("确定要清空所有练习历史吗？此操作不可撤销。")) {
+    if (window.confirm(t("components.historyPanel.confirmClearHistory"))) {
       clearHistory()
       setExercises([])
       setFilteredExercises([])
@@ -101,14 +104,18 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h2 className="text-2xl font-bold">练习历史</h2>
-            <Badge variant="outline">{filteredExercises.length} 条记录</Badge>
+            <h2 className="text-2xl font-bold">
+              <BilingualText translationKey="components.historyPanel.practiceHistory" />
+            </h2>
+            <Badge variant="outline">
+              {t("components.historyPanel.recordsCount").replace("{count}", filteredExercises.length.toString())}
+            </Badge>
           </div>
           
           {exercises.length > 0 && (
             <Button variant="destructive" size="sm" onClick={handleClearHistory}>
               <Trash2 className="w-4 h-4 mr-2" />
-              清空历史
+              <BilingualText translationKey="common.buttons.clearHistory" />
             </Button>
           )}
         </div>
@@ -118,8 +125,12 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
         <Card className="glass-effect p-12 text-center">
           <div className="text-gray-500 dark:text-gray-400">
             <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">暂无练习记录</h3>
-            <p>完成练习后，记录将显示在这里</p>
+            <h3 className="text-lg font-medium mb-2">
+              <BilingualText translationKey="components.historyPanel.noRecords" />
+            </h3>
+            <p>
+              <BilingualText translationKey="components.historyPanel.noRecordsDescription" />
+            </p>
           </div>
         </Card>
       ) : (
@@ -130,7 +141,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="搜索话题..."
+                  placeholder={t("components.historyPanel.searchTopics")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -139,25 +150,25 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               
               <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="难度级别" />
+                  <SelectValue placeholder={t("common.labels.difficulty")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有难度</SelectItem>
-                  <SelectItem value="A1">A1 - Beginner</SelectItem>
-                  <SelectItem value="A2">A2 - Elementary</SelectItem>
-                  <SelectItem value="B1">B1 - Intermediate</SelectItem>
-                  <SelectItem value="B2">B2 - Upper Intermediate</SelectItem>
-                  <SelectItem value="C1">C1 - Advanced</SelectItem>
-                  <SelectItem value="C2">C2 - Proficient</SelectItem>
+                  <SelectItem value="all">{t("components.historyPanel.allDifficulties")}</SelectItem>
+                  <SelectItem value="A1">{t("common.difficultyLevels.A1")}</SelectItem>
+                  <SelectItem value="A2">{t("common.difficultyLevels.A2")}</SelectItem>
+                  <SelectItem value="B1">{t("common.difficultyLevels.B1")}</SelectItem>
+                  <SelectItem value="B2">{t("common.difficultyLevels.B2")}</SelectItem>
+                  <SelectItem value="C1">{t("common.difficultyLevels.C1")}</SelectItem>
+                  <SelectItem value="C2">{t("common.difficultyLevels.C2")}</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select value={languageFilter} onValueChange={setLanguageFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="语言" />
+                  <SelectValue placeholder={t("common.labels.language")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有语言</SelectItem>
+                  <SelectItem value="all">{t("components.historyPanel.allLanguages")}</SelectItem>
                   <SelectItem value="en">English</SelectItem>
                   <SelectItem value="zh">中文</SelectItem>
                   <SelectItem value="ja">日本語</SelectItem>
@@ -167,13 +178,13 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger>
-                  <SelectValue placeholder="排序方式" />
+                  <SelectValue placeholder={t("components.historyPanel.sortBy")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">最新优先</SelectItem>
-                  <SelectItem value="oldest">最旧优先</SelectItem>
-                  <SelectItem value="score_high">得分从高到低</SelectItem>
-                  <SelectItem value="score_low">得分从低到高</SelectItem>
+                  <SelectItem value="newest">{t("components.historyPanel.sortNewest")}</SelectItem>
+                  <SelectItem value="oldest">{t("components.historyPanel.sortOldest")}</SelectItem>
+                  <SelectItem value="score_high">{t("components.historyPanel.sortScoreHigh")}</SelectItem>
+                  <SelectItem value="score_low">{t("components.historyPanel.sortScoreLow")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -200,7 +211,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                       <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          {date.toLocaleDateString('zh-CN')} {date.toLocaleTimeString('zh-CN', { 
+                          {date.toLocaleDateString()} {date.toLocaleTimeString([], { 
                             hour: '2-digit', 
                             minute: '2-digit' 
                           })}
@@ -210,7 +221,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                           <span className={getScoreColor(accuracy)}>{accuracy}%</span>
                         </div>
                         <Badge className={getScoreBadgeColor(accuracy)}>
-                          {correctAnswers}/{totalQuestions} 正确
+                          {correctAnswers}/{totalQuestions} {t("components.historyPanel.correct")}
                         </Badge>
                       </div>
                     </div>
@@ -221,7 +232,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                       size="sm"
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      查看详情
+                      <BilingualText translationKey="common.buttons.viewDetails" />
                     </Button>
                   </div>
                 </Card>

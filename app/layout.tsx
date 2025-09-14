@@ -6,8 +6,8 @@ import '../lib/kokoro-init'
 import React from 'react'
 
 export const metadata: Metadata = {
-  title: 'English Listening Trainer',
-  description: 'AI-powered listening practice for K12 students',
+  title: 'English Listening Trainer 英语听力训练器',
+  description: 'AI-powered listening practice for K12 students | 为K12学生提供的AI驱动听力练习',
   generator: 'Arthur',
 }
 

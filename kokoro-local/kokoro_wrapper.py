@@ -104,7 +104,6 @@ class KokoroTTSWrapper:
                 raise Exception("Failed to setup device")
             
             # 导入Kokoro (延迟导入以处理可能的依赖问题)
-            sys.path.append('/Users/arthur/Code/0712/kokoro-main-ref')
             from kokoro.pipeline import KPipeline
             
             # 禁用kokoro内部日志
@@ -114,7 +113,48 @@ class KokoroTTSWrapper:
             # 初始化pipeline (如果语言改变需要重新创建)
             if self.current_lang_code != self.lang_code:
                 print(f"🌍 Initializing pipeline for language: {self.lang_code}", file=sys.stderr)
-                self.pipeline = KPipeline(lang_code=self.lang_code)
+                try:
+                    # Check if local model exists
+                    local_model_path = "/home/ubuntu/Kokoro-82M"
+                    if os.path.exists(local_model_path):
+                        print(f"Found local model at {local_model_path}", file=sys.stderr)
+                        # Use local model by copying to expected cache location
+                        import shutil
+                        cache_path = os.path.expanduser("~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M")
+                        if not os.path.exists(f"{cache_path}/snapshots"):
+                            os.makedirs(f"{cache_path}/snapshots", exist_ok=True)
+                            os.makedirs(f"{cache_path}/refs", exist_ok=True)
+                            # Create proper cache structure
+                            snapshot_dir = f"{cache_path}/snapshots/main"
+                            if not os.path.exists(snapshot_dir):
+                                shutil.copytree(local_model_path, snapshot_dir)
+                            with open(f"{cache_path}/refs/main", "w") as f:
+                                f.write("main")
+                            print("Local model copied to HuggingFace cache", file=sys.stderr)
+                    
+                    # 设置环境变量使用离线模式
+                    os.environ['HF_HUB_OFFLINE'] = '1'  # 使用离线模式
+                    os.environ['TRANSFORMERS_OFFLINE'] = '1'
+                    # 尝试离线初始化
+                    self.pipeline = KPipeline(lang_code=self.lang_code)
+                    print(f"Kokoro TTS initialized successfully in offline mode for language: {self.lang_code}", file=sys.stderr)
+                    
+                except Exception as e:
+                    print(f"⚠️  Warning: Offline initialization failed: {e}", file=sys.stderr)
+                    print("Switching to online mode with proxy...", file=sys.stderr)
+                    
+                    # 尝试在线模式
+                    os.environ['HF_HUB_OFFLINE'] = '0'
+                    os.environ['TRANSFORMERS_OFFLINE'] = '0'
+                    os.environ['http_proxy'] = 'http://81.71.93.183:10811'
+                    os.environ['https_proxy'] = 'http://81.71.93.183:10811'
+                    
+                    try:
+                        self.pipeline = KPipeline(lang_code=self.lang_code)
+                        print(f"Kokoro TTS initialized successfully in online mode for language: {self.lang_code}", file=sys.stderr)
+                    except Exception as online_e:
+                        print(f"Online initialization also failed: {online_e}", file=sys.stderr)
+                        raise online_e
                 self.current_lang_code = self.lang_code
             
             # 加载语音 (如果语音改变需要重新加载)
