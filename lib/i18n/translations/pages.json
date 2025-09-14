@@ -1,0 +1,156 @@
+{
+  "home": {
+    "title": {
+      "en": "English Listening Trainer",
+      "zh": "英语听力训练器"
+    },
+    "subtitle": {
+      "en": "AI-powered listening practice for K12 students",
+      "zh": "为K12学生提供的AI驱动听力练习"
+    },
+    "generateExercise": {
+      "en": "Generate Exercise",
+      "zh": "生成练习"
+    },
+    "practiceHistory": {
+      "en": "Practice History",
+      "zh": "练习历史"
+    }
+  },
+  "assessment": {
+    "title": {
+      "en": "Personalized Assessment",
+      "zh": "个性化评估"
+    },
+    "subtitle": {
+      "en": "Difficulty Level Assessment",
+      "zh": "难度级别评估"
+    },
+    "instructions": {
+      "en": "Listen to the audio and rate the difficulty",
+      "zh": "听音频并评估难度"
+    },
+    "questionCounter": {
+      "en": "Question {current} of {total}",
+      "zh": "第{current}题，共{total}题"
+    },
+    "ratingScale": {
+      "en": "How difficult was this for you?",
+      "zh": "这对您来说有多难？"
+    },
+    "nextQuestion": {
+      "en": "Next Question",
+      "zh": "下一题"
+    },
+    "completeTest": {
+      "en": "Complete Test",
+      "zh": "完成测试"
+    },
+    "assessmentComplete": {
+      "en": "Assessment Complete",
+      "zh": "评估完成"
+    },
+    "recommendedLevel": {
+      "en": "Recommended Level",
+      "zh": "推荐级别"
+    }
+  },
+  "history": {
+    "title": {
+      "en": "Practice History",
+      "zh": "练习历史"
+    },
+    "subtitle": {
+      "en": "Your listening exercise history",
+      "zh": "您的听力练习历史"
+    },
+    "filterBy": {
+      "en": "Filter by",
+      "zh": "筛选"
+    },
+    "sortBy": {
+      "en": "Sort by",
+      "zh": "排序"
+    },
+    "searchPlaceholder": {
+      "en": "Search exercises...",
+      "zh": "搜索练习…"
+    },
+    "noHistory": {
+      "en": "No practice history found",
+      "zh": "未找到练习历史"
+    },
+    "exerciseDetails": {
+      "en": "Exercise Details",
+      "zh": "练习详情"
+    }
+  },
+  "results": {
+    "title": {
+      "en": "Exercise Complete",
+      "zh": "练习完成"
+    },
+    "subtitle": {
+      "en": "Your Results",
+      "zh": "您的结果"
+    },
+    "overallScore": {
+      "en": "Overall Score",
+      "zh": "总分"
+    },
+    "accuracy": {
+      "en": "Accuracy",
+      "zh": "准确率"
+    },
+    "timeSpent": {
+      "en": "Time Spent",
+      "zh": "用时"
+    },
+    "questionsAnswered": {
+      "en": "Questions Answered",
+      "zh": "已答题目"
+    },
+    "startNewPractice": {
+      "en": "Start New Practice",
+      "zh": "开始新练习"
+    },
+    "reviewAnswers": {
+      "en": "Review Answers",
+      "zh": "查看答案"
+    },
+    "yourAnswer": {
+      "en": "Your Answer",
+      "zh": "您的答案"
+    },
+    "correctAnswer": {
+      "en": "Correct Answer",
+      "zh": "正确答案"
+    },
+    "explanation": {
+      "en": "Explanation",
+      "zh": "解释"
+    }
+  },
+  "admin": {
+    "title": {
+      "en": "Admin Dashboard",
+      "zh": "管理面板"
+    },
+    "subtitle": {
+      "en": "System Administration",
+      "zh": "系统管理"
+    },
+    "userManagement": {
+      "en": "User Management",
+      "zh": "用户管理"
+    },
+    "systemStats": {
+      "en": "System Statistics",
+      "zh": "系统统计"
+    },
+    "settings": {
+      "en": "Settings",
+      "zh": "设置"
+    }
+  }
+}

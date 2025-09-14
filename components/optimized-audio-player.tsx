@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, SkipBack, SkipForward, Volume2, AlertCircle, RefreshCw, Loader2 } from "lucide-react"
+import { BilingualText } from "@/components/ui/bilingual-text"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface AudioPlayerProps {
   audioUrl: string
@@ -200,6 +202,7 @@ export const OptimizedAudioPlayer = React.memo(function OptimizedAudioPlayer({
   const { state, updateState, audioRef, isScrubbingRef, toggleProgressLoop } = useOptimizedAudioPlayer()
   const handlers = useAudioEventHandlers(audioRef, updateState, toggleProgressLoop, isScrubbingRef)
   const controls = useAudioControls(audioRef, state, updateState)
+  const { t } = useBilingualText()
   
   // 音频元素事件绑定
   useEffect(() => {
@@ -245,7 +248,9 @@ export const OptimizedAudioPlayer = React.memo(function OptimizedAudioPlayer({
   return (
     <div className="space-y-6">
       <Card className="glass-effect p-8">
-        <h2 className="text-2xl font-bold mb-6 text-center">听力练习</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">
+          <BilingualText translationKey="components.audioPlayer.title" />
+        </h2>
         
         {audioError ? (
           <AudioErrorDisplay
@@ -293,65 +298,77 @@ interface AudioErrorDisplayProps {
 }
 
 // 分离的子组件
-const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip }: AudioErrorDisplayProps) => (
-  <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
-    <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-    <h3 className="font-medium text-red-800 mb-2">音频生成失败</h3>
-    <p className="text-red-600 mb-4 text-sm">TTS服务调用失败。可能的原因：</p>
-    <ul className="text-left text-sm text-red-600 mb-4 max-w-md mx-auto">
-      <li>• 本地TTS服务未启动</li>
-      <li>• 模型加载失败</li>
-      <li>• 系统资源不足</li>
-      <li>• Python环境配置问题</li>
-    </ul>
-    <div className="flex gap-3 justify-center">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRetry}
-        disabled={loading}
-        className="bg-white border-red-300 text-red-600 hover:bg-red-50 rounded-lg"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            {loadingMessage || "重试中..."}
-          </>
-        ) : (
-          <>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            重试生成音频
-          </>
-        )}
-      </Button>
-      <Button
-        size="sm"
-        onClick={onSkip}
-        disabled={loading}
-        className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
-      >
-        跳过音频，直接做题
-      </Button>
+const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip }: AudioErrorDisplayProps) => {
+  const { t } = useBilingualText()
+  
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+      <h3 className="font-medium text-red-800 mb-2">
+        <BilingualText translationKey="components.audioPlayer.audioError" />
+      </h3>
+      <p className="text-red-600 mb-4 text-sm">
+        <BilingualText translationKey="components.audioPlayer.audioErrorMessage" />
+      </p>
+      <ul className="text-left text-sm text-red-600 mb-4 max-w-md mx-auto">
+        <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.localTtsNotStarted" /></li>
+        <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.modelLoadFailed" /></li>
+        <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.insufficientResources" /></li>
+        <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.pythonConfigIssue" /></li>
+      </ul>
+      <div className="flex gap-3 justify-center">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRetry}
+          disabled={loading}
+          className="bg-white border-red-300 text-red-600 hover:bg-red-50 rounded-lg"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {loadingMessage || t("components.audioPlayer.retrying")}
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              <BilingualText translationKey="components.audioPlayer.retryGenerateAudio" />
+            </>
+          )}
+        </Button>
+        <Button
+          size="sm"
+          onClick={onSkip}
+          disabled={loading}
+          className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
+        >
+          <BilingualText translationKey="components.audioPlayer.skipAudioDirectQuestions" />
+        </Button>
+      </div>
     </div>
-  </div>
-))
+  )
+})
 AudioErrorDisplay.displayName = 'AudioErrorDisplay'
 
 interface AudioLoadingDisplayProps {
   loadingMessage: string;
 }
 
-const AudioLoadingDisplay = React.memo(({ loadingMessage }: AudioLoadingDisplayProps) => (
-  <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-    <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
-    <h3 className="font-medium text-blue-800 mb-2">
-      {loadingMessage || "正在生成音频..."}
-    </h3>
-    <p className="text-blue-600 text-sm">
-      请稍候，正在使用本地Kokoro模型生成音频内容
-    </p>
-  </div>
-))
+const AudioLoadingDisplay = React.memo(({ loadingMessage }: AudioLoadingDisplayProps) => {
+  const { t } = useBilingualText()
+  
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+      <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
+      <h3 className="font-medium text-blue-800 mb-2">
+        {loadingMessage || t("components.audioPlayer.loadingAudio")}
+      </h3>
+      <p className="text-blue-600 text-sm">
+        <BilingualText translationKey="components.audioPlayer.loadingMessage" />
+      </p>
+    </div>
+  )
+})
 AudioLoadingDisplay.displayName = 'AudioLoadingDisplay'
 
 interface AudioPlayerInterfaceProps {
@@ -369,74 +386,81 @@ interface AudioPlayerInterfaceProps {
   isScrubbingRef: React.MutableRefObject<boolean>;
 }
 
-const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, formatTime, isScrubbingRef }: AudioPlayerInterfaceProps) => (
-  <>
-    <audio ref={audioRef} src={audioUrl} preload="metadata" />
-    
-    {/* Progress Bar */}
-    <div className="mb-6">
-      <Slider
-        value={[state.currentTime]}
-        onPointerDown={() => { isScrubbingRef.current = true }}
-        onPointerUp={() => { isScrubbingRef.current = false }}
-        onValueCommit={controls.seek}
-        className="w-full"
-        disabled={!audioUrl}
-        min={0}
-        max={state.duration || 100}
-        step={0.1}
-      />
-      <div className="flex justify-between text-sm text-gray-500 mt-2">
-        <span>{formatTime(state.currentTime)}</span>
-        <span>{formatTime(state.duration)}</span>
+const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, formatTime, isScrubbingRef }: AudioPlayerInterfaceProps) => {
+  const { t } = useBilingualText()
+  
+  return (
+    <>
+      <audio ref={audioRef} src={audioUrl} preload="metadata" />
+      
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <Slider
+          value={[state.currentTime]}
+          onPointerDown={() => { isScrubbingRef.current = true }}
+          onPointerUp={() => { isScrubbingRef.current = false }}
+          onValueCommit={controls.seek}
+          className="w-full"
+          disabled={!audioUrl}
+          min={0}
+          max={state.duration || 100}
+          step={0.1}
+        />
+        <div className="flex justify-between text-sm text-gray-500 mt-2">
+          <span>{formatTime(state.currentTime)}</span>
+          <span>{formatTime(state.duration)}</span>
+        </div>
       </div>
-    </div>
-    
-    {/* Controls */}
-    <div className="flex items-center justify-center gap-4 mb-6">
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={controls.skipBackward}
-        disabled={!audioUrl}
-        className="glass-effect bg-transparent rounded-full"
-      >
-        <SkipBack className="w-4 h-4" />
-      </Button>
       
-      <Button
-        size="lg"
-        onClick={controls.togglePlayPause}
-        disabled={!audioUrl}
-        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
-      >
-        {state.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
-      </Button>
+      {/* Controls */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={controls.skipBackward}
+          disabled={!audioUrl}
+          className="glass-effect bg-transparent rounded-full"
+          title={t("components.audioPlayer.skipBackward")}
+        >
+          <SkipBack className="w-4 h-4" />
+        </Button>
+        
+        <Button
+          size="lg"
+          onClick={controls.togglePlayPause}
+          disabled={!audioUrl}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
+          title={state.isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
+        >
+          {state.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={controls.skipForward}
+          disabled={!audioUrl}
+          className="glass-effect bg-transparent rounded-full"
+          title={t("components.audioPlayer.skipForward")}
+        >
+          <SkipForward className="w-4 h-4" />
+        </Button>
+      </div>
       
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={controls.skipForward}
-        disabled={!audioUrl}
-        className="glass-effect bg-transparent rounded-full"
-      >
-        <SkipForward className="w-4 h-4" />
-      </Button>
-    </div>
-    
-    {/* Volume Control */}
-    <div className="flex items-center gap-3 mb-6">
-      <Volume2 className="w-4 h-4 text-gray-500" />
-      <Slider
-        value={[state.volume * 100]}
-        onValueChange={controls.setVolume}
-        className="flex-1"
-        max={100}
-        step={1}
-      />
-    </div>
-  </>
-))
+      {/* Volume Control */}
+      <div className="flex items-center gap-3 mb-6">
+        <Volume2 className="w-4 h-4 text-gray-500" title={t("components.audioPlayer.volume")} />
+        <Slider
+          value={[state.volume * 100]}
+          onValueChange={controls.setVolume}
+          className="flex-1"
+          max={100}
+          step={1}
+        />
+      </div>
+    </>
+  )
+})
 AudioPlayerInterface.displayName = 'AudioPlayerInterface'
 
 const AudioReadyDisplay = React.memo(() => (
@@ -444,9 +468,11 @@ const AudioReadyDisplay = React.memo(() => (
     <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
       <Volume2 className="w-6 h-6 text-gray-400" />
     </div>
-    <h3 className="font-medium text-gray-800 mb-2">准备生成音频</h3>
+    <h3 className="font-medium text-gray-800 mb-2">
+      <BilingualText translationKey="components.audioPlayer.readyToGenerate" />
+    </h3>
     <p className="text-gray-600 text-sm mb-4">
-      点击下方按钮生成音频，或直接跳过进入答题环节
+      <BilingualText translationKey="components.audioPlayer.readyMessage" />
     </p>
   </div>
 ))
@@ -476,7 +502,7 @@ const PlayerControls = React.memo(({
         disabled={loading}
         className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg"
       >
-        生成音频
+        <BilingualText translationKey="components.audioPlayer.generateAudio" />
       </Button>
     )}
     
@@ -485,7 +511,7 @@ const PlayerControls = React.memo(({
       disabled={loading}
       className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 rounded-lg"
     >
-      开始答题
+      <BilingualText translationKey="components.audioPlayer.startQuestions" />
     </Button>
     
     {onRegenerate && (
@@ -496,7 +522,7 @@ const PlayerControls = React.memo(({
         disabled={loading}
       >
         <RefreshCw className="w-4 h-4 mr-2" />
-        重新生成听力材料
+        <BilingualText translationKey="components.audioPlayer.regenerateListeningMaterial" />
       </Button>
     )}
   </div>
@@ -505,12 +531,16 @@ PlayerControls.displayName = 'PlayerControls'
 
 const TranscriptDisplay = React.memo(({ transcript }: { transcript: string }) => (
   <Card className="glass-effect p-6">
-    <h3 className="font-medium mb-3 text-gray-600">听力稿（仅供参考）</h3>
+    <h3 className="font-medium mb-3 text-gray-600">
+      <BilingualText translationKey="components.audioPlayer.transcript" />
+    </h3>
     <div className="bg-gray-50 rounded-lg p-4">
       <p className="text-sm leading-relaxed text-gray-700 blur-sm hover:blur-none transition-all duration-300">
         {transcript}
       </p>
-      <p className="text-xs text-gray-500 mt-2 italic">鼠标悬停显示文本（请先尝试听录音！）</p>
+      <p className="text-xs text-gray-500 mt-2 italic">
+        <BilingualText translationKey="components.audioPlayer.transcriptHoverHint" />
+      </p>
     </div>
   </Card>
 ))

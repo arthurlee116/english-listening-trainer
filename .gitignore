@@ -157,3 +157,7 @@ health-check.log
 .build/
 dist/
 build/
+
+# Kiro IDE configuration files with sensitive data
+.kiro/settings/mcp.json
+mcp.json

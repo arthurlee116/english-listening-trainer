@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Play, Pause, Volume2 } from "lucide-react"
+import { BilingualText } from "@/components/ui/bilingual-text"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface AssessmentAudioPlayerProps {
   src: string
@@ -24,6 +26,7 @@ export default function AssessmentAudioPlayer({
   const [hasPlayed, setHasPlayed] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null)
+  const { t } = useBilingualText()
 
   useEffect(() => {
     const audio = audioRef.current
@@ -124,7 +127,13 @@ export default function AssessmentAudioPlayer({
             <Play className="h-5 w-5" />
           )}
           <span>
-            {hasPlayed ? '已播放' : isPlaying ? '暂停' : '播放'}
+            {hasPlayed ? (
+              <BilingualText translationKey="components.audioPlayer.hasPlayed" />
+            ) : isPlaying ? (
+              <BilingualText translationKey="components.audioPlayer.pause" />
+            ) : (
+              <BilingualText translationKey="components.audioPlayer.play" />
+            )}
           </span>
         </Button>
       </div>
@@ -142,7 +151,9 @@ export default function AssessmentAudioPlayer({
       {hasPlayed && (
         <div className="flex items-center justify-center text-green-600 text-sm">
           <Volume2 className="h-4 w-4 mr-1" />
-          <span>播放完成</span>
+          <span>
+            <BilingualText translationKey="components.audioPlayer.playCompleted" />
+          </span>
         </div>
       )}
     </div>

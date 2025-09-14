@@ -16,7 +16,7 @@ interface State {
   error?: Error
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+export class BilingualErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false
   }
@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    console.error('BilingualErrorBoundary caught an error:', error, errorInfo)
   }
 
   public render() {
@@ -89,15 +89,15 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 // 函数式组件包装器，用于Hook
-export function withErrorBoundary<P extends object>(
+export function withBilingualErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   fallback?: ReactNode
 ) {
   return function WrappedComponent(props: P) {
     return (
-      <ErrorBoundary fallback={fallback}>
+      <BilingualErrorBoundary fallback={fallback}>
         <Component {...props} />
-      </ErrorBoundary>
+      </BilingualErrorBoundary>
     )
   }
 }

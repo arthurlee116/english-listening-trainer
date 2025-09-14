@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Volume2, CheckCircle } from "lucide-react"
 import AssessmentAudioPlayer from "@/components/assessment-audio-player"
 import { Slider } from "@/components/ui/slider"
+import { BilingualText } from "@/components/ui/bilingual-text"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 interface AssessmentQuestion {
   id: number
   audioFile: string
@@ -85,6 +87,7 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
   const [answers, setAnswers] = useState<Record<number, number>>({})
   const [audioPlayed, setAudioPlayed] = useState<Record<number, boolean>>({})
   const [isComplete, setIsComplete] = useState(false)
+  const { t } = useBilingualText()
 
   const currentQuestion = ASSESSMENT_QUESTIONS[currentIndex]
   const progress = ((currentIndex + 1) / ASSESSMENT_QUESTIONS.length) * 100
@@ -194,8 +197,12 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
     return (
       <Card className="p-8 text-center">
         <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold mb-4">评估完成</h2>
-        <p className="text-gray-600">正在分析您的测试结果...</p>
+        <h2 className="text-2xl font-bold mb-4">
+          <BilingualText translationKey="components.assessmentInterface.assessmentComplete" />
+        </h2>
+        <p className="text-gray-600">
+          <BilingualText translationKey="components.assessmentInterface.analyzingResults" />
+        </p>
       </Card>
     )
   }
@@ -209,16 +216,22 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h2 className="text-2xl font-bold">个性化难度测试</h2>
+            <h2 className="text-2xl font-bold">
+              <BilingualText translationKey="components.assessmentInterface.title" />
+            </h2>
           </div>
           <Badge variant="outline">
-            {currentIndex + 1} / {ASSESSMENT_QUESTIONS.length}
+            <BilingualText 
+              translationKey="components.assessmentInterface.questionCounter" 
+              en={`${currentIndex + 1} / ${ASSESSMENT_QUESTIONS.length}`}
+              zh={`第${currentIndex + 1}题，共${ASSESSMENT_QUESTIONS.length}题`}
+            />
           </Badge>
         </div>
         
         <Progress value={progress} className="w-full" />
         <p className="text-sm text-gray-600 mt-2">
-          请仔细听完每段音频，然后根据您的理解程度打分
+          <BilingualText translationKey="components.assessmentInterface.instructionText" />
         </p>
       </Card>
 
@@ -227,11 +240,19 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
         <div className="text-center space-y-6">
           <div>
             <h3 className="text-xl font-semibold mb-2">
-              第 {currentQuestion.id} 段：{currentQuestion.topic}
+              <BilingualText 
+                translationKey="components.assessmentInterface.segmentTitle"
+                en={`Segment ${currentQuestion.id}: ${currentQuestion.topic}`}
+                zh={`第${currentQuestion.id}段：${currentQuestion.topic}`}
+              />
             </h3>
             <p className="text-gray-600">{currentQuestion.description}</p>
             <Badge variant="outline" className="mt-2">
-              难度级别: {currentQuestion.difficulty}/30
+              <BilingualText 
+                translationKey="components.assessmentInterface.difficultyLevel"
+                en={`Difficulty Level: ${currentQuestion.difficulty}/30`}
+                zh={`难度级别: ${currentQuestion.difficulty}/30`}
+              />
             </Badge>
           </div>
 
@@ -248,7 +269,9 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
           {audioPlayed[currentQuestion.id] && (
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium mb-3">请为您对这段音频的理解程度打分：</h4>
+                <h4 className="font-medium mb-3">
+                  <BilingualText translationKey="components.assessmentInterface.ratingPrompt" />
+                </h4>
                 <div className="max-w-md mx-auto">
                   <Slider
                     value={[answers[currentQuestion.id] ?? 5]}
@@ -259,8 +282,12 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>完全不理解</span>
-                    <span>完全理解</span>
+                    <span>
+                      <BilingualText translationKey="components.assessmentInterface.ratingScaleMin" />
+                    </span>
+                    <span>
+                      <BilingualText translationKey="components.assessmentInterface.ratingScaleMax" />
+                    </span>
                   </div>
                 </div>
               </div>
@@ -268,14 +295,22 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
               {answers[currentQuestion.id] !== undefined && (
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-4">
-                    您的评分：<span className="font-medium">{answers[currentQuestion.id]}/10</span>
+                    <BilingualText 
+                      translationKey="components.assessmentInterface.yourRating"
+                      en={`Your rating: ${answers[currentQuestion.id]}/10`}
+                      zh={`您的评分：${answers[currentQuestion.id]}/10`}
+                    />
                   </p>
                   <Button 
                     onClick={handleNext}
                     disabled={!canNext}
                     size="lg"
                   >
-                    {currentIndex < ASSESSMENT_QUESTIONS.length - 1 ? '下一题' : '完成测试'}
+                    {currentIndex < ASSESSMENT_QUESTIONS.length - 1 ? (
+                      <BilingualText translationKey="components.assessmentInterface.nextQuestion" />
+                    ) : (
+                      <BilingualText translationKey="components.assessmentInterface.completeTest" />
+                    )}
                   </Button>
                 </div>
               )}
@@ -289,12 +324,14 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
         <div className="flex items-start gap-3">
           <Volume2 className="w-5 h-5 text-blue-600 mt-0.5" />
           <div className="text-sm text-gray-600">
-            <p className="font-medium mb-1">测试说明：</p>
+            <p className="font-medium mb-1">
+              <BilingualText translationKey="components.assessmentInterface.testInstructions" />：
+            </p>
             <ul className="space-y-1">
-              <li>• 每段音频只能播放一次，请仔细听完整段内容</li>
-              <li>• 根据您对音频内容的理解程度进行打分（1-10分）</li>
-              <li>• 1分表示完全不理解，10分表示完全理解</li>
-              <li>• 完成所有测试后，系统将为您推荐合适的练习难度</li>
+              <li>• <BilingualText translationKey="components.assessmentInterface.instructionsList.playOnce" /></li>
+              <li>• <BilingualText translationKey="components.assessmentInterface.instructionsList.rateUnderstanding" /></li>
+              <li>• <BilingualText translationKey="components.assessmentInterface.instructionsList.oneIsMin" /></li>
+              <li>• <BilingualText translationKey="components.assessmentInterface.instructionsList.recommendDifficulty" /></li>
             </ul>
           </div>
         </div>

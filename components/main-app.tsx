@@ -24,6 +24,8 @@ import { WrongAnswersBook } from "@/components/wrong-answers-book"
 import { AssessmentResult } from "@/components/assessment-result"
 import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { BilingualText } from "@/components/ui/bilingual-text"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 
 interface AssessmentResultData {
@@ -121,8 +123,8 @@ function useUserAuth() {
     setShowAuthDialog(false)
 
     toast({
-      title: "登录成功",
-      description: `欢迎，${userData.name || userData.email}！`,
+      title: t("common.messages.loginSuccess"),
+      description: t("common.messages.welcomeUser").replace("{name}", userData.name || userData.email),
     })
   }, [toast])
 
@@ -139,14 +141,14 @@ function useUserAuth() {
       setShowAuthDialog(true)
 
       toast({
-        title: "已登出",
-        description: "您已成功登出系统",
+        title: t("common.messages.logoutSuccess"),
+        description: t("common.messages.logoutSuccessDesc"),
       })
     } catch (error) {
       console.error('Logout failed:', error)
       toast({
-        title: "登出失败",
-        description: "登出时发生错误，请刷新页面",
+        title: t("common.messages.logoutFailed"),
+        description: t("common.messages.logoutFailedDesc"),
         variant: "destructive"
       })
     }
@@ -179,6 +181,7 @@ export const MainApp = () => {
   } = useUserAuth()
 
   const { toast } = useToast()
+  const { t } = useBilingualText()
 
   // 原有状态
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
@@ -212,20 +215,20 @@ export const MainApp = () => {
     if (!difficulty) return
 
     setLoading(true)
-    setLoadingMessage("Generating topic suggestions...")
+    setLoadingMessage(t("common.messages.processing"))
 
     try {
       const topics = await generateTopics(difficulty, wordCount, language)
       setSuggestedTopics(topics)
       toast({
-        title: "话题生成成功",
-        description: `已生成 ${topics.length} 个话题建议`,
+        title: t("common.messages.topicGenerationSuccess"),
+        description: t("common.messages.topicGenerationSuccessDesc").replace("{count}", topics.length.toString()),
       })
     } catch (error) {
       console.error("Failed to generate topics:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "话题生成失败",
+        title: t("common.messages.topicGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -239,7 +242,7 @@ export const MainApp = () => {
     if (!difficulty || !topic) return
 
     setLoading(true)
-    setLoadingMessage("Generating listening transcript...")
+    setLoadingMessage(t("common.messages.processing"))
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       try {
@@ -259,15 +262,15 @@ export const MainApp = () => {
     try {
       await attemptGeneration(1)
       toast({
-        title: "听力材料生成成功",
-        description: "现在可以生成音频了",
+        title: t("common.messages.transcriptGenerationSuccess"),
+        description: t("common.messages.transcriptGenerationSuccessDesc"),
       })
       setStep("listening")
     } catch (error) {
       console.error("Failed to generate transcript:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "听力材料生成失败",
+        title: t("common.messages.transcriptGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -281,22 +284,22 @@ export const MainApp = () => {
     if (!transcript) return
 
     setLoading(true)
-    setLoadingMessage("Generating audio...")
+    setLoadingMessage(t("components.audioPlayer.loadingAudio"))
     setAudioError(false)
 
     try {
       const url = await generateAudio(transcript, { language })
       setAudioUrl(url)
       toast({
-        title: "音频生成成功",
-        description: "音频已准备就绪",
+        title: t("common.messages.audioGenerationSuccess"),
+        description: t("common.messages.audioGenerationSuccessDesc"),
       })
     } catch (error) {
       console.error("Failed to generate audio:", error)
       setAudioError(true)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "音频生成失败",
+        title: t("common.messages.audioGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -310,21 +313,21 @@ export const MainApp = () => {
     if (!transcript || !difficulty) return
 
     setLoading(true)
-    setLoadingMessage("Generating questions...")
+    setLoadingMessage(t("common.messages.processing"))
 
     try {
       const generatedQuestions = await generateQuestions(difficulty, transcript, language, duration)
       setQuestions(generatedQuestions)
       setStep("questions")
       toast({
-        title: "题目生成成功",
-        description: `已生成 ${generatedQuestions.length} 道题目`,
+        title: t("common.messages.questionsGenerationSuccess"),
+        description: t("common.messages.questionsGenerationSuccessDesc").replace("{count}", generatedQuestions.length.toString()),
       })
     } catch (error) {
       console.error("Failed to generate questions:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "题目生成失败",
+        title: t("common.messages.questionsGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -338,7 +341,7 @@ export const MainApp = () => {
     if (!questions.length || Object.keys(answers).length !== questions.length) return
 
     setLoading(true)
-    setLoadingMessage("Grading your answers...")
+    setLoadingMessage(t("common.messages.processing"))
 
     try {
       const results = await gradeAnswers(transcript, questions, answers, language)
@@ -359,15 +362,15 @@ export const MainApp = () => {
       setStep("results")
 
       toast({
-        title: "批改完成",
-        description: "查看您的答题结果",
+        title: t("common.messages.answersSubmissionSuccess"),
+        description: t("common.messages.answersSubmissionSuccessDesc"),
       })
     } catch (error) {
       console.error("Failed to grade answers:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "批改失败",
-        description: errorMessage,
+        title: t("common.messages.gradingFailed"),
+        description: t("common.messages.gradingFailedDesc").replace("{error}", errorMessage),
         variant: "destructive",
       })
     } finally {
@@ -396,13 +399,13 @@ export const MainApp = () => {
       exportToTxt(currentExercise)
 
       toast({
-        title: "导出成功",
-        description: "练习结果已导出为文本文件",
+        title: t("common.messages.exportSuccess"),
+        description: t("common.messages.exportSuccessDesc"),
       })
     } catch (error) {
       console.error("Failed to export:", error)
       toast({
-        title: "导出失败",
+        title: t("common.messages.error"),
         description: "导出时发生错误",
         variant: "destructive",
       })
@@ -414,7 +417,12 @@ export const MainApp = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>加载中...</p>
+          <h2 className="text-lg font-semibold mb-2">
+            <BilingualText translationKey="messages.loadingApp" />
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300">
+            <BilingualText translationKey="messages.verifyingLogin" />
+          </p>
         </div>
       </div>
     )
@@ -429,7 +437,9 @@ export const MainApp = () => {
         />
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <p>请先登录以使用应用</p>
+            <p className="text-gray-600 dark:text-gray-300">
+              <BilingualText en="Please log in to use the application" zh="请先登录以使用应用" />
+            </p>
           </div>
         </div>
       </>
@@ -439,38 +449,38 @@ export const MainApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800" role="banner">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                English Listening Trainer
+                <BilingualText translationKey="pages.home.title" />
               </h1>
             </div>
 
             <div className="flex items-center space-x-4">
               {/* User Menu */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2" role="region" aria-label={t("labels.userMenu")}>
                 <User className="w-4 h-4" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {user?.name || user?.email}
                 </span>
                 {user?.isAdmin && (
                   <Badge variant="secondary" className="text-xs">
-                    Admin
+                    <BilingualText translationKey="labels.administrator" />
                   </Badge>
                 )}
               </div>
 
               {/* Navigation Buttons */}
-              <div className="flex items-center space-x-2">
+              <nav className="flex items-center space-x-2" role="navigation" aria-label={t("labels.mainNavigation")}>
                 <Button
                   variant={step === "setup" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setStep("setup")}
                 >
                   <Sparkles className="w-4 h-4 mr-1" />
-                  练习
+                  <BilingualText translationKey="buttons.practice" />
                 </Button>
                 <Button
                   variant={step === "history" ? "default" : "ghost"}
@@ -478,7 +488,7 @@ export const MainApp = () => {
                   onClick={() => setStep("history")}
                 >
                   <History className="w-4 h-4 mr-1" />
-                  历史
+                  <BilingualText translationKey="buttons.history" />
                 </Button>
                 <Button
                   variant={step === "wrong-answers" ? "default" : "ghost"}
@@ -486,7 +496,7 @@ export const MainApp = () => {
                   onClick={() => setStep("wrong-answers")}
                 >
                   <Book className="w-4 h-4 mr-1" />
-                  错题本
+                  <BilingualText translationKey="buttons.wrongAnswersBook" />
                 </Button>
                 <Button
                   variant={step === "assessment" ? "default" : "ghost"}
@@ -494,14 +504,14 @@ export const MainApp = () => {
                   onClick={() => setStep("assessment")}
                 >
                   <MessageSquare className="w-4 h-4 mr-1" />
-                  评估
+                  <BilingualText translationKey="buttons.assessment" />
                 </Button>
-              </div>
+              </nav>
 
               <ThemeToggle />
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}>
                 <LogOut className="w-4 h-4 mr-1" />
-                登出
+                <BilingualText translationKey="buttons.logout" />
               </Button>
             </div>
           </div>

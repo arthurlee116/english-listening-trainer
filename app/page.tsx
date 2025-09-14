@@ -3,6 +3,8 @@
 import React from "react"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { BilingualText } from "@/components/ui/bilingual-text"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,12 +31,12 @@ import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 
 const DIFFICULTY_LEVELS = [
-  { value: "A1", label: "A1 - Beginner" },
-  { value: "A2", label: "A2 - Elementary" },
-  { value: "B1", label: "B1 - Intermediate" },
-  { value: "B2", label: "B2 - Upper Intermediate" },
-  { value: "C1", label: "C1 - Advanced" },
-  { value: "C2", label: "C2 - Proficient" },
+  { value: "A1", labelKey: "difficultyLevels.A1" },
+  { value: "A2", labelKey: "difficultyLevels.A2" },
+  { value: "B1", labelKey: "difficultyLevels.B1" },
+  { value: "B2", labelKey: "difficultyLevels.B2" },
+  { value: "C1", labelKey: "difficultyLevels.C1" },
+  { value: "C2", labelKey: "difficultyLevels.C2" },
 ]
 
 // 等级与个性化难度范围映射（参考 `components/assessment-interface.tsx` 的区间定义）
@@ -48,10 +50,10 @@ const DIFFICULTY_RANGE_MAP: Record<DifficultyLevel, { min: number; max: number }
 }
 
 const DURATION_OPTIONS = [
-  { value: 60, label: "1 minute (~120 words)" },
-  { value: 120, label: "2 minutes (~240 words)" },
-  { value: 180, label: "3 minutes (~360 words)" },
-  { value: 300, label: "5 minutes (~600 words)" },
+  { value: 60, labelKey: "durationOptions.1min" },
+  { value: 120, labelKey: "durationOptions.2min" },
+  { value: 180, labelKey: "durationOptions.3min" },
+  { value: 300, labelKey: "durationOptions.5min" },
 ]
 
 // Type guard for Error objects
@@ -134,8 +136,8 @@ function useUserAuth() {
     setShowAuthDialog(false)
     
     toast({
-      title: "登录成功",
-      description: `欢迎，${userData.name || userData.email}！`,
+      title: t("messages.loginSuccess"),
+      description: formatToastMessage("messages.welcomeUser", { name: userData.name || userData.email }),
     })
   }, [toast])
 
@@ -152,14 +154,14 @@ function useUserAuth() {
       setShowAuthDialog(true)
       
       toast({
-        title: "已登出",
-        description: "您已成功登出系统",
+        title: t("messages.logoutSuccess"),
+        description: t("messages.logoutSuccessDesc"),
       })
     } catch (error) {
       console.error('Logout failed:', error)
       toast({
-        title: "登出失败",
-        description: "登出时发生错误，请刷新页面",
+        title: t("messages.logoutFailed"),
+        description: t("messages.logoutFailedDesc"),
         variant: "destructive"
       })
     }
@@ -192,6 +194,18 @@ function HomePage() {
   } = useUserAuth()
 
   const { toast } = useToast()
+  const { t } = useBilingualText()
+
+  // Helper function to format bilingual toast messages with parameters
+  const formatToastMessage = (key: string, params?: Record<string, string | number>): string => {
+    let message = t(key)
+    if (params) {
+      Object.entries(params).forEach(([param, value]) => {
+        message = message.replace(`{${param}}`, String(value))
+      })
+    }
+    return message
+  }
 
   // 原有状态
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
@@ -230,14 +244,14 @@ function HomePage() {
       const topics = await generateTopics(difficulty, wordCount, language)
       setSuggestedTopics(topics)
       toast({
-        title: "话题生成成功",
-        description: `已生成 ${topics.length} 个话题建议`,
+        title: t("messages.topicGenerationSuccess"),
+        description: formatToastMessage("messages.topicGenerationSuccessDesc", { count: topics.length }),
       })
     } catch (error) {
       console.error("Failed to generate topics:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "话题生成失败",
+        title: t("messages.topicGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -272,14 +286,14 @@ function HomePage() {
       await attemptGeneration(1)
       setStep("listening")
       toast({
-        title: "听力材料生成成功",
-        description: "已成功生成听力材料，请点击生成音频或直接开始答题",
+        title: t("messages.transcriptGenerationSuccess"),
+        description: t("messages.transcriptGenerationSuccessDesc"),
       })
     } catch (error) {
       console.error("Failed to generate transcript:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "听力材料生成失败",
+        title: t("messages.transcriptGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -310,8 +324,8 @@ function HomePage() {
           const contentLength = response.headers.get('content-length')
           console.log(`📊 音频文件大小: ${contentLength} bytes`)
           toast({
-            title: "音频生成成功",
-            description: "音频已生成，现在可以播放练习音频了",
+            title: t("messages.audioGenerationSuccess"),
+            description: t("messages.audioGenerationSuccessDesc"),
           })
         }
       } catch (fetchError) {
@@ -322,7 +336,7 @@ function HomePage() {
       setAudioError(true)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "音频生成失败",
+        title: t("messages.audioGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -344,14 +358,14 @@ function HomePage() {
       setAnswers({})
       setStep("questions")
       toast({
-        title: "题目生成成功",
-        description: `已生成 ${generatedQuestions.length} 道题目`,
+        title: t("messages.questionsGenerationSuccess"),
+        description: formatToastMessage("messages.questionsGenerationSuccessDesc", { count: generatedQuestions.length }),
       })
     } catch (error) {
       console.error("Failed to generate questions:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "题目生成失败",
+        title: t("messages.questionsGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -413,15 +427,15 @@ function HomePage() {
       
       setStep("results")
       toast({
-        title: "答题完成",
-        description: "已完成评分，查看您的成绩和详细分析",
+        title: t("messages.answersSubmissionSuccess"),
+        description: t("messages.answersSubmissionSuccessDesc"),
       })
     } catch (error) {
       console.error("Grading failed:", error)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
-        title: "评分失败",
-        description: `${errorMessage}. 请重试`,
+        title: t("messages.gradingFailed"),
+        description: formatToastMessage("messages.gradingFailedDesc", { error: errorMessage }),
         variant: "destructive",
       })
     } finally {
@@ -447,8 +461,8 @@ function HomePage() {
     if (currentExercise) {
       exportToTxt(currentExercise)
       toast({
-        title: "导出成功",
-        description: "练习结果已导出为文本文件",
+        title: t("messages.exportSuccess"),
+        description: t("messages.exportSuccessDesc"),
       })
     }
   }, [currentExercise, toast])
@@ -490,7 +504,12 @@ function HomePage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <Card className="p-8 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600 dark:text-gray-300">正在验证登录状态...</p>
+          <h2 className="text-lg font-semibold mb-2">
+            <BilingualText translationKey="messages.loadingApp" />
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300">
+            <BilingualText translationKey="messages.verifyingLogin" />
+          </p>
         </Card>
       </div>
     )
@@ -568,22 +587,24 @@ function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <header className="flex justify-between items-center mb-8" role="banner">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              English Listening Trainer
+              <BilingualText translationKey="pages.home.title" />
             </h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-2">AI-powered listening practice for K12 students</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">
+              <BilingualText translationKey="pages.home.subtitle" />
+            </p>
           </div>
           <div className="flex items-center gap-4">
-            {/* 用户信息 */}
+            {/* User Menu */}
             {isAuthenticated && user && (
-              <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 shadow-sm border border-gray-200">
+              <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 shadow-sm border border-gray-200" role="region" aria-label={t("labels.userMenu")}>
                 <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span className="text-sm font-medium">{user.name || user.email}</span>
                 {user.isAdmin && (
                   <Badge variant="outline" className="text-green-600 border-green-300">
-                    管理员
+                    <BilingualText translationKey="labels.administrator" />
                   </Badge>
                 )}
                 <Button
@@ -591,43 +612,46 @@ function HomePage() {
                   size="sm"
                   onClick={handleLogout}
                   className="p-1 h-6 w-6 text-gray-500 hover:text-red-600"
+                  title={t("buttons.logout")}
+                  aria-label={t("buttons.logout")}
                 >
                   <LogOut className="w-3 h-3" />
                 </Button>
               </div>
             )}
-            {/* 个性化难度徽章（完成难度测试后显示） */}
+            {/* Personalized Difficulty Badge */}
             {assessmentResult && (
               <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50">
-                个性化难度：{assessmentResult.difficultyRange.name}
+                <BilingualText translationKey="labels.personalizedDifficulty" />：{assessmentResult.difficultyRange.name}
                 <span className="ml-1">({assessmentResult.difficultyRange.min}-{assessmentResult.difficultyRange.max})</span>
               </Badge>
             )}
-            <div className="flex gap-2">
+            {/* Main Navigation */}
+            <nav className="flex gap-2" role="navigation" aria-label={t("labels.mainNavigation")}>
               <ThemeToggle />
               <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="glass-effect">
                 <Sparkles className="w-4 h-4 mr-2" />
-                难度测试
+                <BilingualText translationKey="buttons.assessment" />
               </Button>
               <Button variant="outline" size="sm" onClick={() => setStep("history")} className="glass-effect">
                 <History className="w-4 h-4 mr-2" />
-                History
+                <BilingualText translationKey="buttons.history" />
               </Button>
               <Button variant="outline" size="sm" onClick={() => setStep("wrong-answers")} className="glass-effect">
                 <Book className="w-4 h-4 mr-2" />
-                错题本
+                <BilingualText translationKey="buttons.wrongAnswersBook" />
               </Button>
               <Button variant="outline" size="sm" onClick={() => window.open('/admin', '_blank')} className="glass-effect">
                 <Settings className="w-4 h-4 mr-2" />
-                Admin
+                <BilingualText translationKey="buttons.admin" />
               </Button>
               <Button variant="outline" size="sm" onClick={handleFeedback} className="glass-effect bg-transparent">
                 <MessageSquare className="w-4 h-4 mr-2" />
-                Feedback
+                <BilingualText translationKey="buttons.feedback" />
               </Button>
-            </div>
+            </nav>
           </div>
-        </div>
+        </header>
 
         {/* Setup Step */}
         {step === "setup" && (
@@ -635,23 +659,25 @@ function HomePage() {
             <Card className="glass-effect p-8">
               <div className="flex items-center gap-3 mb-6">
                 <Sparkles className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-bold">Create Your Listening Exercise</h2>
+                <h2 className="text-2xl font-bold">
+                  <BilingualText translationKey="labels.createExercise" />
+                </h2>
               </div>
 
               <div className="space-y-6">
                 {/* Difficulty Selection */}
                 <div>
                   <Label htmlFor="difficulty" className="text-base font-medium">
-                    Difficulty Level
+                    <BilingualText translationKey="labels.difficulty" />
                   </Label>
                   <Select value={difficulty} onValueChange={(value) => setDifficulty(value as DifficultyLevel | "")}>
                     <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-                      <SelectValue placeholder="Select difficulty level" />
+                      <SelectValue placeholder={t("labels.selectDifficulty")} />
                     </SelectTrigger>
                     <SelectContent>
                       {DIFFICULTY_LEVELS.map((level) => (
                         <SelectItem key={level.value} value={level.value}>
-                          {level.label}
+                          <BilingualText translationKey={level.labelKey} />
                           {" "}
                           <span className="text-xs text-gray-500">
                             ({DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].min}-{DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].max})
@@ -665,11 +691,11 @@ function HomePage() {
                 {/* Language Selection */}
                 <div>
                   <Label htmlFor="language" className="text-base font-medium">
-                    Listening Language
+                    <BilingualText translationKey="labels.listeningLanguage" />
                   </Label>
                   <Select value={language} onValueChange={(value) => setLanguage(value as ListeningLanguage)}>
                     <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-                      <SelectValue placeholder="Select listening language" />
+                      <SelectValue placeholder={t("labels.selectLanguage")} />
                     </SelectTrigger>
                     <SelectContent>
                       {LANGUAGE_OPTIONS.map((lang) => (
@@ -684,16 +710,16 @@ function HomePage() {
                 {/* Duration Selection */}
                 <div>
                   <Label htmlFor="duration" className="text-base font-medium">
-                    Duration
+                    <BilingualText translationKey="labels.duration" />
                   </Label>
                   <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
                     <SelectTrigger className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-                      <SelectValue placeholder="Select duration" />
+                      <SelectValue placeholder={t("labels.selectDuration")} />
                     </SelectTrigger>
                     <SelectContent>
                       {DURATION_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value.toString()}>
-                          {option.label}
+                          <BilingualText translationKey={option.labelKey} />
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -716,7 +742,7 @@ function HomePage() {
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 mr-2" />
-                        Generate Topic Suggestions
+                        <BilingualText translationKey="buttons.generateTopicSuggestions" />
                       </>
                     )}
                   </Button>
@@ -725,7 +751,9 @@ function HomePage() {
                 {/* Suggested Topics */}
                 {suggestedTopics.length > 0 && (
                   <div>
-                    <Label className="text-base font-medium">Suggested Topics</Label>
+                    <Label className="text-base font-medium">
+                      <BilingualText translationKey="labels.suggestedTopics" />
+                    </Label>
                     <div className="grid grid-cols-1 gap-2 mt-2">
                       {suggestedTopics.map((suggestedTopic, index) => (
                         <Button
@@ -744,13 +772,13 @@ function HomePage() {
                 {/* Manual Topic Input */}
                 <div>
                   <Label htmlFor="topic" className="text-base font-medium">
-                    Topic (or enter your own)
+                    <BilingualText translationKey="labels.manualTopic" />
                   </Label>
                   <Input
                     id="topic"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    placeholder="Enter a topic for your listening exercise"
+                    placeholder={t("placeholders.enterTopic")}
                     className="glass-effect"
                   />
                 </div>
@@ -770,7 +798,7 @@ function HomePage() {
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Listening Exercise
+                      <BilingualText translationKey="buttons.generateListeningExercise" />
                     </>
                   )}
                 </Button>

@@ -1,0 +1,704 @@
+{
+  "audioPlayer": {
+    "title": {
+      "en": "Listening Practice",
+      "zh": "听力练习"
+    },
+    "play": {
+      "en": "Play",
+      "zh": "播放"
+    },
+    "pause": {
+      "en": "Pause",
+      "zh": "暂停"
+    },
+    "stop": {
+      "en": "Stop",
+      "zh": "停止"
+    },
+    "replay": {
+      "en": "Replay",
+      "zh": "重播"
+    },
+    "loading": {
+      "en": "Loading",
+      "zh": "加载中"
+    },
+    "loadingAudio": {
+      "en": "Generating audio",
+      "zh": "正在生成音频"
+    },
+    "loadingMessage": {
+      "en": "Please wait, generating audio content using local Kokoro model",
+      "zh": "请稍候，正在使用本地Kokoro模型生成音频内容"
+    },
+    "error": {
+      "en": "Error",
+      "zh": "错误"
+    },
+    "audioError": {
+      "en": "Audio generation failed",
+      "zh": "音频生成失败"
+    },
+    "audioErrorMessage": {
+      "en": "TTS service call failed. This may be due to the following reasons:",
+      "zh": "TTS服务调用失败。这可能是由于以下原因："
+    },
+    "errorReasons": {
+      "localTtsNotStarted": {
+        "en": "Local TTS service not started",
+        "zh": "本地TTS服务未启动"
+      },
+      "modelLoadFailed": {
+        "en": "Model loading failed",
+        "zh": "模型加载失败"
+      },
+      "insufficientResources": {
+        "en": "Insufficient system resources",
+        "zh": "系统资源不足"
+      },
+      "pythonConfigIssue": {
+        "en": "Python environment configuration issue",
+        "zh": "Python环境配置问题"
+      }
+    },
+    "retryGenerateAudio": {
+      "en": "Retry Generate Audio",
+      "zh": "重试生成音频"
+    },
+    "retrying": {
+      "en": "Retrying",
+      "zh": "重试中"
+    },
+    "skipAudioDirectQuestions": {
+      "en": "Skip Audio, Go to Questions",
+      "zh": "跳过音频，直接做题"
+    },
+    "generateAudio": {
+      "en": "Generate Audio",
+      "zh": "生成音频"
+    },
+    "startQuestions": {
+      "en": "Start Questions",
+      "zh": "开始答题"
+    },
+    "regenerateListeningMaterial": {
+      "en": "Regenerate Listening Material",
+      "zh": "重新生成听力材料"
+    },
+    "readyToGenerate": {
+      "en": "Ready to Generate Audio",
+      "zh": "准备生成音频"
+    },
+    "readyMessage": {
+      "en": "Click the button below to generate audio, or skip directly to the questions",
+      "zh": "点击下方按钮生成音频，或直接跳过进入答题环节"
+    },
+    "transcript": {
+      "en": "Transcript (For Reference Only)",
+      "zh": "听力稿（仅供参考）"
+    },
+    "transcriptHoverHint": {
+      "en": "Hover to show text (Please try listening to the audio first!)",
+      "zh": "鼠标悬停显示文本（请先尝试听录音！）"
+    },
+    "showTranscript": {
+      "en": "Show Transcript",
+      "zh": "显示文本"
+    },
+    "hideTranscript": {
+      "en": "Hide Transcript",
+      "zh": "隐藏文本"
+    },
+    "volume": {
+      "en": "Volume",
+      "zh": "音量"
+    },
+    "speed": {
+      "en": "Speed",
+      "zh": "速度"
+    },
+    "currentTime": {
+      "en": "Current Time",
+      "zh": "当前时间"
+    },
+    "duration": {
+      "en": "Duration",
+      "zh": "时长"
+    },
+    "skipBackward": {
+      "en": "Skip Backward 10s",
+      "zh": "后退10秒"
+    },
+    "skipForward": {
+      "en": "Skip Forward 10s",
+      "zh": "前进10秒"
+    },
+    "playCompleted": {
+      "en": "Playback Completed",
+      "zh": "播放完成"
+    },
+    "hasPlayed": {
+      "en": "Played",
+      "zh": "已播放"
+    },
+    "audioGenerationInProgress": {
+      "en": "Audio Generation in Progress",
+      "zh": "音频生成中"
+    },
+    "audioGenerationComplete": {
+      "en": "Audio Generation Complete",
+      "zh": "音频生成完成"
+    },
+    "audioGenerationFailed": {
+      "en": "Audio Generation Failed",
+      "zh": "音频生成失败"
+    },
+    "progressIndicator": {
+      "en": "Progress",
+      "zh": "进度"
+    },
+    "timeRemaining": {
+      "en": "Time Remaining",
+      "zh": "剩余时间"
+    },
+    "estimatedTime": {
+      "en": "Estimated Time",
+      "zh": "预计时间"
+    },
+    "processingAudio": {
+      "en": "Processing Audio",
+      "zh": "处理音频中"
+    },
+    "downloadingModel": {
+      "en": "Downloading Model",
+      "zh": "下载模型中"
+    },
+    "initializingTTS": {
+      "en": "Initializing TTS",
+      "zh": "初始化TTS"
+    },
+    "generatingSpeech": {
+      "en": "Generating Speech",
+      "zh": "生成语音中"
+    },
+    "finalizingAudio": {
+      "en": "Finalizing Audio",
+      "zh": "完成音频处理"
+    },
+    "audioReady": {
+      "en": "Audio Ready",
+      "zh": "音频就绪"
+    },
+    "regenerateAudio": {
+      "en": "Regenerate Audio",
+      "zh": "重新生成音频"
+    },
+    "regenerateContent": {
+      "en": "Regenerate Content",
+      "zh": "重新生成内容"
+    },
+    "tryDifferentVoice": {
+      "en": "Try Different Voice",
+      "zh": "尝试不同声音"
+    },
+    "adjustSettings": {
+      "en": "Adjust Settings",
+      "zh": "调整设置"
+    }
+  },
+  "questionInterface": {
+    "questions": {
+      "en": "Questions",
+      "zh": "题目"
+    },
+    "question": {
+      "en": "Question",
+      "zh": "问题"
+    },
+    "questionType": {
+      "en": "Question Type",
+      "zh": "题目类型"
+    },
+    "answer": {
+      "en": "Answer",
+      "zh": "答案"
+    },
+    "submitAnswers": {
+      "en": "Submit Answers",
+      "zh": "提交答案"
+    },
+    "nextQuestion": {
+      "en": "Next Question",
+      "zh": "下一题"
+    },
+    "previousQuestion": {
+      "en": "Previous Question",
+      "zh": "上一题"
+    },
+    "questionProgress": {
+      "en": "Question {current} of {total}",
+      "zh": "第{current}题，共{total}题"
+    },
+    "multipleChoice": {
+      "en": "Multiple Choice",
+      "zh": "选择题"
+    },
+    "shortAnswer": {
+      "en": "Short Answer",
+      "zh": "简答题"
+    },
+    "trueFalse": {
+      "en": "True/False",
+      "zh": "判断题"
+    },
+    "fillInBlank": {
+      "en": "Fill in the Blank",
+      "zh": "填空题"
+    },
+    "emergencyTranscript": {
+      "en": "Emergency Transcript Access",
+      "zh": "紧急文本访问"
+    },
+    "audioPlayer": {
+      "en": "Audio Player",
+      "zh": "音频播放器"
+    },
+    "answered": {
+      "en": "answered",
+      "zh": "已答"
+    },
+    "progressIndicator": {
+      "en": "Progress",
+      "zh": "进度"
+    },
+    "questionNumber": {
+      "en": "Q",
+      "zh": "第"
+    },
+    "emergencyTranscriptHint": {
+      "en": "Emergency: Show transcript (Please try listening to the audio first!)",
+      "zh": "紧急情况：显示听力稿 (请尽量先听音频！)"
+    },
+    "writeAnswerPlaceholder": {
+      "en": "Write your answer here...",
+      "zh": "在此输入您的答案…"
+    }
+  },
+  "wrongAnswersBook": {
+    "title": {
+      "en": "Wrong Answers Book",
+      "zh": "错题本"
+    },
+    "subtitle": {
+      "en": "Review your incorrect answers",
+      "zh": "复习您的错误答案"
+    },
+    "wrongAnswersCount": {
+      "en": "{count} wrong answers",
+      "zh": "{count} 道错题"
+    },
+    "reviewTip": {
+      "en": "Reviewing wrong answers can help you consolidate knowledge and improve learning effectiveness",
+      "zh": "复习错题可以帮助您巩固知识点，提高学习效果"
+    },
+    "noWrongAnswersTitle": {
+      "en": "No wrong answer records",
+      "zh": "暂无错题记录"
+    },
+    "noWrongAnswersDescription": {
+      "en": "After completing exercises, incorrectly answered questions will be collected here",
+      "zh": "完成练习后，答错的题目将收录在这里"
+    },
+    "searchPlaceholder": {
+      "en": "Search questions or topics...",
+      "zh": "搜索题目或话题…"
+    },
+    "allDifficulties": {
+      "en": "All Difficulties",
+      "zh": "所有难度"
+    },
+    "allLanguages": {
+      "en": "All Languages",
+      "zh": "所有语言"
+    },
+    "allTypes": {
+      "en": "All Types",
+      "zh": "所有类型"
+    },
+    "questionNumber": {
+      "en": "Question {number}",
+      "zh": "题目 {number}"
+    },
+    "yourAnswer": {
+      "en": "Your Answer",
+      "zh": "您的答案"
+    },
+    "correctAnswer": {
+      "en": "Correct Answer",
+      "zh": "正确答案"
+    },
+    "noAnswer": {
+      "en": "No answer",
+      "zh": "未回答"
+    },
+    "explanation": {
+      "en": "Explanation",
+      "zh": "解析"
+    },
+    "listeningMaterial": {
+      "en": "Listening Material",
+      "zh": "听力材料"
+    },
+    "showListeningMaterial": {
+      "en": "Show Listening Material",
+      "zh": "查看听力材料"
+    },
+    "hideListeningMaterial": {
+      "en": "Hide Listening Material",
+      "zh": "隐藏听力材料"
+    },
+    "questionTypes": {
+      "multipleChoice": {
+        "en": "Multiple Choice",
+        "zh": "单选题"
+      },
+      "fillBlank": {
+        "en": "Fill in the Blank",
+        "zh": "填空题"
+      },
+      "shortAnswer": {
+        "en": "Short Answer",
+        "zh": "简答题"
+      }
+    }
+  },
+  "authDialog": {
+    "login": {
+      "en": "Login",
+      "zh": "登录"
+    },
+    "register": {
+      "en": "Register",
+      "zh": "注册"
+    },
+    "email": {
+      "en": "Email",
+      "zh": "邮箱"
+    },
+    "password": {
+      "en": "Password",
+      "zh": "密码"
+    },
+    "confirmPassword": {
+      "en": "Confirm Password",
+      "zh": "确认密码"
+    },
+    "forgotPassword": {
+      "en": "Forgot Password",
+      "zh": "忘记密码"
+    },
+    "createAccount": {
+      "en": "Create Account",
+      "zh": "创建账户"
+    },
+    "alreadyHaveAccount": {
+      "en": "Already have an account?",
+      "zh": "已有账户？"
+    },
+    "dontHaveAccount": {
+      "en": "Don't have an account?",
+      "zh": "没有账户？"
+    }
+  },
+  "navigation": {
+    "home": {
+      "en": "Home",
+      "zh": "首页"
+    },
+    "practice": {
+      "en": "Practice",
+      "zh": "练习"
+    },
+    "history": {
+      "en": "History",
+      "zh": "历史"
+    },
+    "wrongAnswers": {
+      "en": "Wrong Answers",
+      "zh": "错题本"
+    },
+    "assessment": {
+      "en": "Assessment",
+      "zh": "评估"
+    },
+    "profile": {
+      "en": "Profile",
+      "zh": "个人资料"
+    },
+    "settings": {
+      "en": "Settings",
+      "zh": "设置"
+    },
+    "help": {
+      "en": "Help",
+      "zh": "帮助"
+    },
+    "about": {
+      "en": "About",
+      "zh": "关于"
+    }
+  },
+  "assessmentInterface": {
+    "title": {
+      "en": "Personalized Assessment",
+      "zh": "个性化难度测试"
+    },
+    "subtitle": {
+      "en": "Difficulty Level Assessment",
+      "zh": "难度级别评估"
+    },
+    "instructions": {
+      "en": "Listen to the audio and rate the difficulty",
+      "zh": "听音频并评估难度"
+    },
+    "questionCounter": {
+      "en": "Question {current} of {total}",
+      "zh": "第{current}题，共{total}题"
+    },
+    "ratingScale": {
+      "en": "How difficult was this for you?",
+      "zh": "这对您来说有多难？"
+    },
+    "assessmentComplete": {
+      "en": "Assessment Complete",
+      "zh": "评估完成"
+    },
+    "recommendedLevel": {
+      "en": "Recommended Level",
+      "zh": "推荐级别"
+    },
+    "progressIndicator": {
+      "en": "Progress",
+      "zh": "进度"
+    },
+    "instructionText": {
+      "en": "Please listen carefully to each audio segment, then rate your understanding level",
+      "zh": "请仔细听完每段音频，然后根据您的理解程度打分"
+    },
+    "segmentTitle": {
+      "en": "Segment {number}",
+      "zh": "第{number}段"
+    },
+    "difficultyLevel": {
+      "en": "Difficulty Level",
+      "zh": "难度级别"
+    },
+    "ratingPrompt": {
+      "en": "Please rate your understanding of this audio segment:",
+      "zh": "请为您对这段音频的理解程度打分："
+    },
+    "ratingScaleMin": {
+      "en": "Completely don't understand",
+      "zh": "完全不理解"
+    },
+    "ratingScaleMax": {
+      "en": "Completely understand",
+      "zh": "完全理解"
+    },
+    "yourRating": {
+      "en": "Your rating",
+      "zh": "您的评分"
+    },
+    "nextQuestion": {
+      "en": "Next Question",
+      "zh": "下一题"
+    },
+    "completeTest": {
+      "en": "Complete Test",
+      "zh": "完成测试"
+    },
+    "testInstructions": {
+      "en": "Test Instructions",
+      "zh": "测试说明"
+    },
+    "instructionsList": {
+      "playOnce": {
+        "en": "Each audio segment can only be played once, please listen carefully to the entire content",
+        "zh": "每段音频只能播放一次，请仔细听完整段内容"
+      },
+      "rateUnderstanding": {
+        "en": "Rate your understanding of the audio content (1-10 points)",
+        "zh": "根据您对音频内容的理解程度进行打分（1-10分）"
+      },
+      "oneIsMin": {
+        "en": "1 point means completely don't understand, 10 points means completely understand",
+        "zh": "1分表示完全不理解，10分表示完全理解"
+      },
+      "recommendDifficulty": {
+        "en": "After completing all tests, the system will recommend a suitable practice difficulty for you",
+        "zh": "完成所有测试后，系统将为您推荐合适的练习难度"
+      }
+    },
+    "analyzingResults": {
+      "en": "Analyzing your test results",
+      "zh": "正在分析您的测试结果"
+    }
+  },
+  "resultsDisplay": {
+    "exerciseComplete": {
+      "en": "Exercise Complete",
+      "zh": "练习完成"
+    },
+    "yourResults": {
+      "en": "Your Results",
+      "zh": "您的结果"
+    },
+    "reviewAnswers": {
+      "en": "Review Answers",
+      "zh": "查看答案"
+    },
+    "correct": {
+      "en": "correct",
+      "zh": "正确"
+    },
+    "level": {
+      "en": "level",
+      "zh": "级别"
+    },
+    "showDetails": {
+      "en": "Show Details",
+      "zh": "查看详情"
+    },
+    "hideDetails": {
+      "en": "Hide Details",
+      "zh": "隐藏详情"
+    },
+    "answerDetails": {
+      "en": "Answer Details",
+      "zh": "答题详情"
+    },
+    "question": {
+      "en": "Question",
+      "zh": "问题"
+    },
+    "options": {
+      "en": "Options",
+      "zh": "选项"
+    },
+    "yourAnswer": {
+      "en": "Your Answer",
+      "zh": "您的答案"
+    },
+    "correctAnswer": {
+      "en": "Correct Answer",
+      "zh": "正确答案"
+    },
+    "noAnswer": {
+      "en": "No answer",
+      "zh": "未回答"
+    },
+    "explanation": {
+      "en": "Explanation",
+      "zh": "解析"
+    },
+    "startNewPractice": {
+      "en": "Start New Practice",
+      "zh": "开始新练习"
+    },
+    "exportResults": {
+      "en": "Export Results",
+      "zh": "导出结果"
+    },
+    "showTranscript": {
+      "en": "Show Transcript",
+      "zh": "查看听力原文"
+    },
+    "hideTranscript": {
+      "en": "Hide Transcript",
+      "zh": "隐藏听力原文"
+    },
+    "listeningMaterial": {
+      "en": "Listening Material",
+      "zh": "听力材料"
+    }
+  },
+  "historyPanel": {
+    "practiceHistory": {
+      "en": "Practice History",
+      "zh": "练习历史"
+    },
+    "yourHistory": {
+      "en": "Your listening exercise history",
+      "zh": "您的听力练习历史"
+    },
+    "filterBy": {
+      "en": "Filter by",
+      "zh": "筛选"
+    },
+    "sortBy": {
+      "en": "Sort by",
+      "zh": "排序"
+    },
+    "noHistory": {
+      "en": "No practice history found",
+      "zh": "未找到练习历史"
+    },
+    "exerciseDetails": {
+      "en": "Exercise Details",
+      "zh": "练习详情"
+    },
+    "recordsCount": {
+      "en": "{count} records",
+      "zh": "{count} 条记录"
+    },
+    "clearHistory": {
+      "en": "Clear History",
+      "zh": "清空历史"
+    },
+    "noRecords": {
+      "en": "No practice records",
+      "zh": "暂无练习记录"
+    },
+    "noRecordsDescription": {
+      "en": "Records will appear here after completing exercises",
+      "zh": "完成练习后，记录将显示在这里"
+    },
+    "searchTopics": {
+      "en": "Search topics...",
+      "zh": "搜索话题…"
+    },
+    "allDifficulties": {
+      "en": "All Difficulties",
+      "zh": "所有难度"
+    },
+    "allLanguages": {
+      "en": "All Languages",
+      "zh": "所有语言"
+    },
+    "sortNewest": {
+      "en": "Newest First",
+      "zh": "最新优先"
+    },
+    "sortOldest": {
+      "en": "Oldest First",
+      "zh": "最旧优先"
+    },
+    "sortScoreHigh": {
+      "en": "Score: High to Low",
+      "zh": "得分从高到低"
+    },
+    "sortScoreLow": {
+      "en": "Score: Low to High",
+      "zh": "得分从低到高"
+    },
+    "correct": {
+      "en": "correct",
+      "zh": "正确"
+    },
+    "confirmClearHistory": {
+      "en": "Are you sure you want to clear all practice history? This action cannot be undone.",
+      "zh": "确定要清空所有练习历史吗？此操作不可撤销。"
+    }
+  }
+}

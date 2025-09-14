@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, SkipBack, SkipForward, Volume2, AlertCircle, RefreshCw, Loader2 } from "lucide-react"
+import { BilingualText } from "@/components/ui/bilingual-text"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface AudioPlayerProps {
   audioUrl: string
@@ -107,6 +109,7 @@ const AudioPlayerComponent = ({
   loading = false, 
   loadingMessage = "" 
 }: AudioPlayerProps) => {
+  const { t } = useBilingualText()
   const {
     isPlaying,
     setIsPlaying,
@@ -292,20 +295,24 @@ const AudioPlayerComponent = ({
   return (
     <div className="space-y-6">
       <Card className="glass-effect p-8">
-        <h2 className="text-2xl font-bold mb-6 text-center">听力练习</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">
+          <BilingualText translationKey="components.audioPlayer.title" />
+        </h2>
 
         {audioError ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <h3 className="font-medium text-red-800 mb-2">音频生成失败</h3>
+            <h3 className="font-medium text-red-800 mb-2">
+              <BilingualText translationKey="components.audioPlayer.audioError" />
+            </h3>
             <p className="text-red-600 mb-4 text-sm">
-              TTS服务调用失败。这可能是由于以下原因：
+              <BilingualText translationKey="components.audioPlayer.audioErrorMessage" />
             </p>
             <ul className="text-left text-sm text-red-600 mb-4 max-w-md mx-auto">
-              <li>• 本地TTS服务未启动</li>
-              <li>• 模型加载失败</li>
-              <li>• 系统资源不足</li>
-              <li>• Python环境配置问题</li>
+              <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.localTtsNotStarted" /></li>
+              <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.modelLoadFailed" /></li>
+              <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.insufficientResources" /></li>
+              <li>• <BilingualText translationKey="components.audioPlayer.errorReasons.pythonConfigIssue" /></li>
             </ul>
             <div className="flex gap-3 justify-center">
               <Button
@@ -318,12 +325,12 @@ const AudioPlayerComponent = ({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {loadingMessage || "重试中..."}
+                    {loadingMessage || t("components.audioPlayer.retrying")}
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    重试生成音频
+                    <BilingualText translationKey="components.audioPlayer.retryGenerateAudio" />
                   </>
                 )}
               </Button>
@@ -333,7 +340,7 @@ const AudioPlayerComponent = ({
                 disabled={loading}
                 className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
               >
-                跳过音频，直接做题
+                <BilingualText translationKey="components.audioPlayer.skipAudioDirectQuestions" />
               </Button>
             </div>
           </div>
@@ -341,10 +348,10 @@ const AudioPlayerComponent = ({
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
             <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
             <h3 className="font-medium text-blue-800 mb-2">
-              {loadingMessage || "正在生成音频..."}
+              {loadingMessage || t("components.audioPlayer.loadingAudio")}
             </h3>
             <p className="text-blue-600 text-sm">
-              请稍候，正在使用本地Kokoro模型生成音频内容
+              <BilingualText translationKey="components.audioPlayer.loadingMessage" />
             </p>
           </div>
         ) : audioUrl ? (
@@ -421,6 +428,7 @@ const AudioPlayerComponent = ({
                 onClick={skipBackward}
                 disabled={!audioUrl}
                 className="glass-effect bg-transparent rounded-full"
+                title={t("components.audioPlayer.skipBackward")}
               >
                 <SkipBack className="w-4 h-4" />
               </Button>
@@ -430,6 +438,7 @@ const AudioPlayerComponent = ({
                 onClick={togglePlayPause}
                 disabled={!audioUrl}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
+                title={isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
               >
                 {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
               </Button>
@@ -440,6 +449,7 @@ const AudioPlayerComponent = ({
                 onClick={skipForward}
                 disabled={!audioUrl}
                 className="glass-effect bg-transparent rounded-full"
+                title={t("components.audioPlayer.skipForward")}
               >
                 <SkipForward className="w-4 h-4" />
               </Button>
@@ -447,7 +457,7 @@ const AudioPlayerComponent = ({
 
             {/* Volume Control */}
             <div className="flex items-center gap-3 mb-6">
-              <Volume2 className="w-4 h-4 text-gray-500" />
+              <Volume2 className="w-4 h-4 text-gray-500" title={t("components.audioPlayer.volume")} />
               <Slider value={[volume * 100]} onValueChange={handleVolumeChange} className="flex-1" max={100} step={1} />
             </div>
           </>
@@ -456,9 +466,11 @@ const AudioPlayerComponent = ({
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <Volume2 className="w-6 h-6 text-gray-400" />
             </div>
-            <h3 className="font-medium text-gray-800 mb-2">准备生成音频</h3>
+            <h3 className="font-medium text-gray-800 mb-2">
+              <BilingualText translationKey="components.audioPlayer.readyToGenerate" />
+            </h3>
             <p className="text-gray-600 text-sm mb-4">
-              点击下方按钮生成音频，或直接跳过进入答题环节
+              <BilingualText translationKey="components.audioPlayer.readyMessage" />
             </p>
           </div>
         )}
@@ -470,7 +482,7 @@ const AudioPlayerComponent = ({
               disabled={loading}
               className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg"
             >
-              生成音频
+              <BilingualText translationKey="components.audioPlayer.generateAudio" />
             </Button>
           )}
           
@@ -479,7 +491,7 @@ const AudioPlayerComponent = ({
             disabled={loading}
             className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 rounded-lg"
           >
-            开始答题
+            <BilingualText translationKey="components.audioPlayer.startQuestions" />
           </Button>
 
           {onRegenerate && (
@@ -490,7 +502,7 @@ const AudioPlayerComponent = ({
               disabled={loading}
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              重新生成听力材料
+              <BilingualText translationKey="components.audioPlayer.regenerateListeningMaterial" />
             </Button>
           )}
         </div>
@@ -498,12 +510,16 @@ const AudioPlayerComponent = ({
 
       {/* Transcript (Hidden during listening) */}
       <Card className="glass-effect p-6">
-        <h3 className="font-medium mb-3 text-gray-600">听力稿（仅供参考）</h3>
+        <h3 className="font-medium mb-3 text-gray-600">
+          <BilingualText translationKey="components.audioPlayer.transcript" />
+        </h3>
         <div className="bg-gray-50 rounded-lg p-4">
           <p className="text-sm leading-relaxed text-gray-700 blur-sm hover:blur-none transition-all duration-300">
             {transcript}
           </p>
-          <p className="text-xs text-gray-500 mt-2 italic">鼠标悬停显示文本（请先尝试听录音！）</p>
+          <p className="text-xs text-gray-500 mt-2 italic">
+            <BilingualText translationKey="components.audioPlayer.transcriptHoverHint" />
+          </p>
         </div>
       </Card>
     </div>
