@@ -12,7 +12,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { BilingualText } from "@/components/ui/bilingual-text"
-import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface BilingualAlertDialogProps {
   open: boolean
@@ -25,7 +24,6 @@ interface BilingualAlertDialogProps {
   cancelTextKey?: string
   onConfirm?: () => void
   onCancel?: () => void
-  variant?: "default" | "destructive"
 }
 
 export function BilingualAlertDialog({
@@ -39,10 +37,7 @@ export function BilingualAlertDialog({
   cancelTextKey = "buttons.cancel",
   onConfirm,
   onCancel,
-  variant = "default"
 }: BilingualAlertDialogProps) {
-  const { t } = useBilingualText()
-
   const handleConfirm = () => {
     onConfirm?.()
     onOpenChange(false)

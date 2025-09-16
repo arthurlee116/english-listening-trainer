@@ -356,7 +356,7 @@ export class OperationCanceller {
   }
 
   cancelAllOperations(): void {
-    for (const [id, controller] of this.controllers) {
+    for (const [_id, controller] of this.controllers) {
       controller.abort()
     }
     this.controllers.clear()

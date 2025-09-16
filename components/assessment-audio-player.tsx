@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Play, Pause, Volume2 } from "lucide-react"
 import { BilingualText } from "@/components/ui/bilingual-text"
-import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface AssessmentAudioPlayerProps {
   src: string
@@ -26,7 +25,6 @@ export default function AssessmentAudioPlayer({
   const [hasPlayed, setHasPlayed] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null)
-  const { t } = useBilingualText()
 
   useEffect(() => {
     const audio = audioRef.current

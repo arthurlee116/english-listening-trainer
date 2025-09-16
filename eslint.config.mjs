@@ -1,9 +1,27 @@
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 import nextPlugin from "@next/eslint-plugin-next";
-import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import typescriptParser from "@typescript-eslint/parser";
 
-export default [
+export default tseslint.config(
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
+    plugins: {
+      "@next/next": nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+    settings: {
+      next: {
+        rootDir: "./",
+      },
+    },
     ignores: [
       ".next/**",
       "dist/**",
@@ -19,24 +37,5 @@ export default [
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
-    plugins: {
-      "@next/next": nextPlugin,
-      "@typescript-eslint": typescriptEslint,
-    },
-    languageOptions: {
-      parser: typescriptParser,
-    },
-    rules: {
-      ...nextPlugin.configs.recommended.rules,
-      ...nextPlugin.configs["core-web-vitals"].rules,
-      ...typescriptEslint.configs.recommended.rules,
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-        },
-      ],
-    },
-  },
-];
+  }
+);

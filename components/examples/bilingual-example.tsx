@@ -10,7 +10,7 @@ import { getDifficultyLabel, getDurationLabel } from '@/lib/i18n/utils';
  * This shows different ways to use the bilingual text system
  */
 export function BilingualExample() {
-  const { t, formatBilingual } = useBilingualText();
+  const { formatBilingual } = useBilingualText();
 
   return (
     <div className="p-6 space-y-4 border rounded-lg">

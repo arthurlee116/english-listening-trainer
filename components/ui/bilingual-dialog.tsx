@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { BilingualText } from "@/components/ui/bilingual-text"
-import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface BilingualDialogProps {
   open: boolean
@@ -46,8 +45,6 @@ export function BilingualDialog({
   cancelTextKey = "buttons.cancel",
   confirmVariant = "default"
 }: BilingualDialogProps) {
-  const { t } = useBilingualText()
-
   const handleCancel = () => {
     onCancel?.()
     onOpenChange(false)

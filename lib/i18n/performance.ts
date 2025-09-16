@@ -151,17 +151,17 @@ export function enablePerformanceLogging(): void {
 
 // Memory usage monitoring
 export function monitorMemoryUsage(): void {
-  if (process.env.NODE_ENV === 'development' && 'memory' in performance) {
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && 'performance' in window && (performance as unknown as { memory?: unknown }).memory) {
     setInterval(() => {
-      const memInfo = (performance as any).memory;
-      if (memInfo) {
+      const memInfo = (performance as unknown as { memory?: { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+      if (memInfo && typeof memInfo.usedJSHeapSize === 'number' && typeof memInfo.totalJSHeapSize === 'number' && typeof memInfo.jsHeapSizeLimit === 'number') {
         console.log('🧠 Memory Usage:', {
           used: `${(memInfo.usedJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
           total: `${(memInfo.totalJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
           limit: `${(memInfo.jsHeapSizeLimit / 1024 / 1024).toFixed(2)} MB`,
         });
       }
-    }, 60000); // Every minute
+    }, 60000);
   }
 }
 

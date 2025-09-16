@@ -1,22 +1,34 @@
-import { KokoroTTSService } from './kokoro-service'
+import { EventEmitter } from 'events'
+
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
-import { EventEmitter } from 'events'
 
 /**
  * 增强版Kokoro TTS服务，专为GPU服务器优化
  * 支持CUDA加速和真实Kokoro模型
  */
-export class KokoroTTSGPUService extends KokoroTTSService {
+export class KokoroTTSGPUService extends EventEmitter {  // extend EventEmitter directly
   private process: ChildProcess | null = null
   private initialized = false
-  private pendingRequests: Map<number, { resolve: (response: any) => void; reject: (error: Error) => void }> = new Map()
+  private pendingRequests: Map<number, { resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => void; reject: (error: Error) => void }> = new Map()
   private requestIdCounter = 0
 
   constructor() {
     super()
     console.log('🚀 Initializing Kokoro GPU TTS Service...')
+    this.startPythonProcess().catch(error => console.error('Init failed:', error))
+  }
+
+  // Add shutdown method
+  async shutdown(): Promise<void> {
+    console.log('Shutting down GPU TTS service...')
+    if (this.process) {
+      this.process.kill()
+      this.process = null
+    }
+    this.pendingRequests.clear()
+    this.initialized = false
   }
 
   private async startPythonProcess(): Promise<void> {
@@ -33,15 +45,13 @@ export class KokoroTTSGPUService extends KokoroTTSService {
       console.log('🚀 Starting Kokoro GPU Python process...')
       
       // 为GPU服务器优化的环境变量
-      const env = {
+      const env: NodeJS.ProcessEnv = {
         ...process.env,
         PYTORCH_ENABLE_MPS_FALLBACK: '1',
-        KOKORO_DEVICE: 'cuda', // 强制使用CUDA
+        KOKORO_DEVICE: 'cuda',
         PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || ''),
-        // CUDA路径
-        PATH: `/usr/local/cuda-12.2/bin:${(process.env.PATH || '')}`,
-        LD_LIBRARY_PATH: `/usr/local/cuda-12.2/lib64:${(process.env.LD_LIBRARY_PATH || '')}`,
-        // 代理设置（用于远程服务器）
+        PATH: `/usr/local/cuda-12.2/bin:${process.env.PATH || ''}`,
+        LD_LIBRARY_PATH: `/usr/local/cuda-12.2/lib64:${process.env.LD_LIBRARY_PATH || ''}`,
         https_proxy: process.env.https_proxy || 'http://81.71.93.183:10811',
         http_proxy: process.env.http_proxy || 'http://81.71.93.183:10811'
       }
@@ -61,60 +71,69 @@ export class KokoroTTSGPUService extends KokoroTTSService {
       // 启动Python进程
       this.process = spawn(pythonExecutable, [pythonPath], {
         cwd: path.join(process.cwd(), 'kokoro-local'),
-        env: env,
+        env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
 
       // 处理标准输出
       let jsonBuffer = ''
-      this.process.stdout?.on('data', (data: Buffer) => {
-        const output = data.toString()
-        jsonBuffer += output
-        
-        try {
-          const response = JSON.parse(jsonBuffer)
-          this.handleResponse(response)
-          jsonBuffer = ''
-        } catch (e) {
-          // 处理分块的JSON数据
-          if (e instanceof Error && e.message.includes('Unterminated string')) {
-            return
-          }
+      if (this.process.stdout) {
+        this.process.stdout.on('data', (data: Buffer) => {
+          const output = data.toString()
+          jsonBuffer += output
           
-          const lines = jsonBuffer.split('\n').filter(line => line.trim())
-          lines.forEach(line => {
-            try {
-              const response = JSON.parse(line)
-              this.handleResponse(response)
-              jsonBuffer = ''
-            } catch {}
-          })
-        }
-      })
+          try {
+            const response = JSON.parse(jsonBuffer) as { success: boolean; error?: string; audio_data?: string; device?: string }
+            this.handleResponse(response)
+            jsonBuffer = ''
+          } catch (e) {
+            // 处理分块的JSON数据
+            if (e instanceof Error && e.message.includes('Unterminated string')) {
+              return
+            }
+            
+            const lines = jsonBuffer.split('\n').filter(line => line.trim())
+            lines.forEach(line => {
+              try {
+                const response = JSON.parse(line) as { success: boolean; error?: string; audio_data?: string; device?: string }
+                this.handleResponse(response)
+                jsonBuffer = ''
+              } catch {
+                // ignore invalid JSON lines
+              }
+            })
+          }
+        })
+      }
 
       // 处理标准错误（日志）
-      this.process.stderr?.on('data', (data: Buffer) => {
-        const errorOutput = data.toString()
-        console.log('🐍 Kokoro GPU stderr:', errorOutput.trim())
-        
-        // 检查初始化完成
-        if (errorOutput.includes('Kokoro TTS service is ready')) {
-          this.initialized = true
-          this.emit('ready')
-          resolve(undefined)
-        }
-      })
+      if (this.process.stderr) {
+        this.process.stderr.on('data', (data: Buffer) => {
+          const errorOutput = data.toString()
+          console.log('🐍 Kokoro GPU stderr:', errorOutput.trim())
+          
+          // 检查初始化完成
+          if (errorOutput.includes('Kokoro TTS service is ready')) {
+            this.initialized = true
+            this.emit('ready')
+            resolve(undefined)
+          }
+        })
+      }
 
       // 处理进程退出
-      this.process.on('exit', (code, signal) => {
-        console.log(`📴 Kokoro GPU process exited with code ${code}, signal: ${signal}`)
-        this.handleProcessExit()
-      })
+      if (this.process) {
+        this.process.on('exit', (code, signal) => {
+          console.log(`📴 Kokoro GPU process exited with code ${code}, signal: ${signal}`)
+          // intentionally restart via handler
+          this.handleProcessExit()
+        })
 
-      this.process.on('error', (error) => {
-        console.error('💥 Kokoro GPU process error:', error)
-        reject(error)
-      })
+        this.process.on('error', (error) => {
+          console.error('💥 Kokoro GPU process error:', error)
+          reject(error)
+        })
+      }
 
       // 超时设置
       const timeout = setTimeout(() => {
@@ -130,7 +149,7 @@ export class KokoroTTSGPUService extends KokoroTTSService {
     })
   }
 
-  private handleResponse(response: any): void {
+  private handleResponse(response: { success: boolean; error?: string; audio_data?: string; device?: string }): void {
     if (this.pendingRequests.size > 0) {
       const requestId = Array.from(this.pendingRequests.keys())[0]
       const { resolve, reject } = this.pendingRequests.get(requestId)!
@@ -156,7 +175,7 @@ export class KokoroTTSGPUService extends KokoroTTSService {
     }, 5000)
   }
 
-  async generateAudio(text: string, speed: number = 1.0, language: string = 'en-US'): Promise<string> {
+  async generateAudio(text: string, speed: number = 1.0, _language: string = 'en-US'): Promise<string> {
     if (!this.initialized || !this.process) {
       throw new Error('Kokoro GPU TTS service not initialized')
     }
@@ -174,7 +193,7 @@ export class KokoroTTSGPUService extends KokoroTTSService {
       }, 300000) // 5分钟超时
 
       this.pendingRequests.set(requestId, {
-        resolve: (response: any) => {
+        resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => {
           clearTimeout(timeout)
           
           if (response.success && response.audio_data) {
@@ -201,7 +220,7 @@ export class KokoroTTSGPUService extends KokoroTTSService {
               
               resolve(`/${filename}`)
             } catch (error) {
-              reject(new Error(`Failed to save GPU audio file: ${error}`))
+              reject(new Error(`Failed to save GPU audio file: ${error instanceof Error ? error.message : String(error)}`))
             }
           } else {
             reject(new Error(response.error || 'Failed to generate GPU audio'))
@@ -216,7 +235,7 @@ export class KokoroTTSGPUService extends KokoroTTSService {
       const request = { 
         text, 
         speed, 
-        lang_code: 'en-us', // Kokoro使用简化的语言代码
+        lang_code: 'en-us',
         voice: 'af' 
       }
       
@@ -230,7 +249,7 @@ export class KokoroTTSGPUService extends KokoroTTSService {
         this.process.stdin.write(requestLine)
       } catch (error) {
         this.pendingRequests.delete(requestId)
-        reject(new Error(`Failed to send request to GPU process: ${error}`))
+        reject(new Error(`Failed to send request to GPU process: ${error instanceof Error ? error.message : String(error)}`))
       }
     })
   }

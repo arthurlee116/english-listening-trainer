@@ -6,7 +6,7 @@
 import { LRUCache } from 'lru-cache'
 
 // 内存缓存管理
-export class MemoryCache<V extends {}> {
+export class MemoryCache<V extends Record<string, unknown>> {  // changed {} to Record<string, unknown>
   private cache: LRUCache<string, V>
   
   constructor(maxSize: number = 100, ttl: number = 5 * 60 * 1000) { // 5分钟TTL

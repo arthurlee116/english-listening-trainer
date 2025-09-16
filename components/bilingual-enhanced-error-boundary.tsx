@@ -89,15 +89,13 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ errorInfo })
-    
+  public componentDidCatch(error: Error) {
     // 分析错误
-    const analysis = this.analyzeError(error, errorInfo)
+    const analysis = this.analyzeError(error)
     this.setState({ errorAnalysis: analysis })
 
     // 记录错误
-    this.logError(error, errorInfo, analysis)
+    this.logError(error, analysis)
 
     // 调用外部错误处理器
     this.props.onError?.(error, analysis)
@@ -108,7 +106,7 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  private analyzeError(error: Error, errorInfo: React.ErrorInfo): ErrorAnalysis {
+  private analyzeError(error: Error): ErrorAnalysis {
     const errorMessage = error.message.toLowerCase()
     
     // 分析错误类型
@@ -197,7 +195,7 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  private logError(error: Error, errorInfo: React.ErrorInfo, analysis: ErrorAnalysis): void {
+  private logError(error: Error, analysis: ErrorAnalysis): void {
     const logData = {
       timestamp: new Date().toISOString(),
       category: analysis.category,
@@ -208,9 +206,6 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
         name: error.name,
         message: error.message,
         stack: error.stack
-      },
-      reactErrorInfo: {
-        componentStack: errorInfo.componentStack
       },
       userAgent: navigator.userAgent,
       url: window.location.href,

@@ -199,10 +199,10 @@ export function getComponentCache(component: object): Map<string, string> {
 // Memory pressure detection
 export function detectMemoryPressure(): boolean {
   if (typeof window !== 'undefined' && 'memory' in performance) {
-    const memInfo = (performance as any).memory;
-    if (memInfo) {
+    const memInfo = (performance as unknown as { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+    if (memInfo && typeof memInfo.usedJSHeapSize === 'number' && typeof memInfo.jsHeapSizeLimit === 'number') {
       const usedRatio = memInfo.usedJSHeapSize / memInfo.jsHeapSizeLimit;
-      return usedRatio > 0.8; // 80% threshold
+      return usedRatio > 0.8;
     }
   }
   return false;
@@ -220,8 +220,9 @@ export function emergencyCleanup(): void {
   // when components are unmounted
   
   // Force garbage collection if available (development only)
-  if (process.env.NODE_ENV === 'development' && 'gc' in window) {
-    (window as any).gc();
+  const globalGc = (global as unknown as { gc?: () => void }).gc;
+  if (process.env.NODE_ENV === 'development' && typeof global !== 'undefined' && globalGc) {
+    globalGc();
   }
 }
 
@@ -263,8 +264,8 @@ export function logMemoryStats(): void {
     console.log('Format Cache:', formatCache.getStats());
     
     if (typeof window !== 'undefined' && 'memory' in performance) {
-      const memInfo = (performance as any).memory;
-      if (memInfo) {
+      const memInfo = (performance as unknown as { memory?: { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+      if (memInfo && typeof memInfo.usedJSHeapSize === 'number' && typeof memInfo.totalJSHeapSize === 'number' && typeof memInfo.jsHeapSizeLimit === 'number') {
         console.log('Browser Memory:', {
           used: `${(memInfo.usedJSHeapSize / 1024 / 1024).toFixed(2)} MB`,
           total: `${(memInfo.totalJSHeapSize / 1024 / 1024).toFixed(2)} MB`,

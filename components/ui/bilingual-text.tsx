@@ -17,7 +17,7 @@ export function BilingualText({
   options,
   ...props
 }: BilingualTextProps) {
-  const { t, formatBilingual, getBilingualValue } = useBilingualText();
+  const { t, getBilingualValue } = useBilingualText();
 
   // Determine the text to display
   let displayText: string;

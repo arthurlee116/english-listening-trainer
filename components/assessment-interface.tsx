@@ -87,7 +87,8 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
   const [answers, setAnswers] = useState<Record<number, number>>({})
   const [audioPlayed, setAudioPlayed] = useState<Record<number, boolean>>({})
   const [isComplete, setIsComplete] = useState(false)
-  const { t } = useBilingualText()
+  // not using the translator directly here but keep hook for potential side-effects
+  const _bilingual = useBilingualText()
 
   const currentQuestion = ASSESSMENT_QUESTIONS[currentIndex]
   const progress = ((currentIndex + 1) / ASSESSMENT_QUESTIONS.length) * 100

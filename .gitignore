@@ -160,4 +160,5 @@ build/
 
 # Kiro IDE configuration files with sensitive data
 .kiro/settings/mcp.json
-mcp.json
+mcp.jsonnext/
+my-v0-project@0.1.0

@@ -1,4 +1,4 @@
-import { TranslationKey, FormatOptions, DifficultyLevel, DurationOption } from './types';
+import { TranslationKey, DifficultyLevel, DurationOption } from './types';
 
 /**
  * Utility functions for bilingual text formatting
@@ -105,29 +105,26 @@ export function getDurationLabel(value: string): string {
 /**
  * Validate translation key has both languages
  */
-export function isValidTranslationKey(key: any): key is TranslationKey {
+export function isValidTranslationKey(key: unknown): key is TranslationKey {
   return (
     typeof key === 'object' &&
     key !== null &&
-    typeof key.en === 'string' &&
-    typeof key.zh === 'string' &&
-    key.en.length > 0 &&
-    key.zh.length > 0
+    typeof (key as Record<string, string>).en === 'string' &&
+    typeof (key as Record<string, string>).zh === 'string' &&
+    (key as Record<string, string>).en.length > 0 &&
+    (key as Record<string, string>).zh.length > 0
   );
 }
 
 /**
  * Get fallback text when translation is missing
  */
-export function getFallbackText(key: string, fallbackStrategy?: {
-  showKey?: boolean;
-  showPlaceholder?: string;
-}): string {
-  if (fallbackStrategy?.showPlaceholder) {
-    return fallbackStrategy.showPlaceholder;
+export function getFallbackText(key: string, fallbackStrategy?: unknown): string {
+  if (fallbackStrategy && typeof fallbackStrategy === 'object' && 'showPlaceholder' in fallbackStrategy) {
+    return (fallbackStrategy as { showPlaceholder?: string }).showPlaceholder || '[Missing Translation]';
   }
   
-  if (fallbackStrategy?.showKey !== false) {
+  if (fallbackStrategy && typeof fallbackStrategy === 'object' && 'showKey' in fallbackStrategy && (fallbackStrategy as { showKey?: boolean }).showKey !== false) {
     return key;
   }
   

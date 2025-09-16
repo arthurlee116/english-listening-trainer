@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
 // Import types
-import { BilingualConfig, TranslationKey, FormatOptions } from './types';
+import { BilingualConfig, FormatOptions } from './types';
 
 // Default bilingual configuration
 export const bilingualConfig: BilingualConfig = {
@@ -73,22 +73,28 @@ let translationsLoaded = false;
 let translationPromise: Promise<void> | null = null;
 
 // Transform translation resources to extract English and Chinese separately
-function transformTranslations(translations: any): { en: any; zh: any } {
-  const en: any = {};
-  const zh: any = {};
+function transformTranslations(translations: unknown): { en: unknown; zh: unknown } {
+  const en: unknown = {};
+  const zh: unknown = {};
 
-  function extractLanguages(obj: any, enTarget: any, zhTarget: any) {
-    for (const key in obj) {
-      if (obj[key] && typeof obj[key] === 'object') {
-        if (obj[key].en && obj[key].zh) {
+  function extractLanguages(obj: unknown, enTarget: unknown, zhTarget: unknown) {
+    // Implementation with type guards for unknown
+    if (typeof obj !== 'object' || obj === null) return;
+
+    const objAsRecord = obj as Record<string, unknown>;
+    for (const key in objAsRecord) {
+      const value = objAsRecord[key];
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const valueAsRecord = value as Record<string, unknown>;
+        if (typeof valueAsRecord.en === 'string' && typeof valueAsRecord.zh === 'string') {
           // This is a TranslationKey object
-          enTarget[key] = obj[key].en;
-          zhTarget[key] = obj[key].zh;
+          (enTarget as Record<string, string>)[key] = valueAsRecord.en;
+          (zhTarget as Record<string, string>)[key] = valueAsRecord.zh;
         } else {
           // This is a nested object, recurse
-          enTarget[key] = {};
-          zhTarget[key] = {};
-          extractLanguages(obj[key], enTarget[key], zhTarget[key]);
+          (enTarget as Record<string, unknown>)[key] = {};
+          (zhTarget as Record<string, unknown>)[key] = {};
+          extractLanguages(value, (enTarget as Record<string, unknown>)[key], (zhTarget as Record<string, unknown>)[key]);
         }
       }
     }
@@ -124,13 +130,13 @@ async function loadTranslations() {
       const componentsLangs = transformTranslations(componentsTranslations.default);
 
       // Add resources to i18n
-      i18n.addResourceBundle('en', 'common', commonLangs.en);
-      i18n.addResourceBundle('en', 'pages', pagesLangs.en);
-      i18n.addResourceBundle('en', 'components', componentsLangs.en);
+      i18n.addResourceBundle('en', 'common', commonLangs.en as Record<string, string>);
+      i18n.addResourceBundle('en', 'pages', pagesLangs.en as Record<string, string>);
+      i18n.addResourceBundle('en', 'components', componentsLangs.en as Record<string, string>);
       
-      i18n.addResourceBundle('zh', 'common', commonLangs.zh);
-      i18n.addResourceBundle('zh', 'pages', pagesLangs.zh);
-      i18n.addResourceBundle('zh', 'components', componentsLangs.zh);
+      i18n.addResourceBundle('zh', 'common', commonLangs.zh as Record<string, string>);
+      i18n.addResourceBundle('zh', 'pages', pagesLangs.zh as Record<string, string>);
+      i18n.addResourceBundle('zh', 'components', componentsLangs.zh as Record<string, string>);
 
       translationsLoaded = true;
       

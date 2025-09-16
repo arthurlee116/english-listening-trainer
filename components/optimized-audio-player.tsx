@@ -202,7 +202,7 @@ export const OptimizedAudioPlayer = React.memo(function OptimizedAudioPlayer({
   const { state, updateState, audioRef, isScrubbingRef, toggleProgressLoop } = useOptimizedAudioPlayer()
   const handlers = useAudioEventHandlers(audioRef, updateState, toggleProgressLoop, isScrubbingRef)
   const controls = useAudioControls(audioRef, state, updateState)
-  const { t } = useBilingualText()
+  const { formatBilingual: _formatBilingual } = useBilingualText()
   
   // 音频元素事件绑定
   useEffect(() => {
@@ -387,8 +387,6 @@ interface AudioPlayerInterfaceProps {
 }
 
 const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, formatTime, isScrubbingRef }: AudioPlayerInterfaceProps) => {
-  const { t } = useBilingualText()
-  
   return (
     <>
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
@@ -420,7 +418,6 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
           onClick={controls.skipBackward}
           disabled={!audioUrl}
           className="glass-effect bg-transparent rounded-full"
-          title={t("components.audioPlayer.skipBackward")}
         >
           <SkipBack className="w-4 h-4" />
         </Button>
@@ -430,7 +427,6 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
           onClick={controls.togglePlayPause}
           disabled={!audioUrl}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
-          title={state.isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
         >
           {state.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
         </Button>
@@ -441,7 +437,6 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
           onClick={controls.skipForward}
           disabled={!audioUrl}
           className="glass-effect bg-transparent rounded-full"
-          title={t("components.audioPlayer.skipForward")}
         >
           <SkipForward className="w-4 h-4" />
         </Button>
@@ -449,7 +444,7 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
       
       {/* Volume Control */}
       <div className="flex items-center gap-3 mb-6">
-        <Volume2 className="w-4 h-4 text-gray-500" title={t("components.audioPlayer.volume")} />
+        <Volume2 className="w-4 h-4 text-gray-500" />
         <Slider
           value={[state.volume * 100]}
           onValueChange={controls.setVolume}

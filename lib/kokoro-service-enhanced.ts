@@ -85,9 +85,17 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     
     try {
       await this.initialize()
-    } catch (error) {
+    } catch (_error) {
       this.initializing = false
-      throw error
+      const appError = ErrorHandler.wrapError(
+        _error as Error,
+        ErrorCode.TTS_SERVICE_ERROR,
+        ErrorSeverity.HIGH,
+        'TTS服务初始化失败'
+      )
+      console.error('❌ Failed to initialize Kokoro TTS service:', appError)
+      this.emit('error', appError)
+      throw appError
     }
   }
 
@@ -157,9 +165,9 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
         ))
       })
 
-      this.process.on('exit', (code, signal) => {
-        console.log(`Python process exited with code ${code}, signal ${signal}`)
-        this.handleProcessExit(code, signal)
+      this.process.on('exit', (_code, _signal) => {
+        console.log(`Python process exited with code ${_code}, signal ${_signal}`)
+        this.handleProcessExit(_code, _signal)
       })
 
       // 处理标准输出
@@ -218,7 +226,7 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     try {
       const response: KokoroResponse = JSON.parse(buffer)
       return response
-    } catch (error) {
+    } catch (_error) {
       // 如果不是完整的JSON，返回null等待更多数据
       return null
     }
@@ -250,7 +258,7 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     this.processQueue()
   }
 
-  private handleProcessExit(code: number | null, signal: string | null): void {
+  private handleProcessExit(_code: number | null, _signal: string | null): void {
     this.initialized = false
     this.process = null
     

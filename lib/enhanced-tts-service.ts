@@ -159,7 +159,7 @@ class AudioFileManager {
         if (!newestFile || fileInfo.createdAt > newestFile) {
           newestFile = fileInfo.createdAt
         }
-      } catch (error) {
+      } catch (_error) {
         // 文件可能已被删除，忽略错误
       }
     }
@@ -333,7 +333,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
               const response: KokoroResponse = JSON.parse(line)
               this.handleResponse(response)
               jsonBuffer = ''
-            } catch (lineError) {
+            } catch (_lineError) {  // ignore
               // 忽略解析错误
             }
           })
@@ -362,9 +362,9 @@ class EnhancedKokoroTTSService extends EventEmitter {
       })
 
       // 处理进程退出
-      this.process.on('exit', (code, signal) => {
-        console.log(`📴 Enhanced Kokoro process exited with code ${code}, signal: ${signal}`)
-        this.handleProcessExit(code, signal)
+      this.process.on('exit', (_code, _signal) => {  // renamed unused
+        console.log(`📴 Enhanced Kokoro process exited with code ${_code}, signal: ${_signal}`)
+        this.handleProcessExit(_code, _signal)
       })
 
       this.process.on('error', (error) => {
@@ -402,8 +402,8 @@ class EnhancedKokoroTTSService extends EventEmitter {
     if (response.success) {
       queuedRequest.resolve(response)
     } else {
-      const error = new Error(response.error || 'TTS generation failed')
-      queuedRequest.reject(error)
+      const _error = new Error(response.error || 'TTS generation failed')  // renamed
+      queuedRequest.reject(_error)
     }
 
     // 处理队列中的下一个请求
@@ -416,7 +416,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
     this.concurrentRequests = 0
 
     // 清理所有待处理请求
-    for (const [requestId, queuedRequest] of this.requestQueue) {
+    for (const [_requestId, queuedRequest] of this.requestQueue) {
       clearTimeout(queuedRequest.timeout)
       queuedRequest.reject(new Error('TTS service process exited unexpectedly'))
     }
@@ -473,7 +473,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
         // 检查进程是否还活着
         try {
           process.kill(this.process.pid!, 0)
-        } catch (error) {
+        } catch (_error) {
           console.warn('⚠️ TTS process appears to be dead, restarting...')
           this.handleProcessExit(null, null)
         }
@@ -746,7 +746,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
     this.operationCanceller.cancelAllOperations()
 
     // 清理请求队列
-    for (const [requestId, queuedRequest] of this.requestQueue) {
+    for (const [_requestId, queuedRequest] of this.requestQueue) {
       clearTimeout(queuedRequest.timeout)
       queuedRequest.reject(new Error('Service is shutting down'))
     }

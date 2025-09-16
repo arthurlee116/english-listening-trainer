@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import i18n, { bilingualConfig, formatBilingualText, ensureTranslationsLoaded } from '@/lib/i18n/config';
-import { BilingualConfig, FormatOptions, TranslationKey } from '@/lib/i18n/types';
+import { BilingualConfig, FormatOptions } from '@/lib/i18n/types';
 
 // Context for bilingual configuration
 interface BilingualContextType {

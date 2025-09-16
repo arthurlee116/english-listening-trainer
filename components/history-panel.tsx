@@ -55,20 +55,25 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
     // 排序
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case "newest":
+        case "newest": {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        case "oldest":
+        }
+        case "oldest": {
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        case "score_high":
+        }
+        case "score_high": {
           const aScore = Math.round((a.results.filter(r => r.is_correct).length / a.results.length) * 100)
           const bScore = Math.round((b.results.filter(r => r.is_correct).length / b.results.length) * 100)
           return bScore - aScore
-        case "score_low":
+        }
+        case "score_low": {
           const aScoreLow = Math.round((a.results.filter(r => r.is_correct).length / a.results.length) * 100)
           const bScoreLow = Math.round((b.results.filter(r => r.is_correct).length / b.results.length) * 100)
           return aScoreLow - bScoreLow
-        default:
+        }
+        default: {
           return 0
+        }
       }
     })
 
