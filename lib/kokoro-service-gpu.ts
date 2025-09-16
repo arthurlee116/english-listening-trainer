@@ -41,9 +41,10 @@ export class KokoroTTSGPUService extends KokoroTTSService {
         // CUDA路径
         PATH: `/usr/local/cuda-12.2/bin:${(process.env.PATH || '')}`,
         LD_LIBRARY_PATH: `/usr/local/cuda-12.2/lib64:${(process.env.LD_LIBRARY_PATH || '')}`,
-        // 代理设置（用于远程服务器）
-        https_proxy: process.env.https_proxy || 'http://81.71.93.183:10811',
-        http_proxy: process.env.http_proxy || 'http://81.71.93.183:10811'
+        // 不使用代理，避免影响本地缓存访问
+        https_proxy: '',
+        http_proxy: '',
+        no_proxy: '*'
       }
       
       console.log(`🔧 CUDA Device: cuda`)

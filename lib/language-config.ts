@@ -4,27 +4,27 @@ import type { ListeningLanguage, LanguageConfig } from './types'
 export const LANGUAGE_CONFIG: Record<ListeningLanguage, LanguageConfig> = {
   'en-US': { 
     code: 'a', 
-    voice: 'af_bella', 
+    voice: 'af', 
     displayName: 'American English' 
   },
   'en-GB': { 
     code: 'b', 
-    voice: 'bf_emma', 
+    voice: 'bf', 
     displayName: 'British English' 
   },
   'es': { 
     code: 'e', 
-    voice: 'ef_dora', 
+    voice: 'ef', 
     displayName: 'Spanish' 
   },
   'fr': { 
     code: 'f', 
-    voice: 'ff_siwis', 
+    voice: 'ff', 
     displayName: 'French' 
   },
   'ja': { 
     code: 'j', 
-    voice: 'jf_alpha', 
+    voice: 'jf', 
     displayName: 'Japanese' 
   },
   'it': { 

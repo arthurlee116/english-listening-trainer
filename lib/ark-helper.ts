@@ -2,6 +2,7 @@
 import "server-only"
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import Cerebras from '@cerebras/cerebras_cloud_sdk'
+import { getAIConfig } from './config-manager'
 
 export interface ArkMessage {
   role: "system" | "user" | "assistant"
@@ -14,18 +15,46 @@ if (!CEREBRAS_API_KEY) {
   throw new Error("CEREBRAS_API_KEY 环境变量未设置")
 }
 
-// 代理配置（远程服务器代理）
-const PROXY_URL = 'http://127.0.0.1:7890'
-const proxyAgent = new HttpsProxyAgent(PROXY_URL)
+// 代理与基础地址配置
+const config = getAIConfig()
 
-// 初始化 Cerebras 客户端，使用代理
-const client = new Cerebras({
+// 强制使用代理：从 HTTPS_PROXY/HTTP_PROXY/PROXY_URL 中读取
+const proxyUrl =
+  process.env.HTTPS_PROXY ||
+  process.env.https_proxy ||
+  process.env.HTTP_PROXY ||
+  process.env.http_proxy ||
+  process.env.PROXY_URL
+
+if (!proxyUrl) {
+  throw new Error('必须配置代理以访问 Cerebras（设置 HTTPS_PROXY/HTTP_PROXY/PROXY_URL）')
+}
+
+const clientOptions: any = {
   apiKey: CEREBRAS_API_KEY,
-  httpAgent: proxyAgent,
-})
+}
+
+// 使用配置的 baseUrl（如设置）
+if (config.baseUrl) {
+  clientOptions.baseURL = config.baseUrl
+}
+
+// 如提供代理，则注入 httpAgent
+try {
+  const agent = new HttpsProxyAgent(proxyUrl)
+  clientOptions.httpAgent = agent
+  clientOptions.httpsAgent = agent
+  console.log(`🌐 Using proxy for Cerebras API: ${proxyUrl}`)
+} catch (e) {
+  console.error('❌ 代理URL无效，无法初始化 Cerebras 客户端: ', proxyUrl)
+  throw e
+}
+
+// 初始化 Cerebras 客户端（可带 baseURL 与代理）
+const client = new Cerebras(clientOptions)
 
 // Cerebras 模型 ID
-const CEREBRAS_MODEL_ID = "qwen-3-235b-a22b-instruct-2507"
+const CEREBRAS_MODEL_ID = config.defaultModel || "qwen-3-235b-a22b-instruct-2507"
 
 /**
  * 调用 Cerebras 大模型 API

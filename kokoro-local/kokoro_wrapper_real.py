@@ -11,7 +11,10 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 添加Kokoro路径到Python路径
-sys.path.append('/Users/arthur/Code/0712/kokoro-main-ref/kokoro.js')
+kokoro_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'kokoro-main-ref', 'kokoro.js')
+if not os.path.exists(kokoro_path):
+    kokoro_path = '/home/ubuntu/kokoro-main-ref/kokoro.js'
+sys.path.append(kokoro_path)
 
 # 导入真实的Kokoro模块
 try:
@@ -81,11 +84,33 @@ class KokoroTTSReal:
             print("🔄 Initializing Kokoro model...", file=sys.stderr)
             sys.stderr.flush()
             
-            # 创建模型实例
-            self.model = KModel(
-                repo_id='hexgrad/Kokoro-82M',
-                disable_complex=False
-            )
+            # 创建模型实例，优先使用本地模型
+            local_model_path = '/home/ubuntu/Kokoro-82M'
+            if os.path.exists(os.path.join(local_model_path, 'kokoro-v1_0.pth')):
+                print(f"📂 Using local model at: {local_model_path}", file=sys.stderr)
+                # 对于本地模型，需要设置环境变量让HuggingFace使用本地缓存
+                os.environ['HF_HOME'] = local_model_path
+                os.environ['HF_HUB_CACHE'] = local_model_path
+                # 创建符号链接让HuggingFace找到本地模型
+                hf_cache_dir = os.path.expanduser('~/.cache/huggingface/hub')
+                os.makedirs(hf_cache_dir, exist_ok=True)
+                local_link = os.path.join(hf_cache_dir, 'models--hexgrad--Kokoro-82M')
+                if not os.path.exists(local_link):
+                    try:
+                        os.symlink(local_model_path, local_link)
+                        print(f"🔗 Created symlink: {local_link} -> {local_model_path}", file=sys.stderr)
+                    except OSError:
+                        pass  # 可能已存在或权限不足
+                self.model = KModel(
+                    repo_id='hexgrad/Kokoro-82M',
+                    disable_complex=False
+                )
+            else:
+                print("🌐 Using HuggingFace model: hexgrad/Kokoro-82M", file=sys.stderr)
+                self.model = KModel(
+                    repo_id='hexgrad/Kokoro-82M',
+                    disable_complex=False
+                )
             
             # 移动到指定设备
             if self.device != 'cpu':
@@ -113,8 +138,9 @@ class KokoroTTSReal:
             # 创建管道
             pipeline = KPipeline(
                 lang_code=lang_code,
-                model=self.model if self.model else True,  # 使用我们的模型或自动创建
-                device=self.device if self.device != 'cpu' else None
+                model=self.model if self.model else True,
+                device=self.device if self.device != 'cpu' else None,
+                repo_id='hexgrad/Kokoro-82M'  # 使用标准repo_id，本地文件通过缓存访问
             )
             
             self.pipelines[pipeline_key] = pipeline

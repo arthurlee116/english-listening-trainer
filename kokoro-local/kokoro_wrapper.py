@@ -107,9 +107,13 @@ class KokoroTTSWrapper:
             sys.path.append('/Users/arthur/Code/0712/kokoro-main-ref')
             from kokoro.pipeline import KPipeline
             
-            # 禁用kokoro内部日志
+            # 禁用kokoro内部日志 (如果支持)
             import kokoro
-            kokoro.logger.disable("kokoro")
+            try:
+                kokoro.logger.disable("kokoro")
+            except AttributeError:
+                # 新版本可能没有logger.disable方法
+                pass
             
             # 初始化pipeline (如果语言改变需要重新创建)
             if self.current_lang_code != self.lang_code:

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
+import { chunkedTTSService } from '@/lib/chunked-tts-service'
 import { isLanguageSupported } from '@/lib/language-config'
 
 export async function POST(request: NextRequest) {
@@ -18,21 +18,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `不支持的语言: ${language}` }, { status: 400 })
     }
 
-    console.log('🎤 开始GPU加速Kokoro TTS生成...')
+    console.log('🎤 开始分块Kokoro TTS生成...')
     console.log(`🌍 语言: ${language}`)
     console.log(`📝 文本长度: ${text.length} 字符`)
     console.log(`⚡ 语速: ${speed}x`)
 
-    // 检查Kokoro GPU服务是否就绪
-    const isReady = await kokoroTTSGPU.isReady()
+    // 检查Kokoro GPU服务是否就绪（通过分块服务内部检查）
+    const isReady = await (await import('@/lib/kokoro-service-gpu')).kokoroTTSGPU.isReady()
     if (!isReady) {
       return NextResponse.json({ 
         error: 'GPU TTS服务未就绪，请稍后重试' 
       }, { status: 503 })
     }
 
-    // 调用GPU加速的Kokoro服务生成音频
-    const audioUrl = await kokoroTTSGPU.generateAudio(text, speed, language)
+    // 使用分块服务生成并拼接音频
+    const audioUrl = await chunkedTTSService.generateLongTextAudio(text, {
+      // 放宽单块长度，保证每块语义完整，但不过长
+      maxChunkLength: 400,
+      speed,
+      language,
+    })
     
     console.log('✅ GPU音频生成成功:', audioUrl)
     
@@ -41,7 +46,7 @@ export async function POST(request: NextRequest) {
       audioUrl: audioUrl,
       language: language,
       message: 'GPU加速音频生成成功',
-      provider: 'kokoro-gpu',
+      provider: 'kokoro-gpu-chunked',
       format: 'wav'
     })
 
@@ -82,7 +87,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       error: errorMessage,
       details: error instanceof Error ? error.message : '未知错误',
-      provider: 'kokoro-gpu'
+      provider: 'kokoro-gpu-chunked'
     }, { status: statusCode })
   }
 }

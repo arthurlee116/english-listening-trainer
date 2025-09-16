@@ -14,7 +14,7 @@ interface ChunkedTTSOptions {
 }
 
 export class ChunkedTTSService {
-  private maxChunkLength = 200  // 默认每块200字符，确保TTS质量
+  private maxChunkLength = 400  // 默认每块400字符，更长但仍安全
   
   constructor() {}
 
@@ -28,8 +28,11 @@ export class ChunkedTTSService {
 
     const chunks: string[] = []
     
-    // 按句子分割（优先级：句号 > 感叹号 > 问号 > 分号 > 逗号）
-    const sentences = text.split(/([.!?;,]\s+)/).filter(s => s.trim())
+    // 按句子分割（优先级：句号 > 感叹号 > 问号）；保留标点作为句子的一部分
+    const sentences = text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
     
     let currentChunk = ''
     
@@ -38,7 +41,7 @@ export class ChunkedTTSService {
       if (!sentence) continue
       
       // 如果当前句子加上现有chunk超过限制
-      if (currentChunk.length + sentence.length > maxLength) {
+      if (currentChunk.length + (currentChunk ? 1 : 0) + sentence.length > maxLength) {
         if (currentChunk.trim()) {
           chunks.push(currentChunk.trim())
           currentChunk = sentence
@@ -48,7 +51,7 @@ export class ChunkedTTSService {
           let wordChunk = ''
           
           for (const word of words) {
-            if (wordChunk.length + word.length + 1 > maxLength) {
+            if (wordChunk.length + (wordChunk ? 1 : 0) + word.length > maxLength) {
               if (wordChunk.trim()) {
                 chunks.push(wordChunk.trim())
                 wordChunk = word
@@ -104,7 +107,10 @@ export class ChunkedTTSService {
         '-f', 'concat',
         '-safe', '0',
         '-i', tempListFile,
-        '-c', 'copy',
+        // 统一采样率、声道，避免不同块参数不一致导致拼接异常
+        '-ar', '24000',
+        '-ac', '1',
+        '-c', 'pcm_s16le',
         outputPath
       ])
       
@@ -167,28 +173,34 @@ export class ChunkedTTSService {
       return await kokoroTTSGPU.generateAudio(chunks[0], speed, language)
     }
     
-    // 多个分块，逐个生成音频
-    const audioFiles: string[] = []
-    
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]
-      console.log(`🎵 处理分块 ${i + 1}/${chunks.length}: "${chunk.substring(0, 50)}${chunk.length > 50 ? '...' : ''}"`)
-      
-      try {
-        const audioUrl = await kokoroTTSGPU.generateAudio(chunk, speed, language)
-        audioFiles.push(audioUrl)
-        console.log(`✅ 分块 ${i + 1} 音频生成成功: ${audioUrl}`)
-        
-        // 添加短暂延迟避免GPU过载
-        if (i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500))
+    // 多个分块，并发生成音频（保持有序拼接）
+    const concurrency = Math.min(3, Math.max(1, parseInt(process.env.TTS_CHUNK_CONCURRENCY || '2', 10)))
+    type Job = { index: number; text: string }
+    const queue: Job[] = chunks.map((c, i) => ({ index: i, text: c }))
+    const results: (string | null)[] = Array(chunks.length).fill(null)
+    let failed: Error | null = null
+
+    const worker = async (id: number) => {
+      while (queue.length && !failed) {
+        const job = queue.shift()!
+        console.log(`🎵[W${id}] 处理分块 ${job.index + 1}/${chunks.length}: "${job.text.substring(0, 50)}${job.text.length > 50 ? '...' : ''}"`)
+        try {
+          const audioUrl = await kokoroTTSGPU.generateAudio(job.text, speed, language)
+          results[job.index] = audioUrl
+          console.log(`✅[W${id}] 分块 ${job.index + 1} 成功: ${audioUrl}`)
+        } catch (error) {
+          console.error(`❌[W${id}] 分块 ${job.index + 1} 失败:`, error)
+          failed = new Error(`第 ${job.index + 1} 个分块音频生成失败: ${error}`)
         }
-      } catch (error) {
-        console.error(`❌ 分块 ${i + 1} 音频生成失败:`, error)
-        throw new Error(`第 ${i + 1} 个分块音频生成失败: ${error}`)
       }
     }
-    
+
+    const workers = Array.from({ length: concurrency }, (_, i) => worker(i + 1))
+    await Promise.all(workers)
+    if (failed) throw failed
+
+    const audioFiles: string[] = results as string[]
+
     console.log(`🔗 开始拼接 ${audioFiles.length} 个音频文件`)
     
     try {
