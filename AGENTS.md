@@ -34,6 +34,7 @@ ADMIN_NAME=System Administrator
 - 构建生产：npm run build
 - 启动生产：npm run start
 - 代码检查：npm run lint
+- 单元/集成测试：npm test -- --run
 - 管理后台（3005）：npm run admin（或 npm run admin-dev）
 
 package.json 中可用脚本（节选）：
@@ -55,9 +56,11 @@ package.json 中可用脚本（节选）：
   - POST /api/ai/grade：自动评分与反馈
 - 本地 TTS
   - Node 桥接：lib/kokoro-service.ts（管理 Python 进程）
+  - GPU 版本：lib/kokoro-service-gpu.ts（含断路器和指数退避）
   - Python 包装：kokoro-local/kokoro_wrapper.py
   - 加速：Apple Silicon 自动启用 MPS/Metal（PYTORCH_ENABLE_MPS_FALLBACK=1）
-  - 输出：音频文件存放于 public/audio/
+  - 输出：音频文件存放于 public/
+  - 清理：lib/audio-cleanup-service.ts 自动定时清理旧文件（在 lib/kokoro-init.ts 启动）
 - 数据库
   - Prisma + SQLite，DATABASE_URL 默认 file:./data/app.db
   - 主要表：users、practice_sessions
@@ -91,7 +94,7 @@ package.json 中可用脚本（节选）：
 - `/api/tts` 现会返回音频时长，前端通过 `initialDuration` 属性即时渲染；更新 TTS API 或播放器组件时务必维持该返回契约
 
 ## 校验与联调建议（无正式测试框架）
-- 运行 npm run lint 保持类型与 Lint 清洁
+- 运行 npm run lint、npm test -- --run 保持代码质量
 - 本地核验清单：
   1) Kokoro TTS 初始化成功（scripts/setup-kokoro.sh）
   2) CEREBRAS_API_KEY 生效

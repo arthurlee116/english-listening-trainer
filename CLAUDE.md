@@ -69,11 +69,12 @@ pnpm run admin-dev            # 开发模式管理服务器
 4. **答案评分**: `POST /api/ai/grade` - AI 自动评分和反馈
 
 ### 本地 TTS 架构
-- **Node.js 桥接**: `lib/kokoro-service.ts` - KokoroTTSService 类管理 Python 进程
+- **Node.js 桥接**: `lib/kokoro-service.ts` - KokoroTTSService 类管理 Python 进程（CPU 版本）
+- **GPU 服务**: `lib/kokoro-service-gpu.ts` - GPU 版本带有断路器、指数退避和自动重启
 - **Python 包装器**: `kokoro-local/kokoro_wrapper.py` - Kokoro TTS 模型封装
-- **Metal 加速**: 自动检测 Apple Silicon 并启用 MPS 加速
-- **音频存储**: 生成的 WAV 文件保存在 `public/audio/`
-- **接口契约**: `/api/tts` 现在会返回音频时长与文件字节数，前端播放器会立即使用 `initialDuration` 快速渲染播放信息
+- **Metal/CUDA 加速**: 自动检测 Apple Silicon 或 CUDA 环境并开启加速
+- **音频存储与清理**: 生成的 WAV 文件保存在 `public/`；`lib/audio-cleanup-service.ts` 由 `lib/kokoro-init.ts` 自动启动，定期清理过期或超量文件
+- **接口契约**: `/api/tts` 返回 `success/audioUrl/duration/byteLength/provider`，前端播放器通过 `initialDuration` 即时渲染进度信息
 
 ### 数据库设计
 - **users**: 用户信息和认证数据
@@ -127,6 +128,7 @@ pnpm run admin-dev            # 开发模式管理服务器
 3. 检查 SQLite 数据库文件权限
 4. 运行 `npm exec tsx scripts/seed-user-db.ts` 创建管理员账号
 5. 使用创建的管理员账号或注册新账号进行功能验证
+6. 保持质量检查：`pnpm run lint`、`pnpm test -- --run`
 
 ### 常见问题
 - **Python 版本问题**: 验证 Python 版本 (`python3 --version`)，需要 3.8-3.12
