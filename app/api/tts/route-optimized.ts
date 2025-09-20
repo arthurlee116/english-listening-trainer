@@ -3,6 +3,7 @@ import { kokoroTTS } from '@/lib/kokoro-service'
 import { createTTSApiHandler } from '@/lib/performance-middleware'
 import { ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
 import crypto from 'crypto'
+import type { GeneratedAudioResult } from '@/lib/audio-utils'
 
 // 生成音频缓存键
 function generateCacheKey(text: string, speed: number = 1.0): string {
@@ -34,19 +35,21 @@ async function ttsHandler(request: NextRequest): Promise<NextResponse> {
     const cacheKey = generateCacheKey(text, speed)
     
     // 检查缓存
-    const cachedAudio = audioCache.get(cacheKey)
+    const cachedAudio = audioCache.get(cacheKey) as GeneratedAudioResult | undefined
     if (cachedAudio) {
       console.log(`🎯 TTS缓存命中: ${cacheKey}`)
       return NextResponse.json({
         success: true,
-        audioUrl: cachedAudio,
+        audioUrl: cachedAudio.audioUrl,
+        duration: cachedAudio.duration,
+        byteLength: cachedAudio.byteLength,
         cached: true,
         message: 'Audio retrieved from cache'
       })
     }
 
     // 使用并发限制器执行TTS生成
-    const audioUrl = await ttsRequestLimiter.execute(async () => {
+    const audioResult = await ttsRequestLimiter.execute(async () => {
       console.log(`🎵 开始生成TTS音频，文本长度: ${text.length}`)
       
       // 确保TTS服务已准备好
@@ -56,18 +59,20 @@ async function ttsHandler(request: NextRequest): Promise<NextResponse> {
       }
 
       // 生成音频
-      const audioUrl = await kokoroTTS.generateAudio(text, speed)
+      const audio = await kokoroTTS.generateAudio(text, speed)
       
       // 缓存音频URL
-      audioCache.set(cacheKey, audioUrl, 30 * 60 * 1000) // 30分钟TTL
+      audioCache.set(cacheKey, audio, 30 * 60 * 1000) // 30分钟TTL
       
-      console.log(`✅ TTS音频生成完成: ${audioUrl}`)
-      return audioUrl
+      console.log(`✅ TTS音频生成完成: ${audio.audioUrl}`)
+      return audio
     })
 
     return NextResponse.json({
       success: true,
-      audioUrl,
+      audioUrl: audioResult.audioUrl,
+      duration: audioResult.duration,
+      byteLength: audioResult.byteLength,
       cached: false,
       message: 'Audio generated successfully'
     })

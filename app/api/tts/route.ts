@@ -32,13 +32,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 调用GPU加速的Kokoro服务生成音频
-    const audioUrl = await kokoroTTSGPU.generateAudio(text, speed, language)
+    const audioResult = await kokoroTTSGPU.generateAudio(text, speed, language)
     
-    console.log('✅ GPU音频生成成功:', audioUrl)
+    console.log('✅ GPU音频生成成功:', audioResult.audioUrl)
     
     return NextResponse.json({ 
       success: true, 
-      audioUrl: audioUrl,
+      audioUrl: audioResult.audioUrl,
+      duration: audioResult.duration,
+      byteLength: audioResult.byteLength,
       language: language,
       message: 'GPU加速音频生成成功',
       provider: 'kokoro-gpu',

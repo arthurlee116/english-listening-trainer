@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,7 @@ import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
+import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
 
 interface AssessmentResultData {
   difficultyLevel: number;
@@ -70,118 +71,35 @@ function isError(error: unknown): error is Error {
   return error instanceof Error
 }
 
-// 用户信息接口
-interface UserInfo {
-  id: string
-  email: string
-  name?: string | null
-  isAdmin: boolean
-  createdAt: string
-}
-
-// 自定义Hook用于用户认证管理
-function useUserAuth() {
-  const [user, setUser] = useState<UserInfo | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [showAuthDialog, setShowAuthDialog] = useState<boolean>(false)
-  const { toast } = useToast()
-
-  // 检查用户登录状态
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include'
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
-        setIsAuthenticated(true)
-        setShowAuthDialog(false)
-      } else {
-        // 如果token无效，清除可能存在的cookie
-        document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        setUser(null)
-        setIsAuthenticated(false)
-        setShowAuthDialog(true)
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error)
-      setUser(null)
-      setIsAuthenticated(false)
-      setShowAuthDialog(true)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  // 用户登录成功处理
-  const handleUserAuthenticated = useCallback((userData: UserInfo) => {
-    setUser(userData)
-    setIsAuthenticated(true)
-    setShowAuthDialog(false)
-
-    toast({
-      title: t("common.messages.loginSuccess"),
-      description: t("common.messages.welcomeUser").replace("{name}", userData.name || userData.email),
-    })
-  }, [toast])
-
-  // 用户登出处理
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
-
-      setUser(null)
-      setIsAuthenticated(false)
-      setShowAuthDialog(true)
-
-      toast({
-        title: t("common.messages.logoutSuccess"),
-        description: t("common.messages.logoutSuccessDesc"),
-      })
-    } catch (error) {
-      console.error('Logout failed:', error)
-      toast({
-        title: t("common.messages.logoutFailed"),
-        description: t("common.messages.logoutFailedDesc"),
-        variant: "destructive"
-      })
-    }
-  }, [toast])
-
-  // 初始化时检查登录状态
-  useEffect(() => {
-    checkAuthStatus()
-  }, [checkAuthStatus])
-
-  return {
-    user,
-    isAuthenticated,
-    isLoading,
-    showAuthDialog,
-    handleUserAuthenticated,
-    handleLogout,
-    checkAuthStatus
-  }
-}
-
 export const MainApp = () => {
   const {
     user,
     isAuthenticated,
     isLoading,
     showAuthDialog,
-    handleUserAuthenticated,
-    handleLogout
-  } = useUserAuth()
+    handleUserAuthenticated: setAuthenticatedUser,
+    handleLogout: performLogout
+  } = useAuthState()
 
   const { toast } = useToast()
   const { t } = useBilingualText()
+
+  const handleUserAuthenticated = useCallback((userData: AuthUserInfo, token: string) => {
+    setAuthenticatedUser(userData, token)
+    toast({
+      title: t("common.messages.loginSuccess"),
+      description: t("common.messages.welcomeUser").replace("{name}", userData.name || userData.email),
+    })
+  }, [setAuthenticatedUser, toast, t])
+
+  const handleLogout = useCallback(async () => {
+    const success = await performLogout()
+    toast({
+      title: success ? t("common.messages.logoutSuccess") : t("common.messages.logoutFailed"),
+      description: success ? t("common.messages.logoutSuccessDesc") : t("common.messages.logoutFailedDesc"),
+      ...(success ? {} : { variant: "destructive" as const })
+    })
+  }, [performLogout, toast, t])
 
   // 原有状态
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
@@ -192,6 +110,7 @@ export const MainApp = () => {
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
   const [transcript, setTranscript] = useState<string>("")
   const [audioUrl, setAudioUrl] = useState<string>("")
+  const [audioDuration, setAudioDuration] = useState<number | null>(null)
   const [audioError, setAudioError] = useState<boolean>(false)
   const [questions, setQuestions] = useState<Question[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
@@ -286,10 +205,12 @@ export const MainApp = () => {
     setLoading(true)
     setLoadingMessage(t("components.audioPlayer.loadingAudio"))
     setAudioError(false)
+    setAudioDuration(null)
 
     try {
-      const url = await generateAudio(transcript, { language })
-      setAudioUrl(url)
+      const audioResult = await generateAudio(transcript, { language })
+      setAudioUrl(audioResult.audioUrl)
+      setAudioDuration(typeof audioResult.duration === 'number' ? audioResult.duration : null)
       toast({
         title: t("common.messages.audioGenerationSuccess"),
         description: t("common.messages.audioGenerationSuccessDesc"),
@@ -297,6 +218,7 @@ export const MainApp = () => {
     } catch (error) {
       console.error("Failed to generate audio:", error)
       setAudioError(true)
+      setAudioDuration(null)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
         title: t("common.messages.audioGenerationFailed"),
@@ -383,6 +305,7 @@ export const MainApp = () => {
     setStep("setup")
     setTranscript("")
     setAudioUrl("")
+    setAudioDuration(null)
     setQuestions([])
     setAnswers({})
     setCurrentExercise(null)
@@ -722,6 +645,7 @@ export const MainApp = () => {
                   onRegenerate={canRegenerate ? handleGenerateTranscript : undefined}
                   loading={loading}
                   loadingMessage={loadingMessage}
+                  initialDuration={audioDuration ?? undefined}
                 />
               </div>
             )}
@@ -738,6 +662,7 @@ export const MainApp = () => {
                   loadingMessage={loadingMessage}
                   audioUrl={audioUrl}
                   transcript={transcript}
+                  initialDuration={audioDuration ?? undefined}
                 />
               </div>
             )}

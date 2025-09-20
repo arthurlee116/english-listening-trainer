@@ -4,7 +4,117 @@ import fs from 'fs'
 import { EventEmitter } from 'events'
 import { getLanguageConfig } from './language-config'
 import { validateDeviceConfig, generateDeviceReport } from './device-detection'
+import { getWavAudioMetadata, GeneratedAudioResult } from './audio-utils'
 import type { ListeningLanguage } from './types'
+
+/**
+ * 电路断路器状态机
+ */
+enum CircuitState {
+  CLOSED = 'closed',     // 正常状态
+  OPEN = 'open',         // 故障状态，快速失败
+  HALF_OPEN = 'half_open' // 半开放，测试是否恢复
+}
+
+/**
+ * 电路断路器配置
+ */
+interface CircuitBreakerConfig {
+  failureThreshold: number      // 失败阈值
+  successThreshold: number      // 半开放状态下的成功阈值
+  timeoutMs: number            // open状态超时时间
+  retryDelayMs: number         // 半开放重试间隔
+  maxRetryDelayMs: number      // 最大重试延迟
+  exponentialBackoff: boolean  // 是否启用指数退避
+}
+
+/**
+ * 电路断路器实现
+ */
+class CircuitBreaker {
+  private state: CircuitState = CircuitState.CLOSED
+  private failures = 0
+  private successes = 0
+  private lastFailureTime = 0
+  private nextAttemptTime = 0
+
+  constructor(private config: CircuitBreakerConfig) {}
+
+  canExecute(): boolean {
+    switch (this.state) {
+      case CircuitState.CLOSED:
+        return true
+      case CircuitState.OPEN:
+        if (Date.now() >= this.nextAttemptTime) {
+          this.state = CircuitState.HALF_OPEN
+          return true
+        }
+        return false
+      case CircuitState.HALF_OPEN:
+        return true
+      default:
+        return false
+    }
+  }
+
+  recordSuccess(): void {
+    this.failures = 0
+    this.successes++
+
+    if (this.state === CircuitState.HALF_OPEN && this.successes >= this.config.successThreshold) {
+      this.state = CircuitState.CLOSED
+      this.successes = 0
+      console.log('🚧 Circuit breaker: CLOSED (recovered)')
+    }
+  }
+
+  recordFailure(): void {
+    this.failures++
+    this.lastFailureTime = Date.now()
+
+    if (this.state === CircuitState.HALF_OPEN) {
+      this.state = CircuitState.OPEN
+      this.successes = 0
+      this.nextAttemptTime = Date.now() + this.calculateRetryDelay()
+      console.log('🚧 Circuit breaker: OPEN (half-open failure)')
+    } else if (this.failures >= this.config.failureThreshold) {
+      this.state = CircuitState.OPEN
+      this.nextAttemptTime = Date.now() + this.calculateRetryDelay()
+      console.log('🚧 Circuit breaker: OPEN (threshold exceeded)')
+    }
+  }
+
+  private calculateRetryDelay(): number {
+    if (!this.config.exponentialBackoff) {
+      return this.config.retryDelayMs
+    }
+
+    // 指数退避：baseDelay * 2^(failures-1)
+    const baseDelay = this.config.retryDelayMs
+    const multiplier = Math.pow(2, Math.min(this.failures - 1, 5)) // 最多2^5倍
+    return Math.min(baseDelay * multiplier, this.config.maxRetryDelayMs)
+  }
+
+  getState(): CircuitState {
+    return this.state
+  }
+
+  getFailures(): number {
+    return this.failures
+  }
+
+  getNextAttemptTime(): number {
+    return this.nextAttemptTime
+  }
+
+  reset(): void {
+    this.state = CircuitState.CLOSED
+    this.failures = 0
+    this.successes = 0
+    this.lastFailureTime = 0
+    this.nextAttemptTime = 0
+  }
+}
 
 interface PendingRequest {
   resolve: (response: KokoroResponse) => void
@@ -32,10 +142,24 @@ export class KokoroTTSService extends EventEmitter {
   private pendingRequests: Map<number, PendingRequest> = new Map()
   private requestIdCounter = 0
   private restartAttempts = 0
-  private maxRestartAttempts = 3
+  private maxRestartAttempts = 10
+  private circuitBreaker: CircuitBreaker
+  private lastError: string = ''
 
   constructor() {
     super()
+
+    // 初始化电路断路器
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,        // 5次失败后打开
+      successThreshold: 3,        // 半开放状态需3次成功
+      timeoutMs: 60 * 1000,       // 1分钟后半开放
+      retryDelayMs: 5 * 1000,     // 5秒基础重试延迟
+      maxRetryDelayMs: 5 * 60 * 1000, // 5分钟最大延迟
+      exponentialBackoff: true
+    })
+
+    console.log('🚀 Initializing CPU Kokoro TTS Service...')
     this.initialize()
   }
 
@@ -214,24 +338,43 @@ export class KokoroTTSService extends EventEmitter {
   private handleProcessExit(): void {
     this.initialized = false
     this.process = null
+    this.circuitBreaker.recordFailure()
+    this.restartAttempts++
 
-    if (this.restartAttempts < this.maxRestartAttempts) {
-      this.restartAttempts++
-      console.log(`🔄 Restarting Kokoro process (attempt ${this.restartAttempts}/${this.maxRestartAttempts})...`)
-      
-      setTimeout(() => {
-        this.initialize().catch(error => {
-          console.error('Failed to restart Kokoro process:', error)
-        })
-      }, 5000) // 5秒后重试
-    } else {
-      console.error('❌ Max restart attempts reached. Kokoro service unavailable.')
-      this.emit('error', new Error('Kokoro service unavailable after max restart attempts'))
+    const state = this.circuitBreaker.getState()
+    const delay = Math.min(5 * 1000 * Math.pow(2, this.restartAttempts), 5 * 60 * 1000) // 指数退避，最大5分钟
+
+    if (state === 'open') {
+      console.log(`🔄 Circuit breaker OPEN, retry delay: ${delay}ms`)
+    } else if (this.restartAttempts > this.maxRestartAttempts) {
+      console.error('❌ Max restart attempts reached, service unavailable')
+      this.lastError = 'TTS service unavailable after maximum restart attempts'
+      return
     }
+
+    console.log(`🔄 Restarting CPU TTS (attempt ${this.restartAttempts}/${this.maxRestartAttempts}) in ${delay}ms...`)
+
+    setTimeout(() => {
+      this.initialize().catch(error => {
+        console.error('❌ Failed to restart CPU TTS process:', error instanceof Error ? error.message : String(error))
+        this.lastError = `Restart failed: ${error instanceof Error ? error.message : String(error)}`
+        this.circuitBreaker.recordFailure()
+      })
+    }, delay)
   }
 
-  async generateAudio(text: string, speed: number = 1.0, language: ListeningLanguage = 'en-US'): Promise<string> {
+  async generateAudio(text: string, speed: number = 1.0, language: ListeningLanguage = 'en-US'): Promise<GeneratedAudioResult> {
+    // 检查电路断路器状态
+    if (!this.circuitBreaker.canExecute()) {
+      const state = this.circuitBreaker.getState()
+      const nextAttempt = this.circuitBreaker.getNextAttemptTime()
+      const waitTime = Math.max(0, nextAttempt - Date.now())
+
+      throw new Error(`TTS service unavailable (circuit breaker ${state}). Next attempt in ${Math.ceil(waitTime / 1000)}s`)
+    }
+
     if (!this.initialized || !this.process) {
+      this.circuitBreaker.recordFailure()
       throw new Error('Kokoro TTS service not initialized')
     }
 
@@ -290,7 +433,18 @@ export class KokoroTTSService extends EventEmitter {
                 return
               }
               
-              resolve(`/${filename}`)
+              const metadata = getWavAudioMetadata(audioBuffer)
+
+              // 成功时记录到电路断路器
+              this.circuitBreaker.recordSuccess()
+              this.restartAttempts = 0 // 重置重启计数
+              this.lastError = '' // 清除错误
+
+              resolve({
+                audioUrl: `/${filename}`,
+                duration: metadata.duration,
+                byteLength: audioBuffer.length
+              })
             } catch (error) {
               reject(new Error(`Failed to save audio file: ${error}`))
             }
@@ -299,9 +453,12 @@ export class KokoroTTSService extends EventEmitter {
           }
         },
         reject: (error: Error) => {
-          clearTimeout(timeout)
-          reject(error)
-        }
+           clearTimeout(timeout)
+           console.error('❌ CPU audio generation error:', error)
+           this.circuitBreaker.recordFailure()
+           this.lastError = error.message
+           reject(error)
+         }
       })
 
       // 获取语言配置
@@ -333,34 +490,75 @@ export class KokoroTTSService extends EventEmitter {
   }
 
   async isReady(): Promise<boolean> {
+    // 检查电路断路器状态
+    if (!this.circuitBreaker.canExecute()) {
+      console.warn(`🚧 Circuit breaker blocked request: ${this.circuitBreaker.getState()}`)
+      return false
+    }
+
     if (this.initialized && this.process) {
+      // 服务已正常运行，记录成功
+      this.circuitBreaker.recordSuccess()
       return true
     }
-    
+
     return new Promise((resolve) => {
-      const checkReady = () => {
-        if (this.initialized) {
-          resolve(true)
-        } else {
-          setTimeout(checkReady, 1000)
-        }
+      const timeout = setTimeout(() => {
+        cleanup()
+        // 初始化超时也算失败
+        this.circuitBreaker.recordFailure()
+        resolve(this.initialized && this.process !== null)
+      }, 10000) // 10秒超时，增加一点时间
+
+      const handleReady = () => {
+        cleanup()
+        this.circuitBreaker.recordSuccess()
+        resolve(true)
       }
-      checkReady()
+
+      const handleError = () => {
+        cleanup()
+        this.circuitBreaker.recordFailure()
+        resolve(false)
+      }
+
+      const cleanup = () => {
+        clearTimeout(timeout)
+        this.off('ready', handleReady)
+        this.off('error', handleError)
+      }
+
+      this.once('ready', handleReady)
+      this.once('error', handleError)
     })
+  }
+
+  /**
+   * 获取服务状态和错误信息
+   */
+  getServiceStatus() {
+    return {
+      state: this.circuitBreaker.getState(),
+      failures: this.circuitBreaker.getFailures(),
+      initialized: this.initialized,
+      processAlive: this.process !== null,
+      lastError: this.lastError || 'None',
+      restartAttempts: this.restartAttempts
+    }
   }
 
   async shutdown(): Promise<void> {
     console.log('🛑 Shutting down Kokoro TTS service...')
-    
+
     if (this.process) {
       this.process.kill()
       this.process = null
     }
-    
+
     this.initialized = false
     this.pendingRequests.clear()
     this.removeAllListeners()
-    
+
     console.log('✅ Kokoro TTS service shutdown complete')
   }
 }

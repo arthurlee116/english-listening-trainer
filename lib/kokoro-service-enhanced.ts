@@ -226,7 +226,7 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
     try {
       const response: KokoroResponse = JSON.parse(buffer)
       return response
-    } catch (_error) {
+    } catch {
       // 如果不是完整的JSON，返回null等待更多数据
       return null
     }

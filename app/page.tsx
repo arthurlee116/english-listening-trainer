@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { Card } from "@/components/ui/card"
@@ -29,6 +29,7 @@ import { AssessmentResult } from "@/components/assessment-result"
 import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
+import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", labelKey: "difficultyLevels.A1" },
@@ -83,116 +84,16 @@ interface AssessmentResultType {
   recommendation: string
 }
 
-// 用户信息接口
-interface UserInfo {
-  id: string
-  email: string
-  name?: string | null
-  isAdmin: boolean
-  createdAt: string
-}
-
-// 自定义Hook用于用户认证管理
-function useUserAuth() {
-  const [user, setUser] = useState<UserInfo | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [showAuthDialog, setShowAuthDialog] = useState<boolean>(false)
-  const { toast } = useToast()
-
-  // 检查用户登录状态
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include'
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
-        setIsAuthenticated(true)
-        setShowAuthDialog(false)
-      } else {
-        // 如果token无效，清除可能存在的cookie
-        document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        setUser(null)
-        setIsAuthenticated(false)
-        setShowAuthDialog(true)
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error)
-      setUser(null)
-      setIsAuthenticated(false)
-      setShowAuthDialog(true)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  // 用户登录成功处理
-  const handleUserAuthenticated = useCallback((userData: UserInfo, _token: string) => {
-    setUser(userData)
-    setIsAuthenticated(true)
-    setShowAuthDialog(false)
-    
-    toast({
-      title: t("messages.loginSuccess"),
-      description: formatToastMessage("messages.welcomeUser", { name: userData.name || userData.email }),
-    })
-  }, [toast])
-
-  // 用户登出处理
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      setUser(null)
-      setIsAuthenticated(false)
-      setShowAuthDialog(true)
-      
-      toast({
-        title: t("messages.logoutSuccess"),
-        description: t("messages.logoutSuccessDesc"),
-      })
-    } catch (error) {
-      console.error('Logout failed:', error)
-      toast({
-        title: t("messages.logoutFailed"),
-        description: t("messages.logoutFailedDesc"),
-        variant: "destructive"
-      })
-    }
-  }, [toast])
-
-  // 初始化时检查登录状态
-  useEffect(() => {
-    checkAuthStatus()
-  }, [checkAuthStatus])
-
-  return {
-    user,
-    isAuthenticated,
-    isLoading,
-    showAuthDialog,
-    handleUserAuthenticated,
-    handleLogout,
-    checkAuthStatus
-  }
-}
-
 function HomePage() {
   const {
     user,
     isAuthenticated,
     isLoading,
     showAuthDialog,
-    handleUserAuthenticated,
-    handleLogout
-  } = useUserAuth()
-
+    handleUserAuthenticated: setAuthenticatedUser,
+    handleLogout: performLogout
+  } = useAuthState()
+  
   const { toast } = useToast()
   const { t } = useBilingualText()
 
@@ -207,6 +108,23 @@ function HomePage() {
     return message
   }
 
+  const handleUserAuthenticated = useCallback((userData: AuthUserInfo, token: string) => {
+    setAuthenticatedUser(userData, token)
+    toast({
+      title: t("messages.loginSuccess"),
+      description: formatToastMessage("messages.welcomeUser", { name: userData.name || userData.email }),
+    })
+  }, [formatToastMessage, setAuthenticatedUser, toast, t])
+
+  const handleLogout = useCallback(async () => {
+    const success = await performLogout()
+    toast({
+      title: success ? t("messages.logoutSuccess") : t("messages.logoutFailed"),
+      description: success ? t("messages.logoutSuccessDesc") : t("messages.logoutFailedDesc"),
+      ...(success ? {} : { variant: "destructive" as const })
+    })
+  }, [performLogout, toast, t])
+
   // 原有状态
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
   const [difficulty, setDifficulty] = useState<DifficultyLevel | "">("")
@@ -216,6 +134,7 @@ function HomePage() {
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
   const [transcript, setTranscript] = useState<string>("")
   const [audioUrl, setAudioUrl] = useState<string>("")
+  const [audioDuration, setAudioDuration] = useState<number | null>(null)
   const [audioError, setAudioError] = useState<boolean>(false)
   const [questions, setQuestions] = useState<Question[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
@@ -309,23 +228,50 @@ function HomePage() {
     setLoading(true)
     setLoadingMessage("Generating audio...")
     setAudioError(false)
+    setAudioDuration(null)
 
     try {
       console.log(`🎤 开始生成音频，文本长度: ${transcript.length}`)
-      const audioUrl = await generateAudio(transcript, { language })
-      console.log(`✅ 音频生成完成，URL: ${audioUrl}`)
-      setAudioUrl(audioUrl)
+      const audioResult = await generateAudio(transcript, { language })
+      console.log(`✅ 音频生成完成，URL: ${audioResult.audioUrl}`)
+      setAudioUrl(audioResult.audioUrl)
+      
+      // 立即设置音频时长，避免显示0:00的延迟
+      const duration = typeof audioResult.duration === 'number' && audioResult.duration > 0 
+        ? audioResult.duration 
+        : null
+      setAudioDuration(duration)
+      
+      // 如果时长不可用，尝试从音频元数据获取
+      if (!duration && audioResult.audioUrl) {
+        try {
+          const response = await fetch(audioResult.audioUrl)
+          if (response.ok) {
+            const contentLength = response.headers.get('content-length')
+            if (contentLength) {
+              // 估算时长 (WAV格式，16kHz，16bit，单声道)
+              const estimatedDuration = parseInt(contentLength) / (16000 * 2)
+              setAudioDuration(Math.max(estimatedDuration, 1)) // 至少1秒
+              console.log(`📊 估算音频时长: ${estimatedDuration.toFixed(1)}秒`)
+            }
+          }
+        } catch (estimateError) {
+          console.warn('⚠️ 无法估算音频时长:', estimateError)
+        }
+      }
       
       // 验证音频文件是否可访问
       try {
-        const response = await fetch(audioUrl, { method: 'HEAD' })
+        const response = await fetch(audioResult.audioUrl, { method: 'HEAD' })
         console.log(`📁 音频文件检查: ${response.status} ${response.statusText}`)
         if (response.ok) {
           const contentLength = response.headers.get('content-length')
           console.log(`📊 音频文件大小: ${contentLength} bytes`)
           toast({
             title: t("messages.audioGenerationSuccess"),
-            description: t("messages.audioGenerationSuccessDesc"),
+            description: formatToastMessage("messages.audioGenerationSuccessDesc", { 
+              duration: duration ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}` : '未知'
+            }),
           })
         }
       } catch (fetchError) {
@@ -334,6 +280,7 @@ function HomePage() {
     } catch (error) {
       console.error("Failed to generate audio:", error)
       setAudioError(true)
+      setAudioDuration(null)
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
         title: t("messages.audioGenerationFailed"),
@@ -450,6 +397,7 @@ function HomePage() {
     setSuggestedTopics([])
     setTranscript("")
     setAudioUrl("")
+    setAudioDuration(null)
     setAudioError(false)
     setQuestions([])
     setAnswers({})
@@ -492,6 +440,7 @@ function HomePage() {
     
     // 清除音频相关状态（历史记录中没有保存音频）
     setAudioUrl("")
+    setAudioDuration(null)
     setAudioError(false)
     
     // 直接跳转到结果页面
@@ -822,6 +771,7 @@ function HomePage() {
               onRegenerate={canRegenerate ? handleGenerateTranscript : undefined}
               loading={loading}
               loadingMessage={loadingMessage}
+              initialDuration={audioDuration ?? undefined}
             />
           </div>
         )}
@@ -838,6 +788,7 @@ function HomePage() {
               loadingMessage={loadingMessage}
               audioUrl={audioUrl}
               transcript={transcript}
+              initialDuration={audioDuration ?? undefined}
             />
           </div>
         )}

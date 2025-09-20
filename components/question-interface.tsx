@@ -13,15 +13,18 @@ import type { Question } from "@/lib/types"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 // 简化的音频播放器Hook，专门用于问题界面
-function useSimpleAudioPlayer(audioUrl: string) {
+function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+  const [duration, setDuration] = useState(initialDuration ?? 0)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio || !audioUrl) return
+
+    setCurrentTime(0)
+    setDuration(initialDuration ?? 0)
 
     const updateTime = () => setCurrentTime(audio.currentTime)
     const updateDuration = () => {
@@ -46,7 +49,7 @@ function useSimpleAudioPlayer(audioUrl: string) {
       audio.removeEventListener("pause", handlePause)
       audio.removeEventListener("ended", handleEnded)
     }
-  }, [audioUrl])
+  }, [audioUrl, initialDuration])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
@@ -86,6 +89,12 @@ function useSimpleAudioPlayer(audioUrl: string) {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }, [])
 
+  useEffect(() => {
+    if (typeof initialDuration === 'number' && initialDuration > 0) {
+      setDuration(initialDuration)
+    }
+  }, [initialDuration])
+
   return {
     isPlaying,
     currentTime,
@@ -108,6 +117,7 @@ interface QuestionInterfaceProps {
   loadingMessage: string
   audioUrl: string
   transcript: string
+  initialDuration?: number
 }
 
 const QuestionInterfaceComponent = ({
@@ -119,6 +129,7 @@ const QuestionInterfaceComponent = ({
   loadingMessage,
   audioUrl,
   transcript,
+  initialDuration,
 }: QuestionInterfaceProps) => {
   const { t } = useBilingualText()
   const {
@@ -131,7 +142,7 @@ const QuestionInterfaceComponent = ({
     skipBackward,
     skipForward,
     formatTime
-  } = useSimpleAudioPlayer(audioUrl)
+  } = useSimpleAudioPlayer(audioUrl, initialDuration)
 
   // 答题逻辑 - 优化性能
   const handleSingleChoiceAnswer = useCallback((questionIndex: number, value: string) => {

@@ -5,23 +5,40 @@
 
 import { PrismaClient } from '@prisma/client'
 
-// 全局 Prisma 客户端实例
-let prisma: PrismaClient
+type GlobalWithPrisma = typeof globalThis & { __eltPrisma?: PrismaClient }
+
+const globalForPrisma = globalThis as GlobalWithPrisma
 
 // 初始化 Prisma 客户端
 function initPrisma(): PrismaClient {
-  return new PrismaClient({
+  const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
     errorFormat: 'pretty',
   })
+
+  // 预热数据库连接并启用更高并发的 WAL 模式
+  void client.$connect()
+    .then(async () => {
+      try {
+        await client.$executeRawUnsafe('PRAGMA journal_mode=WAL;')
+        await client.$executeRawUnsafe('PRAGMA busy_timeout = 5000;')
+      } catch (pragmaError) {
+        console.warn('Failed to apply SQLite pragmas:', pragmaError)
+      }
+    })
+    .catch((connectionError) => {
+      console.error('Prisma preconnect failed:', connectionError)
+    })
+
+  return client
 }
 
 // 获取 Prisma 客户端单例
 export function getPrismaClient(): PrismaClient {
-  if (!prisma) {
-    prisma = initPrisma()
+  if (!globalForPrisma.__eltPrisma) {
+    globalForPrisma.__eltPrisma = initPrisma()
   }
-  return prisma
+  return globalForPrisma.__eltPrisma
 }
 
 /**
@@ -255,12 +272,14 @@ export class QueryBuilder {
 
 // 优雅关闭处理
 process.on('beforeExit', async () => {
+  const prisma = getPrismaClient()
   if (prisma) {
     await prisma.$disconnect()
   }
 })
 
 process.on('SIGINT', async () => {
+  const prisma = getPrismaClient()
   if (prisma) {
     await prisma.$disconnect()
   }
@@ -268,6 +287,7 @@ process.on('SIGINT', async () => {
 })
 
 process.on('SIGTERM', async () => {
+  const prisma = getPrismaClient()
   if (prisma) {
     await prisma.$disconnect()
   }

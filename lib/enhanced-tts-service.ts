@@ -7,7 +7,7 @@ import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
-import { AppError, ErrorType, ErrorSeverity, withRetry as retryFunction, withTimeout as timeoutFunction, OperationCanceller } from './enhanced-error-handler'
+import { AppError, ErrorType, ErrorSeverity, OperationCanceller } from './enhanced-error-handler'
 
 export interface KokoroRequest {
   text: string
@@ -159,7 +159,7 @@ class AudioFileManager {
         if (!newestFile || fileInfo.createdAt > newestFile) {
           newestFile = fileInfo.createdAt
         }
-      } catch (_error) {
+      } catch {
         // 文件可能已被删除，忽略错误
       }
     }
@@ -333,7 +333,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
               const response: KokoroResponse = JSON.parse(line)
               this.handleResponse(response)
               jsonBuffer = ''
-            } catch (_lineError) {  // ignore
+            } catch {
               // 忽略解析错误
             }
           })
@@ -362,7 +362,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
       })
 
       // 处理进程退出
-      this.process.on('exit', (_code, _signal) => {  // renamed unused
+      this.process.on('exit', (_code, _signal) => {  
         console.log(`📴 Enhanced Kokoro process exited with code ${_code}, signal: ${_signal}`)
         this.handleProcessExit(_code, _signal)
       })
@@ -402,7 +402,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
     if (response.success) {
       queuedRequest.resolve(response)
     } else {
-      const _error = new Error(response.error || 'TTS generation failed')  // renamed
+      const _error = new Error(response.error || 'TTS generation failed')  
       queuedRequest.reject(_error)
     }
 
@@ -410,7 +410,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
     this.processQueue()
   }
 
-  private handleProcessExit(code: number | null, signal: string | null): void {
+  private handleProcessExit(_code: number | null, _signal: string | null): void {
     this.state = ServiceState.ERROR
     this.process = null
     this.concurrentRequests = 0
@@ -473,7 +473,7 @@ class EnhancedKokoroTTSService extends EventEmitter {
         // 检查进程是否还活着
         try {
           process.kill(this.process.pid!, 0)
-        } catch (_error) {
+        } catch {
           console.warn('⚠️ TTS process appears to be dead, restarting...')
           this.handleProcessExit(null, null)
         }
@@ -762,48 +762,6 @@ class EnhancedKokoroTTSService extends EventEmitter {
     
     console.log('✅ Enhanced Kokoro TTS service shutdown complete')
   }
-}
-
-// 装饰器实现
-function withRetry<P extends unknown[], R>(
-  target: any,
-  propertyName: string,
-  descriptor: TypedPropertyDescriptor<(...args: P) => Promise<R>>
-) {
-  const method = descriptor.value;
-  if (!method) return;
-
-  descriptor.value = function (this: EnhancedKokoroTTSService, ...args: P): Promise<R> {
-    const operationName = `${target.constructor.name}.${propertyName}`
-    const retryWrapper = retryFunction(
-      method.bind(this),
-      {
-        maxAttempts: 3,
-        baseDelay: 2000,
-        maxDelay: 10000,
-        backoffFactor: 2,
-        retryableErrors: ['ECONNRESET', 'timeout', 'not ready', 'process exited']
-      },
-      operationName
-    )
-    return retryWrapper(...args)
-  }
-}
-
-function withTimeout(timeoutMs: number) {
-  return function <P extends unknown[], R>(
-    target: any,
-    propertyName: string,
-    descriptor: TypedPropertyDescriptor<(...args: P) => Promise<R>>
-  ) {
-    const method = descriptor.value;
-    if (!method) return;
-
-    descriptor.value = function (this: EnhancedKokoroTTSService, ...args: P): Promise<R> {
-      const timeoutWrapper = timeoutFunction(method.bind(this), timeoutMs);
-      return timeoutWrapper(...args)
-    }
-  };
 }
 
 // 导出单例实例

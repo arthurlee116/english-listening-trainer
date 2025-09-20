@@ -185,8 +185,8 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
 
       // 生成音频
       dispatch({ type: 'SET_PROGRESS', payload: '正在生成音频...' })
-      const audioUrl = await generateAudio(transcript)
-      dispatch({ type: 'SET_AUDIO_URL', payload: audioUrl })
+      const audioResult = await generateAudio(transcript)
+      dispatch({ type: 'SET_AUDIO_URL', payload: audioResult.audioUrl })
 
       // 生成问题  
       dispatch({ type: 'SET_PROGRESS', payload: '正在生成问题...' })

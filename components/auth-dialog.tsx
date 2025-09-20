@@ -16,6 +16,7 @@ interface User {
   name?: string | null
   isAdmin: boolean
   createdAt: string
+  updatedAt: string
 }
 
 interface AuthDialogProps {

@@ -87,6 +87,8 @@ package.json 中可用脚本（节选）：
 - 若需代理 Cerebras API，可在 lib/ark-helper.ts 配置 PROXY_URL
 - 构建容错：next.config.mjs 对 TS/ESLint 报错容忍度较高（忽略严格失败，便于迭代）
 - TTS 首次加载 3–5s；生成音频约 2–8s；内存占用约 1–2GB
+- SQLite 在 `lib/database.ts` 中默认启用 WAL + busy_timeout，并通过 `hooks/use-auth-state.ts` 复用缓存用户信息；修改数据库初始化或认证缓存策略时需保持同步
+- `/api/tts` 现会返回音频时长，前端通过 `initialDuration` 属性即时渲染；更新 TTS API 或播放器组件时务必维持该返回契约
 
 ## 校验与联调建议（无正式测试框架）
 - 运行 npm run lint 保持类型与 Lint 清洁

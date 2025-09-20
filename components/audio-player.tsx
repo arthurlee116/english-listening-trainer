@@ -20,13 +20,14 @@ interface AudioPlayerProps {
   onRegenerate?: () => void
   loading?: boolean
   loadingMessage?: string
+  initialDuration?: number
 }
 
 // 自定义Hook用于音频控制
-function useAudioPlayer() {
+function useAudioPlayer(initialDuration?: number) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+  const [duration, setDuration] = useState(initialDuration ?? 0)
   const [volume, setVolume] = useState(1)
   const [, setIsLoading] = useState(false)
   
@@ -75,6 +76,12 @@ function useAudioPlayer() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof initialDuration === 'number' && initialDuration > 0) {
+      setDuration(initialDuration)
+    }
+  }, [initialDuration])
+
   return {
     isPlaying,
     setIsPlaying,
@@ -107,7 +114,8 @@ const AudioPlayerComponent = ({
   onStartQuestions, 
   onRegenerate, 
   loading = false, 
-  loadingMessage = "" 
+  loadingMessage = "",
+  initialDuration
 }: AudioPlayerProps) => {
   const { t } = useBilingualText()
   const {
@@ -128,7 +136,7 @@ const AudioPlayerComponent = ({
     startProgressLoop,
     stopProgressLoop,
     cleanup
-  } = useAudioPlayer()
+  } = useAudioPlayer(initialDuration)
 
   useEffect(() => {
     const audio = audioRef.current
@@ -139,11 +147,7 @@ const AudioPlayerComponent = ({
     // 当 audioUrl 变化时，重置播放状态和时间
     setIsPlaying(false)
     setCurrentTime(0)
-    setDuration(0)
-    if (audio) {
-      audio.pause()
-      audio.currentTime = 0
-    }
+    setDuration(initialDuration ?? 0)
 
     // 简化的事件处理函数
     const updateTime = () => {
@@ -201,14 +205,14 @@ const AudioPlayerComponent = ({
       audio.removeEventListener("error", handleError)
       cleanup()
     }
-  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup, setIsLoading, setIsPlaying, setCurrentTime, setDuration])
-  
+  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup, setIsLoading, setIsPlaying, setCurrentTime, setDuration, initialDuration])
+
+  // 监听 initialDuration 变化，立即更新显示
   useEffect(() => {
-    if (audioRef.current) {
-      setCurrentTime(0)
-      setDuration(0)
+    if (typeof initialDuration === 'number' && initialDuration > 0) {
+      setDuration(initialDuration)
     }
-  }, [])
+  }, [initialDuration])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
@@ -457,7 +461,7 @@ const AudioPlayerComponent = ({
 
             {/* Volume Control */}
             <div className="flex items-center gap-3 mb-6">
-              <Volume2 className="w-4 h-4 text-gray-500" title={t("components.audioPlayer.volume")} />
+              <Volume2 className="w-4 h-4 text-gray-500" />
               <Slider value={[volume * 100]} onValueChange={handleVolumeChange} className="flex-1" max={100} step={1} />
             </div>
           </>

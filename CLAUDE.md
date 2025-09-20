@@ -60,6 +60,7 @@ pnpm run admin-dev            # 开发模式管理服务器
 - **JWT 会话**: httpOnly cookies 存储JWT token，支持"记住我"功能
 - **密码要求**: 最少8位，包含大写字母、小写字母、数字
 - **管理**: `/admin` 路径提供用户管理界面（仅管理员可访问）
+- **性能提示**: `hooks/use-auth-state.ts` 在客户端缓存用户信息，并依赖 `lib/database.ts` 中的 WAL/busy_timeout 初始化来加速 `/api/auth/me`；如调整任一侧需同步更新
 
 ### AI 内容生成流程
 1. **话题生成**: `POST /api/ai/topics` - 基于难度和时长生成话题建议
@@ -72,6 +73,7 @@ pnpm run admin-dev            # 开发模式管理服务器
 - **Python 包装器**: `kokoro-local/kokoro_wrapper.py` - Kokoro TTS 模型封装
 - **Metal 加速**: 自动检测 Apple Silicon 并启用 MPS 加速
 - **音频存储**: 生成的 WAV 文件保存在 `public/audio/`
+- **接口契约**: `/api/tts` 现在会返回音频时长与文件字节数，前端播放器会立即使用 `initialDuration` 快速渲染播放信息
 
 ### 数据库设计
 - **users**: 用户信息和认证数据

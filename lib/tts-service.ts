@@ -8,7 +8,14 @@ export interface TTSOptions {
   language?: ListeningLanguage  // 语言，默认'en-US'
 }
 
-export async function generateAudio(text: string, options: TTSOptions = {}): Promise<string> {
+export interface GeneratedAudio {
+  audioUrl: string
+  duration?: number
+  byteLength?: number
+  provider?: string
+}
+
+export async function generateAudio(text: string, options: TTSOptions = {}): Promise<GeneratedAudio> {
   if (!text || text.trim() === '') {
     throw new Error('文本内容不能为空')
   }
@@ -57,7 +64,12 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
     console.log(`✅ 本地音频生成成功: ${data.format} 格式`)
     console.log(`🔗 音频URL: ${data.audioUrl}`)
     
-    return data.audioUrl
+    return {
+      audioUrl: data.audioUrl,
+      duration: typeof data.duration === 'number' ? data.duration : undefined,
+      byteLength: typeof data.byteLength === 'number' ? data.byteLength : undefined,
+      provider: data.provider,
+    }
     
   } catch (error) {
     console.error('❌ 本地TTS服务调用失败:', error)
