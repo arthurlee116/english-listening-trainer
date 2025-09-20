@@ -49,41 +49,36 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ GPU TTS生成失败:', error)
-    
-    let errorMessage = 'GPU音频生成失败'
+
+    const rawMessage = error instanceof Error ? error.message : '未知错误'
+    const normalizedMessage = rawMessage.toLowerCase()
+
     let statusCode = 500
-    
-    if (error instanceof Error) {
-      errorMessage = error.message
-      
-      // 根据错误类型设置状态码
-      if (errorMessage.includes('timeout')) {
-        statusCode = 504
-        errorMessage = 'GPU音频生成超时，长文本需要更多时间，请稍后重试'
-      } else if (errorMessage.includes('Audio generation timeout')) {
-        statusCode = 504
-        errorMessage = `GPU音频生成超时：文本长度 ${text.length} 字符，预计需要 ${Math.ceil(text.length / 10)} 秒，请稍后重试`
-      } else if (errorMessage.includes('not initialized') || errorMessage.includes('not ready')) {
-        statusCode = 503
-        errorMessage = 'GPU TTS服务初始化中，请稍后重试'
-      } else if (errorMessage.includes('Text cannot be empty')) {
-        statusCode = 400
-        errorMessage = '文本内容不能为空'
-      } else if (errorMessage.includes('Failed to save audio file')) {
-        statusCode = 500
-        errorMessage = '音频文件保存失败'
-      } else if (errorMessage.includes('Kokoro modules not available')) {
-        statusCode = 503
-        errorMessage = 'Kokoro模块不可用，请检查服务器配置'
-      } else if (errorMessage.includes('CUDA') || errorMessage.includes('GPU')) {
-        statusCode = 503
-        errorMessage = 'GPU加速服务异常，请检查CUDA配置'
-      }
+    let userFacingMessage = 'GPU音频生成失败'
+
+    if (normalizedMessage.includes('timeout')) {
+      statusCode = 504
+      userFacingMessage = 'GPU音频生成超时，长文本需要更多时间，请稍后重试'
+    } else if (normalizedMessage.includes('not initialized') || normalizedMessage.includes('not ready')) {
+      statusCode = 503
+      userFacingMessage = 'GPU TTS服务初始化中，请稍后重试'
+    } else if (normalizedMessage.includes('text cannot be empty')) {
+      statusCode = 400
+      userFacingMessage = '文本内容不能为空'
+    } else if (normalizedMessage.includes('failed to save audio file')) {
+      statusCode = 500
+      userFacingMessage = '音频文件保存失败'
+    } else if (normalizedMessage.includes('kokoro modules not available')) {
+      statusCode = 503
+      userFacingMessage = 'Kokoro模块不可用，请检查服务器配置'
+    } else if (normalizedMessage.includes('cuda') || normalizedMessage.includes('gpu')) {
+      statusCode = 503
+      userFacingMessage = 'GPU加速服务异常，请检查CUDA配置'
     }
-    
-    return NextResponse.json({ 
-      error: errorMessage,
-      details: error instanceof Error ? error.message : '未知错误',
+
+    return NextResponse.json({
+      error: userFacingMessage,
+      details: rawMessage,
       provider: 'kokoro-gpu'
     }, { status: statusCode })
   }

@@ -4,13 +4,20 @@
 import { describe, it, expect } from 'vitest'
 import { getWavAudioMetadata, detectAudioFormat, validateAudioFormat } from '@/lib/audio-utils'
 
-// Mock WAV file header (44 bytes)
-const createMockWavHeader = (sampleRate: number = 16000, channels: number = 1, bitsPerSample: number = 16) => {
-  const buffer = Buffer.alloc(44)
+// Mock WAV file header with actual data bytes
+const createMockWavHeader = (sampleRate: number = 16000, channels: number = 1, bitsPerSample: number = 16, dataSize: number = 1000) => {
+  // Ensure data size is aligned with channel and bit configurations
+  const bytesPerSample = bitsPerSample / 8
+  const bytesPerFrame = channels * bytesPerSample
+  const alignedDataSize = Math.floor(dataSize / bytesPerFrame) * bytesPerFrame
+
+  const headerSize = 44
+  const totalSize = headerSize + alignedDataSize
+  const buffer = Buffer.alloc(totalSize)
 
   // RIFF header
   buffer.write('RIFF', 0, 4, 'ascii')
-  buffer.writeUInt32LE(36, 4) // file size
+  buffer.writeUInt32LE(totalSize - 8, 4) // file size (total - RIFF header)
   buffer.write('WAVE', 8, 4, 'ascii')
 
   // fmt chunk
@@ -20,26 +27,31 @@ const createMockWavHeader = (sampleRate: number = 16000, channels: number = 1, b
   buffer.writeUInt16LE(1, 20) // audio format (PCM)
   buffer.writeUInt16LE(channels, 22) // channels
   buffer.writeUInt32LE(sampleRate, 24) // sample rate
-  buffer.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28) // byte rate
-  buffer.writeUInt16LE(channels * bitsPerSample / 8, 32) // block align
+  buffer.writeUInt32LE(sampleRate * channels * bytesPerSample, 28) // byte rate
+  buffer.writeUInt16LE(channels * bytesPerSample, 32) // block align
   buffer.writeUInt16LE(bitsPerSample, 34) // bits per sample
 
   // data chunk
   buffer.write('data', 36, 4, 'ascii')
-  buffer.writeUInt32LE(1000, 40) // data size
+  buffer.writeUInt32LE(alignedDataSize, 40) // data size
+
+  // Fill data with PCM values ensuring exact byte count match
+  for (let i = 0; i < alignedDataSize; i++) {
+    buffer[headerSize + i] = (i % 64) + 1 // Fill with simple non-zero values
+  }
 
   return buffer
 }
 
 describe('getWavAudioMetadata', () => {
   it('should parse valid WAV metadata correctly', () => {
-    const buffer = createMockWavHeader(44100, 2, 16)
+    const buffer = createMockWavHeader(44100, 2, 16, 1008) // Use size divisible by frame size
     const metadata = getWavAudioMetadata(buffer)
 
     expect(metadata.sampleRate).toBe(44100)
     expect(metadata.channels).toBe(2)
     expect(metadata.bitsPerSample).toBe(16)
-    expect(metadata.duration).toBeCloseTo(1000 / (44100 * 2 * 2), 2)
+    expect(metadata.duration).toBeCloseTo(1008 / (44100 * 2 * 2), 2)
   })
 
   it('should handle mono WAV files', () => {
@@ -80,13 +92,13 @@ describe('detectAudioFormat', () => {
   })
 
   it('should detect MP3 files by ID3v2', () => {
-    const mp3Buffer = Buffer.from('ID3\x00\x00\x00', 'binary')
+    const mp3Buffer = Buffer.from('ID3\x00\x00\x00\x00', 'binary')
     const format = detectAudioFormat(mp3Buffer)
     expect(format).toBe('mp3')
   })
 
   it('should detect MP3 files by frame sync', () => {
-    const mp3FrameBuffer = Buffer.from('\xFF\xFB', 'binary')
+    const mp3FrameBuffer = Buffer.from('\xFF\xFB\x00\x00', 'binary')
     const format = detectAudioFormat(mp3FrameBuffer)
     expect(format).toBe('mp3')
   })
@@ -109,7 +121,7 @@ describe('validateAudioFormat', () => {
   })
 
   it('should validate MP3 files', () => {
-    const mp3Buffer = Buffer.from('\xFF\xFB\x00', 'binary')
+    const mp3Buffer = Buffer.from('\xFF\xFB\x00\x00', 'binary')
     const validation = validateAudioFormat(mp3Buffer)
 
     expect(validation.isValid).toBe(true)

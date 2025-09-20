@@ -123,10 +123,11 @@ export function getFallbackText(key: string, fallbackStrategy?: unknown): string
   if (fallbackStrategy && typeof fallbackStrategy === 'object' && 'showPlaceholder' in fallbackStrategy) {
     return (fallbackStrategy as { showPlaceholder?: string }).showPlaceholder || '[Missing Translation]';
   }
-  
-  if (fallbackStrategy && typeof fallbackStrategy === 'object' && 'showKey' in fallbackStrategy && (fallbackStrategy as { showKey?: boolean }).showKey !== false) {
-    return key;
+
+  if (fallbackStrategy && typeof fallbackStrategy === 'object' && 'showKey' in fallbackStrategy) {
+    return (fallbackStrategy as { showKey?: boolean }).showKey !== false ? key : '[Translation Missing]';
   }
-  
-  return '[Translation Missing]';
+
+  // Default behavior: return the key if no showPlaceholder specified
+  return key;
 }

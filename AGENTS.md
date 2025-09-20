@@ -10,7 +10,7 @@
 ## 前置依赖
 - Node.js >= 18
 - Python 3.8–3.12（Kokoro TTS 不支持 3.13+）
-- 推荐包管理器：pnpm（npm 亦可）
+- 推荐包管理器：npm
 
 ## 环境变量
 在项目根目录创建 .env.local（或 .env）并设置：

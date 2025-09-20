@@ -27,16 +27,35 @@ vi.mock('@/lib/database', () => ({
   withDatabase: vi.fn()
 }))
 
-// Mock bcryptjs
+// Mock bcryptjs with shared references for default and named exports
+const bcryptMocks = vi.hoisted(() => {
+  const hash = vi.fn()
+  const compare = vi.fn()
+  return { hash, compare }
+})
+
 vi.mock('bcryptjs', () => ({
-  hash: vi.fn(),
-  compare: vi.fn()
+  __esModule: true,
+  hash: bcryptMocks.hash,
+  compare: bcryptMocks.compare,
+  default: bcryptMocks,
 }))
 
-// Mock jsonwebtoken
+// Mock jsonwebtoken using hoisted references to avoid TDZ issues with vi.mock hoisting
+const jwtMocks = vi.hoisted(() => {
+  const sign = vi.fn()
+  const verify = vi.fn()
+  return { sign, verify }
+})
+
 vi.mock('jsonwebtoken', () => ({
-  sign: vi.fn(),
-  verify: vi.fn()
+  __esModule: true,
+  sign: jwtMocks.sign,
+  verify: jwtMocks.verify,
+  default: {
+    sign: jwtMocks.sign,
+    verify: jwtMocks.verify,
+  },
 }))
 
 const mockUser = {
@@ -53,6 +72,10 @@ const mockUserInfo = {
   createdAt: new Date(),
   updatedAt: new Date()
 }
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('Password Functions', () => {
   describe('hashPassword', () => {
@@ -123,8 +146,7 @@ describe('JWT Functions', () => {
   describe('generateJWT', () => {
     it('should generate JWT without expiration for rememberMe', () => {
       const mockSign = vi.fn().mockReturnValue('jwt_token')
-      const { sign } = require('jsonwebtoken')
-      ;(sign as MockedFunction<any>).mockImplementation(mockSign)
+      jwtMocks.sign.mockImplementation(mockSign)
 
       const result = generateJWT(mockUser, true)
 
@@ -134,8 +156,7 @@ describe('JWT Functions', () => {
 
     it('should generate JWT with 24h expiration for non-rememberMe', () => {
       const mockSign = vi.fn().mockReturnValue('jwt_token')
-      const { sign } = require('jsonwebtoken')
-      ;(sign as MockedFunction<any>).mockImplementation(mockSign)
+      jwtMocks.sign.mockImplementation(mockSign)
 
       const result = generateJWT(mockUser, false)
 
@@ -147,8 +168,7 @@ describe('JWT Functions', () => {
   describe('verifyJWT', () => {
     it('should verify valid JWT', () => {
       const mockVerify = vi.fn().mockReturnValue(mockUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const result = verifyJWT('valid_token')
 
@@ -160,8 +180,7 @@ describe('JWT Functions', () => {
       const mockVerify = vi.fn().mockImplementation(() => {
         throw new Error('Invalid token')
       })
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const result = verifyJWT('invalid_token')
 
@@ -301,8 +320,7 @@ describe('Request Authentication Functions', () => {
   describe('getUserFromRequest', () => {
     it('should extract user from Authorization header', () => {
       const mockVerify = vi.fn().mockReturnValue(mockUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const mockRequest = {
         headers: {
@@ -320,8 +338,7 @@ describe('Request Authentication Functions', () => {
 
     it('should extract user from cookie', () => {
       const mockVerify = vi.fn().mockReturnValue(mockUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const mockRequest = {
         headers: {
@@ -356,8 +373,7 @@ describe('Request Authentication Functions', () => {
   describe('requireAuth', () => {
     it('should return user when authenticated', async () => {
       const mockVerify = vi.fn().mockReturnValue(mockUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const mockWithDatabase = vi.fn().mockResolvedValue(mockUserInfo)
       ;(withDatabase as MockedFunction<any>).mockImplementation(mockWithDatabase)
@@ -395,8 +411,7 @@ describe('Request Authentication Functions', () => {
 
     it('should return error when user not found in database', async () => {
       const mockVerify = vi.fn().mockReturnValue(mockUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const mockWithDatabase = vi.fn().mockResolvedValue(null)
       ;(withDatabase as MockedFunction<any>).mockImplementation(mockWithDatabase)
@@ -421,8 +436,7 @@ describe('Request Authentication Functions', () => {
     it('should return admin user when authenticated as admin', async () => {
       const adminUser = { ...mockUser, isAdmin: true }
       const mockVerify = vi.fn().mockReturnValue(adminUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const mockWithDatabase = vi.fn().mockResolvedValue({ ...mockUserInfo, isAdmin: true })
       ;(withDatabase as MockedFunction<any>).mockImplementation(mockWithDatabase)
@@ -444,8 +458,7 @@ describe('Request Authentication Functions', () => {
 
     it('should return error when user is not admin', async () => {
       const mockVerify = vi.fn().mockReturnValue(mockUser)
-      const { verify } = require('jsonwebtoken')
-      ;(verify as MockedFunction<any>).mockImplementation(mockVerify)
+      jwtMocks.verify.mockImplementation(mockVerify)
 
       const mockWithDatabase = vi.fn().mockResolvedValue(mockUserInfo)
       ;(withDatabase as MockedFunction<any>).mockImplementation(mockWithDatabase)

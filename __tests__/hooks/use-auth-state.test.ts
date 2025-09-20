@@ -25,9 +25,6 @@ Object.defineProperty(window, 'localStorage', {
   writable: true
 })
 
-// Mock setTimeout/clearTimeout
-vi.useFakeTimers()
-
 describe('useAuthState', () => {
   const mockUser = {
     id: 'user123',
@@ -45,6 +42,7 @@ describe('useAuthState', () => {
   }
 
   beforeEach(() => {
+    vi.useRealTimers()
     vi.clearAllMocks()
     vi.clearAllTimers()
 
@@ -60,11 +58,17 @@ describe('useAuthState', () => {
 
   afterEach(() => {
     vi.clearAllTimers()
+    vi.useRealTimers()
   })
 
   describe('Initial State', () => {
-    it('should initialize with null user when no cached data', () => {
+    it('should initialize with null user when no cached data', async () => {
       mockLocalStorage.getItem.mockReturnValue(null)
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+        status: 401
+      })
 
       const { result } = renderHook(() => useAuthState())
 
@@ -72,12 +76,23 @@ describe('useAuthState', () => {
       expect(result.current.isAuthenticated).toBe(false)
       expect(result.current.showAuthDialog).toBe(true)
       expect(result.current.isLoading).toBe(true)
+
+      // Wait for auth check to complete
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
     })
 
-    it('should initialize with cached user data', () => {
+    it('should initialize with cached user data', async () => {
       mockLocalStorage.getItem
         .mockImplementationOnce(() => JSON.stringify(mockUser)) // USER_STORAGE_KEY
         .mockImplementationOnce(() => JSON.stringify(mockMetadata)) // METADATA_STORAGE_KEY
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+        status: 401
+      })
 
       const { result } = renderHook(() => useAuthState())
 
@@ -85,18 +100,34 @@ describe('useAuthState', () => {
       expect(result.current.isAuthenticated).toBe(true)
       expect(result.current.showAuthDialog).toBe(false)
       expect(result.current.isLoading).toBe(false)
+
+      // Wait for auth check to complete
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
     })
 
-    it('should handle invalid cached data gracefully', () => {
+    it('should handle invalid cached data gracefully', async () => {
       mockLocalStorage.getItem
         .mockImplementationOnce(() => 'invalid json')
         .mockImplementationOnce(() => 'invalid json')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+        status: 401
+      })
 
       const { result } = renderHook(() => useAuthState())
 
       expect(result.current.user).toBeNull()
       expect(result.current.isAuthenticated).toBe(false)
       expect(result.current.showAuthDialog).toBe(true)
+
+      // Wait for auth check to complete
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
     })
   })
 
@@ -104,7 +135,8 @@ describe('useAuthState', () => {
     it('should check auth status on mount', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: mockMetadata })
+        json: async () => ({ user: mockUser, metadata: mockMetadata }),
+        status: 200
       })
 
       const { result } = renderHook(() => useAuthState())
@@ -127,7 +159,8 @@ describe('useAuthState', () => {
     it('should handle successful auth check', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: mockMetadata })
+        json: async () => ({ user: mockUser, metadata: mockMetadata }),
+        status: 200
       })
 
       const { result } = renderHook(() => useAuthState())
@@ -144,7 +177,9 @@ describe('useAuthState', () => {
 
     it('should handle failed auth check', async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false
+        ok: false,
+        json: async () => ({}),
+        status: 401
       })
 
       const { result } = renderHook(() => useAuthState())
@@ -173,6 +208,7 @@ describe('useAuthState', () => {
     })
 
     it('should handle timeout correctly', async () => {
+      vi.useFakeTimers()
       mockFetch.mockImplementationOnce(() => new Promise(() => {})) // Never resolves
 
       const { result } = renderHook(() => useAuthState())
@@ -181,6 +217,8 @@ describe('useAuthState', () => {
       act(() => {
         vi.advanceTimersByTime(8000)
       })
+
+      vi.useRealTimers()
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -197,12 +235,19 @@ describe('useAuthState', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: staleMetadata })
+        json: async () => ({ user: mockUser, metadata: staleMetadata }),
+        status: 200
       })
 
-      mockLocalStorage.getItem
-        .mockImplementationOnce(() => JSON.stringify(mockUser))
-        .mockImplementationOnce(() => JSON.stringify(mockMetadata))
+      mockLocalStorage.getItem.mockImplementation((key: string) => {
+        if (key === 'elt.auth.user') {
+          return JSON.stringify(mockUser)
+        }
+        if (key === 'elt.auth.metadata') {
+          return JSON.stringify(mockMetadata)
+        }
+        return null
+      })
 
       const { result } = renderHook(() => useAuthState())
 
@@ -210,7 +255,9 @@ describe('useAuthState', () => {
         expect(result.current.isLoading).toBe(false)
       })
 
-      expect(result.current.cacheStale).toBe(true)
+      await waitFor(() => {
+        expect(result.current.cacheStale).toBe(true)
+      })
     })
 
     it('should detect stale cache when timestamps differ', async () => {
@@ -221,12 +268,19 @@ describe('useAuthState', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: staleMetadata })
+        json: async () => ({ user: mockUser, metadata: staleMetadata }),
+        status: 200
       })
 
-      mockLocalStorage.getItem
-        .mockImplementationOnce(() => JSON.stringify(mockUser))
-        .mockImplementationOnce(() => JSON.stringify(mockMetadata))
+      mockLocalStorage.getItem.mockImplementation((key: string) => {
+        if (key === 'elt.auth.user') {
+          return JSON.stringify(mockUser)
+        }
+        if (key === 'elt.auth.metadata') {
+          return JSON.stringify(mockMetadata)
+        }
+        return null
+      })
 
       const { result } = renderHook(() => useAuthState())
 
@@ -234,13 +288,25 @@ describe('useAuthState', () => {
         expect(result.current.isLoading).toBe(false)
       })
 
-      expect(result.current.cacheStale).toBe(true)
+      await waitFor(() => {
+        expect(result.current.cacheStale).toBe(true)
+      })
     })
   })
 
   describe('User Authentication Handler', () => {
-    it('should handle user authentication', () => {
+    it('should handle user authentication', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+        status: 401
+      })
+
       const { result } = renderHook(() => useAuthState())
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
 
       act(() => {
         result.current.handleUserAuthenticated(mockUser, 'jwt_token')
@@ -255,8 +321,18 @@ describe('useAuthState', () => {
       expect(mockLocalStorage.setItem).toHaveBeenCalled()
     })
 
-    it('should update cache with new metadata on authentication', () => {
+    it('should update cache with new metadata on authentication', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+        status: 401
+      })
+
       const { result } = renderHook(() => useAuthState())
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
 
       act(() => {
         result.current.handleUserAuthenticated(mockUser, 'jwt_token')
@@ -275,9 +351,23 @@ describe('useAuthState', () => {
 
   describe('Logout Handler', () => {
     it('should handle successful logout', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: true })
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user: mockUser, metadata: mockMetadata }),
+          status: 200
+        })
+        .mockResolvedValueOnce({ 
+          ok: true,
+          json: async () => ({}),
+          status: 200
+        })
 
       const { result } = renderHook(() => useAuthState())
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
 
       // Set up authenticated state
       act(() => {
@@ -290,20 +380,32 @@ describe('useAuthState', () => {
       })
 
       expect(logoutResult).toBe(true)
-      expect(result.current.user).toBeNull()
-      expect(result.current.isAuthenticated).toBe(false)
-      expect(result.current.showAuthDialog).toBe(true)
-      expect(result.current.authRefreshing).toBe(false)
-      expect(result.current.cacheStale).toBe(false)
+      await waitFor(() => {
+        expect(result.current.user).toBeNull()
+        expect(result.current.isAuthenticated).toBe(false)
+        expect(result.current.showAuthDialog).toBe(true)
+        expect(result.current.authRefreshing).toBe(false)
+        expect(result.current.cacheStale).toBe(false)
+      })
 
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('elt.auth.user')
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('elt.auth.metadata')
     })
 
     it('should handle logout failure gracefully', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Logout failed'))
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user: mockUser, metadata: mockMetadata }),
+          status: 200
+        })
+        .mockRejectedValueOnce(new Error('Logout failed'))
 
       const { result } = renderHook(() => useAuthState())
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
 
       // Set up authenticated state
       act(() => {
@@ -317,8 +419,10 @@ describe('useAuthState', () => {
 
       expect(logoutResult).toBe(false)
       // State should still be cleared even if API call fails
-      expect(result.current.user).toBeNull()
-      expect(result.current.isAuthenticated).toBe(false)
+      await waitFor(() => {
+        expect(result.current.user).toBeNull()
+        expect(result.current.isAuthenticated).toBe(false)
+      })
     })
   })
 
@@ -326,7 +430,8 @@ describe('useAuthState', () => {
     it('should trigger auth status check', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: mockMetadata })
+        json: async () => ({ user: mockUser, metadata: mockMetadata }),
+        status: 200
       })
 
       const { result } = renderHook(() => useAuthState())
@@ -346,6 +451,7 @@ describe('useAuthState', () => {
     })
 
     it('should handle auth check timeout', async () => {
+      vi.useFakeTimers()
       mockFetch.mockImplementationOnce(() => new Promise(() => {}))
 
       const { result } = renderHook(() => useAuthState())
@@ -358,6 +464,8 @@ describe('useAuthState', () => {
       act(() => {
         vi.advanceTimersByTime(8000)
       })
+
+      vi.useRealTimers()
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
@@ -372,7 +480,8 @@ describe('useAuthState', () => {
     it('should manage loading states correctly', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: mockMetadata })
+        json: async () => ({ user: mockUser, metadata: mockMetadata }),
+        status: 200
       })
 
       const { result } = renderHook(() => useAuthState())
@@ -396,7 +505,8 @@ describe('useAuthState', () => {
     it('should reset stale cache flag after successful auth', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ user: mockUser, metadata: mockMetadata })
+        json: async () => ({ user: mockUser, metadata: mockMetadata }),
+        status: 200
       })
 
       const { result } = renderHook(() => useAuthState())

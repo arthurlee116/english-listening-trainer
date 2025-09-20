@@ -4,34 +4,15 @@ import { FormatOptions, TranslationKey, UseBilingualTextReturn, bilingualConfig 
 import { translationCache } from '@/lib/i18n/memory-management';
 import { i18nPerformanceMonitor } from '@/lib/i18n/performance';
 
-// Lazy loading for translation resources
-let translationsLoaded = false;
-let commonTranslations: any = null;
-let componentsTranslations: any = null;
-let pagesTranslations: any = null;
+import commonTranslationsData from '@/lib/i18n/translations/common.json';
+import componentsTranslationsData from '@/lib/i18n/translations/components.json';
+import pagesTranslationsData from '@/lib/i18n/translations/pages.json';
 
-// Load translations lazily
-async function loadTranslations() {
-  if (translationsLoaded) return;
-  
-  try {
-    const [common, components, pages] = await Promise.all([
-      import('@/lib/i18n/translations/common.json'),
-      import('@/lib/i18n/translations/components.json'),
-      import('@/lib/i18n/translations/pages.json')
-    ]);
-    
-    commonTranslations = common.default;
-    componentsTranslations = components.default;
-    pagesTranslations = pages.default;
-    translationsLoaded = true;
-  } catch (error) {
-    console.error('Failed to load translations:', error);
-  }
-}
-
-// Initialize translations loading
-loadTranslations();
+// Translation resources are bundled via static imports to ensure immediate availability
+const commonTranslations: Record<string, unknown> = commonTranslationsData as Record<string, unknown>;
+const componentsTranslations: Record<string, unknown> = componentsTranslationsData as Record<string, unknown>;
+const pagesTranslations: Record<string, unknown> = pagesTranslationsData as Record<string, unknown>;
+const translationsLoaded = true;
 
 /**
  * Custom hook for bilingual text formatting with performance optimizations

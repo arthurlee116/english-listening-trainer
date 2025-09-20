@@ -281,11 +281,14 @@ export async function findUserByEmail(email: string): Promise<UserWithPassword |
 /**
  * 根据ID查找用户（带并发保护）
  */
-export async function findUserById(id: string): Promise<User | null> {
-  // 首先检查缓存
-  const cached = getCachedUser(id)
-  if (cached) {
-    return cached.user
+export async function findUserById(id: string, options: { forceRefresh?: boolean } = {}): Promise<User | null> {
+  if (!options.forceRefresh) {
+    const cached = getCachedUser(id)
+    if (cached) {
+      return cached.user
+    }
+  } else {
+    clearUserCache(id)
   }
 
   // 使用refresh-once机制防止并发重复查询
@@ -368,7 +371,7 @@ export async function requireAuth(request: NextRequest): Promise<{ user: JWTPayl
   }
   
   // 验证用户是否仍然存在
-  const dbUser = await findUserById(user.userId)
+  const dbUser = await findUserById(user.userId, { forceRefresh: true })
   if (!dbUser) {
     return { user: null, error: '用户不存在' }
   }

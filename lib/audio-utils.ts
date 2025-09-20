@@ -47,6 +47,7 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
   let channels = fallback.channels
   let bitsPerSample = fallback.bitsPerSample
   let dataChunkSize = 0
+  let dataStartOffset = -1
   let formatFound = false
 
   // 遍历所有的chunk
@@ -97,6 +98,7 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
         }
       } else if (chunkId === 'data') {
         dataChunkSize = chunkSize
+        dataStartOffset = offset + 8
         // 继续处理可能存在的其他chunks
       }
 
@@ -107,24 +109,30 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
     return fallback
   }
 
-  if (!formatFound || !dataChunkSize) {
+  if (!formatFound || !dataChunkSize || dataStartOffset < 0) {
     console.warn('WAV format incomplete: missing fmt or data chunk')
     return fallback
   }
 
   // 验证实际数据大小与声明的一致
   const expectedDataSize = Math.floor(dataChunkSize)
-  const actualAvailableData = Math.max(0, buffer.length - offset)
+  const availableData = Math.max(0, buffer.length - dataStartOffset)
 
-  if (expectedDataSize > 0 && expectedDataSize > actualAvailableData * 2) {
-    console.warn(`Data chunk size mismatch: expected ${expectedDataSize}, available ${actualAvailableData}`)
-    // 使用可用数据量来计算
-    dataChunkSize = actualAvailableData
+  if (expectedDataSize > 0 && expectedDataSize > availableData) {
+    console.warn(`Data chunk size mismatch: expected ${expectedDataSize}, available ${availableData}. Invalid WAV data`)
+    return fallback
+  }
+
+  const usableDataSize = Math.min(expectedDataSize, availableData)
+
+  if (usableDataSize <= 0) {
+    console.warn('Invalid WAV data: no sample frames')
+    return fallback
   }
 
   const bytesPerSample = bitsPerSample / 8
   const sampleFrameSize = channels * bytesPerSample
-  const totalSampleFrames = Math.floor(dataChunkSize / sampleFrameSize)
+  const totalSampleFrames = Math.floor(usableDataSize / sampleFrameSize)
 
   if (totalSampleFrames <= 0) {
     console.warn('Invalid WAV data: no sample frames')
@@ -157,7 +165,7 @@ export function detectAudioFormat(buffer: Buffer): 'wav' | 'mp3' | 'unknown' {
   }
 
   // WAV检测
-  if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 4) === 'WAVE') {
+  if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WAVE') {
     return 'wav'
   }
 

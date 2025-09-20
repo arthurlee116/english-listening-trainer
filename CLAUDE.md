@@ -34,15 +34,15 @@ ADMIN_NAME=System Administrator
 
 ### 初始化和启动命令
 ```bash
-pnpm install                    # 安装依赖
-pnpm run setup-kokoro          # 初始化 Kokoro TTS 环境
-pnpm exec tsx scripts/seed-user-db.ts  # 用户数据库初始化（创建管理员账号）
-pnpm run dev                   # 启动开发服务器
+npm install                    # 安装依赖
+npm run setup-kokoro          # 初始化 Kokoro TTS 环境
+npm exec tsx scripts/seed-user-db.ts  # 用户数据库初始化（创建管理员账号）
+npm run dev                   # 启动开发服务器
 ```
 
 ### 构建和部署命令
 ```bash
-pnpm run build                 # 生产构建
+npm run build                 # 生产构建
 pnpm run start                 # 启动生产服务器  
 pnpm run lint                  # 代码检查
 ```

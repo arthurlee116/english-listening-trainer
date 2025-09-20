@@ -19,6 +19,7 @@ export interface AuthMetadata {
 
 const USER_STORAGE_KEY = 'elt.auth.user'
 const METADATA_STORAGE_KEY = 'elt.auth.metadata'
+const AUTH_CHECK_TIMEOUT_MS = 8000
 
 function readCachedUser(): AuthUserInfo | null {
   if (typeof window === 'undefined') {
@@ -93,35 +94,66 @@ export function useAuthState() {
   const [authRefreshing, setAuthRefreshing] = useState<boolean>(false)
   const [cacheStale, setCacheStale] = useState<boolean>(false)
 
-  const checkAuthStatus = useCallback(async () => {
+  const checkAuthStatus = useCallback(async (options: { initial?: boolean } = {}) => {
+    const { initial = false } = options
     const controller = new AbortController()
-    const timeoutId = typeof window !== 'undefined' ? window.setTimeout(() => controller.abort(), 8000) : null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     try {
-      setAuthRefreshing(true)
+      if (!initial) {
+        setAuthRefreshing(true)
+        setIsLoading(true)
+      }
 
-      const response = await fetch('/api/auth/me', {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort()
+          reject(new Error('Request timed out'))
+        }, AUTH_CHECK_TIMEOUT_MS)
+      })
+
+      const fetchPromise = fetch('/api/auth/me', {
         credentials: 'include',
         cache: 'no-store',
         signal: controller.signal,
       })
 
+      const response = await Promise.race([
+        fetchPromise,
+        timeoutPromise,
+      ]) as Response | undefined
+
+      if (!response || typeof response.ok !== 'boolean') {
+        throw new Error('Invalid auth response')
+      }
+
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+
       if (response.ok) {
+        if (typeof response.json !== 'function') {
+          throw new Error('Invalid auth response structure')
+        }
         const data = await response.json()
         const serverUser = data.user
         const serverMetadata = data.metadata
 
         // 检查本地缓存是否仍然有效
         const localMetadata = readAuthMetadata()
+        let isStale = false
 
         if (localMetadata && serverMetadata) {
-          const stale = isCacheStale(
+          isStale = isCacheStale(
             localMetadata.cacheVersion,
             serverMetadata.cacheVersion,
             localMetadata.lastModified,
             serverMetadata.lastModified
           )
-          setCacheStale(stale)
+          setCacheStale(isStale)
+        } else {
+          setCacheStale(false)
         }
 
         // 更新缓存
@@ -136,7 +168,9 @@ export function useAuthState() {
         setUser(serverUser)
         setIsAuthenticated(true)
         setShowAuthDialog(false)
-        setCacheStale(false)
+        if (!isStale) {
+          setCacheStale(false)
+        }
       } else {
         document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         clearCache()
@@ -146,7 +180,7 @@ export function useAuthState() {
         setCacheStale(false)
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request timed out')) {
         console.warn('Auth check aborted due to timeout')
       } else {
         console.error('Auth check failed:', error)
@@ -165,7 +199,7 @@ export function useAuthState() {
   }, [])
 
   useEffect(() => {
-    checkAuthStatus()
+    checkAuthStatus({ initial: true })
   }, [checkAuthStatus])
 
   const handleUserAuthenticated = useCallback((userData: AuthUserInfo, _token: string) => {
@@ -186,24 +220,26 @@ export function useAuthState() {
   }, [])
 
   const handleLogout = useCallback(async (): Promise<boolean> => {
-    let success = false
-
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      })
-      success = true
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
-
     clearCache()
     setUser(null)
     setIsAuthenticated(false)
     setShowAuthDialog(true)
     setAuthRefreshing(false)
     setCacheStale(false)
+
+    let success = false
+
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (response && typeof (response as Response).ok === 'boolean') {
+        success = Boolean((response as Response).ok)
+      }
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
 
     return success
   }, [])

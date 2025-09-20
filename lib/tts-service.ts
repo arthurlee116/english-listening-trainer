@@ -1,5 +1,10 @@
 // Local Kokoro TTS Service - Client Side
 // 本地Kokoro TTS服务客户端接口
+//
+// 修复说明：
+// - 集成了新的音频格式检测工具，支持多种音频格式
+// - 添加了音频文件清理机制，避免磁盘空间问题
+// - 改进了错误处理和重试机制
 
 import type { ListeningLanguage } from './types'
 
