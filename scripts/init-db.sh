@@ -172,8 +172,8 @@ seed_database() {
     # 检查并运行用户系统种子脚本
     if [ -f "./scripts/seed-user-db.ts" ]; then
         echo_info "运行用户系统种子脚本..."
-        if command -v pnpm >/dev/null 2>&1; then
-            pnpm exec tsx scripts/seed-user-db.ts
+        if command -v npm >/dev/null 2>&1; then
+            npm exec tsx scripts/seed-user-db.ts
         else
             npx tsx scripts/seed-user-db.ts
         fi

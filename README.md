@@ -21,12 +21,12 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 - Node.js 18+
 - Python 3.8-3.12 (Kokoro TTS does not support Python 3.13+)
 - macOS (recommended, Apple Silicon supported)
-- `pnpm` package manager (`npm install -g pnpm`)
+- `npm` package manager (`npm install -g npm`)
 
 ### Installation & Setup
 1.  **Install dependencies:**
     ```bash
-    pnpm install
+    npm install
     ```
 
 2.  **Set up environment variables:**
@@ -37,24 +37,24 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 
 3.  **Initialize Kokoro TTS (first time only):**
     ```bash
-    pnpm run setup-kokoro
+    npm run setup-kokoro
     ```
     This will create a Python virtual environment in `kokoro-local/venv`, install dependencies, and download the required voice files.
 
 4.  **Run database migrations:**
     ```bash
-    pnpm exec ts-node scripts/database-migration.ts
+    npm exec ts-node scripts/database-migration.ts
     ```
 
 5.  **Run the development server:**
     ```bash
-    pnpm run dev
+    npm run dev
     ```
     The application will be available at `http://localhost:3000`.
 
 6.  **Run the admin dashboard:**
     ```bash
-    pnpm run admin
+    npm run admin
     ```
     The admin dashboard will be available at `http://localhost:3005/admin`. The default password is `admin123`.
 
@@ -88,12 +88,12 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 ## Troubleshooting
 
 - **Python Version Issues**: If TTS fails to initialize, verify your Python version (`python3 --version`). Kokoro requires Python 3.8-3.12. If needed, you can recreate the virtual environment: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`.
-- **TTS Initialization**: If the TTS engine fails to start, try re-running the setup script: `pnpm run setup-kokoro`.
+- **TTS Initialization**: If the TTS engine fails to start, try re-running the setup script: `npm run setup-kokoro`.
 - **Database Issues**: If you encounter schema issues during development, you can delete the `data/app.db` file to reinitialize the database.
 - **Audio Clean-up**: Generated audio lives in `public/`. The clean-up service runs automatically, but you can invoke `audioCleanupService.performCleanup()` manually from a Node REPL if needed.
 
 ## Testing & Quality
 
-- **Linting**: `pnpm run lint`
-- **Unit/Integration tests**: `pnpm test` (or `pnpm test -- --run` in CI)
+- **Linting**: `npm run lint`
+- **Unit/Integration tests**: `npm test` (or `npm test -- --run` in CI)
 - The test suite covers auth caching (`__tests__/lib/auth.test.ts`), the TTS API (`__tests__/api/tts.test.ts`), audio utilities, bilingual formatting, and hooks. Keep tests updated when changing service contracts.

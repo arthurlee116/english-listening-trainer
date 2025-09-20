@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Node.js 18+
 - Python 3.8-3.12（Kokoro TTS 不支持 Python 3.13+）
 - macOS（推荐，支持 Apple Silicon）
-- pnpm 包管理器（推荐）：`npm install -g pnpm`
+- npm 包管理器（推荐）：`npm install -g npm`
 
 ### 必需环境变量
 ```bash
@@ -43,14 +43,14 @@ npm run dev                   # 启动开发服务器
 ### 构建和部署命令
 ```bash
 npm run build                 # 生产构建
-pnpm run start                 # 启动生产服务器  
-pnpm run lint                  # 代码检查
+npm run start                 # 启动生产服务器  
+npm run lint                  # 代码检查
 ```
 
 ### 管理功能
 ```bash
-pnpm run admin                 # 启动管理服务器（端口3005）
-pnpm run admin-dev            # 开发模式管理服务器
+npm run admin                 # 启动管理服务器（端口3005）
+npm run admin-dev            # 开发模式管理服务器
 ```
 
 ## 核心架构
@@ -128,7 +128,7 @@ pnpm run admin-dev            # 开发模式管理服务器
 3. 检查 SQLite 数据库文件权限
 4. 运行 `npm exec tsx scripts/seed-user-db.ts` 创建管理员账号
 5. 使用创建的管理员账号或注册新账号进行功能验证
-6. 保持质量检查：`pnpm run lint`、`pnpm test -- --run`
+6. 保持质量检查：`npm run lint`、`npm test -- --run`
 
 ### 常见问题
 - **Python 版本问题**: 验证 Python 版本 (`python3 --version`)，需要 3.8-3.12

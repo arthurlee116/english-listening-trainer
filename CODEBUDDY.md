@@ -9,26 +9,26 @@ Core commands
 - Start (prod): npm run start
 - Lint: npm run lint
 - Admin server: npm run admin (port 3005) | npm run admin-dev
-- Setup Kokoro TTS: pnpm run setup-kokoro
-- Dev with Kokoro on 3001: pnpm run dev-kokoro
-- Prisma generate: pnpm run db:generate
-- Prisma migrate dev: pnpm run db:migrate
-- Prisma migrate deploy: pnpm run db:deploy
-- Prisma Studio: pnpm run db:studio
-- DB reset (dev only): pnpm run db:reset
-- DB push (sync schema without migration): pnpm run db:push
+- Setup Kokoro TTS: npm run setup-kokoro
+- Dev with Kokoro on 3001: npm run dev-kokoro
+- Prisma generate: npm run db:generate
+- Prisma migrate dev: npm run db:migrate
+- Prisma migrate deploy: npm run db:deploy
+- Prisma Studio: npm run db:studio
+- DB reset (dev only): npm run db:reset
+- DB push (sync schema without migration): npm run db:push
 - Start local Postgres (docker helper): ./scripts/dev-db.sh [start|stop|reset]
 - Switch DB (sqlite/postgres/status): ./scripts/switch-database.sh [mode]
-- Data migration toolkit: pnpm run migrate-data | migrate-data:verify | migrate-data:rollback
-- MCP diagnostics: pnpm run test-mcp | mcp-health | fix-mcp | fix-mcp-sudo
-- Clean workspace: pnpm run clean
+- Data migration toolkit: npm run migrate-data | migrate-data:verify | migrate-data:rollback
+- MCP diagnostics: npm run test-mcp | mcp-health | fix-mcp | fix-mcp-sudo
+- Clean workspace: npm run clean
 
 Running a single test
-- No test runner is configured in package.json. If ad-hoc scripts exist, run them via tsx (e.g., pnpm exec tsx path/to/script.ts). Add test commands here after a test framework is introduced.
+- No test runner is configured in package.json. If ad-hoc scripts exist, run them via tsx (e.g., npm exec tsx path/to/script.ts). Add test commands here after a test framework is introduced.
 
 Environment setup
 - Copy env: cp .env.example .env.local (see CLAUDE.md for required keys like CEREBRAS_API_KEY, JWT_SECRET, DATABASE_URL). For production, use .env.production based on .env.production.example.
-- Python 3.8–3.12 required for Kokoro; run pnpm run setup-kokoro to create kokoro-local/venv and install deps.
+- Python 3.8–3.12 required for Kokoro; run npm run setup-kokoro to create kokoro-local/venv and install deps.
 
 High-level architecture
 - App framework: Next.js 15 App Router with TypeScript; Tailwind CSS and shadcn/ui for UI components.
@@ -42,19 +42,19 @@ High-level architecture
 - Performance/monitoring: lib/performance-optimizer.ts, lib/db-performance-monitor.ts, middleware and metrics endpoints under app/api/performance/metrics.
 
 Important notes from README and CLAUDE rules
-- Prereqs: Node 18+, macOS recommended, pnpm. Python 3.8–3.12 for Kokoro.
-- Initial setup: pnpm install; cp .env.example .env.local; pnpm run setup-kokoro; run DB migration/init scripts as needed; pnpm run dev.
+- Prereqs: Node 18+, macOS recommended, npm. Python 3.8–3.12 for Kokoro.
+- Initial setup: npm install; cp .env.example .env.local; npm run setup-kokoro; run DB migration/init scripts as needed; npm run dev.
 - Default admin: admin@listeningtrain.com / Admin123456 (development/testing); override via env in production.
 - Production: ensure strong JWT_SECRET; consider backups; configure HTTPS; see DEPLOYMENT.md, docker-compose.production.yml, nginx/nginx.conf.example.
 - Database tasks: migration scripts live in scripts/*. See scripts/MIGRATION-GUIDE.md and CLAUDE.md for the Postgres migration suite and commands.
 
 Local development tips specific to this repo
-- If TTS fails to init, verify Python version and re-run pnpm run setup-kokoro; see README Troubleshooting.
+- If TTS fails to init, verify Python version and re-run npm run setup-kokoro; see README Troubleshooting.
 - For broken local Docker Postgres, use scripts/dev-db-fallback.sh or run SQLite mode via switch-database.sh sqlite.
-- Some build-time TS/ESLint errors may be relaxed via next.config.mjs; lint explicitly with pnpm run lint before commits.
+- Some build-time TS/ESLint errors may be relaxed via next.config.mjs; lint explicitly with npm run lint before commits.
 
 Conventions for future CodeBuddy Code runs
-- Use pnpm for scripts. Prefer tsx to run TypeScript scripts in scripts/*.ts (pnpm exec tsx scripts/<file>.ts).
+- Use npm for scripts. Prefer tsx to run TypeScript scripts in scripts/*.ts (npm exec tsx scripts/<file>.ts).
 - Do not commit secrets. Environment variables are read from .env.local/.env.production.
 - When adding tests, create package.json scripts and update this file with how to run a single test.
 - Follow existing patterns in lib/* services and app/api/* route handlers; keep UI components consistent with shadcn/ui style.

@@ -68,7 +68,7 @@ switch_to_sqlite() {
     
     echo_success "已切换到 SQLite"
     echo_info "数据库文件: ./data/app.db"
-    echo_warning "请运行: pnpm run db:generate"
+    echo_warning "请运行: npm run db:generate"
 }
 
 # 切换到 PostgreSQL
@@ -85,7 +85,7 @@ switch_to_postgres() {
     echo_success "已切换到 PostgreSQL"
     echo_info "连接URL: postgresql://postgres:dev_password@localhost:5433/listening_app"
     echo_warning "请确保 PostgreSQL 服务已启动"
-    echo_warning "请运行: pnpm run db:generate && pnpm run db:push"
+    echo_warning "请运行: npm run db:generate && npm run db:push"
 }
 
 # 显示当前配置

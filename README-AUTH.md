@@ -100,7 +100,7 @@ ADMIN_NAME=System Administrator
 
 3. **初始化数据库和管理员账号**
    ```bash
-   pnpm exec tsx scripts/seed-user-db.ts
+   npm exec tsx scripts/seed-user-db.ts
    ```
 
 4. **启动应用**
@@ -154,7 +154,7 @@ const response = await fetch('/api/auth/me', {
 ## 常见问题
 
 ### Q: 忘记管理员密码怎么办？
-A: 重新运行 `pnpm exec tsx scripts/seed-user-db.ts`，会检查并重置管理员账号。
+A: 重新运行 `npm exec tsx scripts/seed-user-db.ts`，会检查并重置管理员账号。
 
 ### Q: JWT token 过期怎么办？
 A: 前端会自动检测认证状态，过期时引导用户重新登录。

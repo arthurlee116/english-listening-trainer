@@ -154,7 +154,7 @@ check_environment() {
     done
     
     # 检查可选命令
-    local optional_commands=("pnpm" "pm2" "docker" "sqlite3")
+    local optional_commands=("npm" "pm2" "docker" "sqlite3")
     for cmd in "${optional_commands[@]}"; do
         if command -v "$cmd" >/dev/null 2>&1; then
             echo_info "发现可选命令: $cmd"
@@ -368,10 +368,10 @@ install_dependencies() {
     
     cd "$APP_DIR"
     
-    # 优先使用 pnpm
-    if command -v pnpm >/dev/null 2>&1; then
-        echo_info "使用 pnpm 安装依赖..."
-        pnpm install --frozen-lockfile || pnpm install
+    # 优先使用 npm
+    if command -v npm >/dev/null 2>&1; then
+        echo_info "使用 npm 安装依赖..."
+        npm install --frozen-lockfile || npm install
     else
         echo_info "使用 npm 安装依赖..."
         npm ci || npm install
