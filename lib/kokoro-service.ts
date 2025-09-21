@@ -6,6 +6,13 @@ import { getLanguageConfig } from './language-config'
 import { validateDeviceConfig, generateDeviceReport } from './device-detection'
 import { getWavAudioMetadata, GeneratedAudioResult } from './audio-utils'
 import type { ListeningLanguage } from './types'
+import {
+  buildKokoroPythonEnv,
+  resolveKokoroPythonExecutable,
+  resolveKokoroWorkingDirectory,
+  resolveKokoroWrapperPath
+} from './kokoro-env'
+import type { KokoroDevicePreference } from './kokoro-env'
 
 /**
  * 电路断路器状态机
@@ -192,47 +199,45 @@ export class KokoroTTSService extends EventEmitter {
   private async startPythonProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
       // 使用真实的Kokoro包装器而不是模拟版本
-      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper_real.py')
-      
+      const pythonPath = resolveKokoroWrapperPath()
+
       if (!fs.existsSync(pythonPath)) {
         reject(new Error(`Kokoro wrapper not found at ${pythonPath}`))
         return
       }
 
       console.log('🚀 Starting Kokoro Python process...')
-      
-      // 设置环境变量以支持多种加速方式
-      const kokoroDevice = process.env.KOKORO_DEVICE || 'auto'
-      const env = {
-        ...process.env,
-        PYTORCH_ENABLE_MPS_FALLBACK: '1',
-        KOKORO_DEVICE: kokoroDevice, // 传递设备选择给Python
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || ''),
-        // 添加CUDA路径支持
-        PATH: `/usr/local/cuda-12.2/bin:${(process.env.PATH || '')}`,
-        LD_LIBRARY_PATH: `/usr/local/cuda-12.2/lib64:${(process.env.LD_LIBRARY_PATH || '')}`
-      }
-      
-      console.log(`📱 Kokoro device preference: ${kokoroDevice}`)
-      console.log(`🔧 CUDA PATH: ${env.PATH}`)
-      console.log(`🔧 CUDA LD_LIBRARY_PATH: ${env.LD_LIBRARY_PATH}`)
 
-      const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python3')
-      const venvPath = path.join(process.cwd(), 'kokoro-local', 'venv')
-      
-      // 设置虚拟环境的环境变量
-      const venvEnv = {
-        ...env,
-        VIRTUAL_ENV: venvPath,
-        PATH: `${venvPath}/bin:${(env as Record<string, string | undefined>).PATH || process.env.PATH || ''}`,
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.10', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
+      // 设置环境变量以支持多种加速方式
+      const kokoroDeviceEnv = (process.env.KOKORO_DEVICE || 'auto').toLowerCase()
+      const validDevices: KokoroDevicePreference[] = ['auto', 'cuda', 'cpu', 'mps']
+      const preferDevice: KokoroDevicePreference = validDevices.includes(
+        kokoroDeviceEnv as KokoroDevicePreference
+      )
+        ? (kokoroDeviceEnv as KokoroDevicePreference)
+        : 'auto'
+      const env = buildKokoroPythonEnv({ preferDevice })
+
+      console.log(`📱 Kokoro device preference: ${env.KOKORO_DEVICE}`)
+      if (env.PATH) {
+        console.log(`🔧 PATH: ${env.PATH}`)
       }
-      
+      const libraryKey = process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH'
+      if (env[libraryKey]) {
+        console.log(`🔧 ${libraryKey}: ${env[libraryKey]}`)
+      }
+
+      let pythonExecutable = resolveKokoroPythonExecutable()
+      if ((path.isAbsolute(pythonExecutable) || pythonExecutable.includes(path.sep)) && !fs.existsSync(pythonExecutable)) {
+        console.warn(`⚠️ Python executable ${pythonExecutable} not found, falling back to system python3`)
+        pythonExecutable = 'python3'
+      }
+
       // 启动Python进程
-      
-      this.process = spawn(venvPythonPath, [pythonPath], {
-        cwd: path.join(process.cwd(), 'kokoro-local'),
-        env: venvEnv,
+
+      this.process = spawn(pythonExecutable, [pythonPath], {
+        cwd: resolveKokoroWorkingDirectory(),
+        env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
 

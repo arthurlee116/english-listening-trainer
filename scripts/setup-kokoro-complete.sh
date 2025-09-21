@@ -7,6 +7,10 @@
 
 set -e  # 遇到错误立即退出
 
+TORCH_VARIANT="${KOKORO_TORCH_VARIANT:-auto}"
+TORCH_INDEX_URL="${KOKORO_TORCH_INDEX_URL:-}"
+TORCH_PACKAGES="${KOKORO_TORCH_PACKAGES:-torch torchaudio torchvision}"
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -88,9 +92,22 @@ main() {
 
     local OS=$(detect_os)
     local HAS_CUDA=$(detect_cuda)
+    local SELECTED_VARIANT="$TORCH_VARIANT"
 
     print_info "检测到的操作系统: $OS"
     print_info "CUDA 可用: $HAS_CUDA"
+
+    if [[ "$SELECTED_VARIANT" == "auto" ]]; then
+        if [[ -n "${KOKORO_DEVICE:-}" ]]; then
+            SELECTED_VARIANT="${KOKORO_DEVICE,,}"
+        elif [[ "$HAS_CUDA" == "true" ]]; then
+            SELECTED_VARIANT="cuda"
+        elif [[ "$OS" == "macos" ]]; then
+            SELECTED_VARIANT="mps"
+        else
+            SELECTED_VARIANT="cpu"
+        fi
+    fi
 
     # 步骤1: 检查Python
     print_header "步骤 1: 检查 Python 环境"
@@ -220,15 +237,29 @@ main() {
     # 步骤6: 安装Python依赖
     print_header "步骤 6: 安装 Python 依赖"
 
-    # 根据CUDA可用性安装PyTorch
-    if [ "$HAS_CUDA" = "true" ]; then
-        print_info "检测到 CUDA，正在安装 GPU 版本的 PyTorch..."
-        pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
-        print_success "PyTorch GPU 版本安装完成"
+    print_info "选择的 PyTorch 变体: $SELECTED_VARIANT"
+    if python -c "import torch" >/dev/null 2>&1; then
+        print_info "虚拟环境中已检测到 PyTorch，跳过安装"
     else
-        print_info "未检测到 CUDA，正在安装 CPU 版本的 PyTorch..."
-        pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-        print_success "PyTorch CPU 版本安装完成"
+        local index
+        case "$SELECTED_VARIANT" in
+            cuda)
+                index="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
+                print_info "使用 CUDA 轮子 (index: $index) 安装 PyTorch"
+                pip install --index-url "$index" $TORCH_PACKAGES
+                ;;
+            mps)
+                index="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
+                print_info "使用 CPU/MPS 轮子 (index: $index) 安装 PyTorch"
+                pip install --index-url "$index" $TORCH_PACKAGES
+                ;;
+            cpu|*)
+                index="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
+                print_info "安装 CPU 版本的 PyTorch (index: $index)"
+                pip install --index-url "$index" $TORCH_PACKAGES
+                ;;
+        esac
+        print_success "PyTorch 安装完成"
     fi
 
     # 安装其他依赖
@@ -257,11 +288,17 @@ main() {
     fi
 
     if ! grep -q "KOKORO_DEVICE" "$ENV_FILE"; then
-        if [ "$HAS_CUDA" = "true" ]; then
-            echo "KOKORO_DEVICE=cuda" >> "$ENV_FILE"
-        else
-            echo "KOKORO_DEVICE=cpu" >> "$ENV_FILE"
-        fi
+        case "$SELECTED_VARIANT" in
+            cuda)
+                echo "KOKORO_DEVICE=cuda" >> "$ENV_FILE"
+                ;;
+            mps)
+                echo "KOKORO_DEVICE=mps" >> "$ENV_FILE"
+                ;;
+            cpu|*)
+                echo "KOKORO_DEVICE=auto" >> "$ENV_FILE"
+                ;;
+        esac
     fi
 
     if ! grep -q "KOKORO_TTS_MAX_CONCURRENCY" "$ENV_FILE"; then

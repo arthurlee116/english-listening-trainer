@@ -1,127 +1,130 @@
 #!/bin/bash
+set -euo pipefail
 
-# Kokoro TTS 本地环境设置脚本
-# 为Apple Silicon M4优化，支持Metal加速
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+KOKORO_DIR="$PROJECT_ROOT/kokoro-local"
+VOICES_DIR="$KOKORO_DIR/voices"
+DEFAULT_VOICE_SOURCE="$PROJECT_ROOT/kokoro-main-ref/kokoro.js/voices"
+PYTHON_BIN="${KOKORO_PYTHON:-python3}"
+TORCH_VARIANT="${KOKORO_TORCH_VARIANT:-auto}"
+TORCH_INDEX_URL="${KOKORO_TORCH_INDEX_URL:-}"
+TORCH_PACKAGES="${KOKORO_TORCH_PACKAGES:-torch torchaudio torchvision}"
 
-echo "🚀 Setting up local Kokoro TTS for Apple Silicon M4..."
+log_info() { printf "\033[1;34m[INFO]\033[0m %s\n" "$1"; }
+log_warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$1"; }
+log_error() { printf "\033[1;31m[ERROR]\033[0m %s\n" "$1"; }
+log_success() { printf "\033[1;32m[SUCCESS]\033[0m %s\n" "$1"; }
 
-# 检查系统
-if [[ "$OSTYPE" != "darwin"* ]]; then
-    echo "⚠️  This script is optimized for macOS. Other systems may need manual adjustments."
+log_info "Preparing Kokoro TTS environment"
+
+# Ensure python is available
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  log_error "Python executable '$PYTHON_BIN' not found. Set KOKORO_PYTHON to a valid interpreter."
+  exit 1
 fi
 
-# 检查Python版本
-PYTHON_VERSION=$(python3 --version 2>&1 | grep -o '[0-9]\+\.[0-9]\+' | head -1)
-echo "🐍 Found Python $PYTHON_VERSION"
+PYTHON_VERSION="$($PYTHON_BIN --version 2>&1)"
+log_info "Using $PYTHON_VERSION"
 
-if ! python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
-    echo "❌ Python 3.8 or higher is required"
-    exit 1
+# Create directories
+mkdir -p "$VOICES_DIR" "$PROJECT_ROOT/public/audio"
+
+# Resolve voice source directory
+VOICE_SOURCE="${KOKORO_VOICE_SOURCE:-$DEFAULT_VOICE_SOURCE}"
+VOICE_TARGET_BASENAME="af_heart"
+VOICE_FOUND=false
+for extension in pt bin; do
+  TARGET_FILE="$VOICES_DIR/${VOICE_TARGET_BASENAME}.${extension}"
+  if [[ -f "$TARGET_FILE" ]]; then
+    log_success "Voice file '$VOICE_TARGET_BASENAME.$extension' already present"
+    VOICE_FOUND=true
+    break
+  fi
+
+  SOURCE_FILE="$VOICE_SOURCE/${VOICE_TARGET_BASENAME}.${extension}"
+  if [[ -f "$SOURCE_FILE" ]]; then
+    cp "$SOURCE_FILE" "$TARGET_FILE"
+    log_success "Copied voice file '$VOICE_TARGET_BASENAME.$extension'"
+    VOICE_FOUND=true
+    break
+  fi
+
+done
+
+if [[ "$VOICE_FOUND" = false ]]; then
+  log_warn "Voice file '$VOICE_TARGET_BASENAME.(pt|bin)' not found. Set KOKORO_VOICE_SOURCE to a directory containing Kokoro voices."
 fi
 
-# 创建必要的目录
-echo "📁 Creating directories..."
-mkdir -p kokoro-local/voices
-mkdir -p public/audio
-
-# 检查语音文件（支持.pt和.bin格式）
-if [ -f "kokoro-local/voices/af_heart.pt" ]; then
-    echo "✅ Voice file 'af_heart.pt' already exists"
-elif [ -f "kokoro-main-ref/kokoro.js/voices/af_heart.bin" ]; then
-    cp kokoro-main-ref/kokoro.js/voices/af_heart.bin kokoro-local/voices/
-    echo "✅ Voice file 'af_heart.bin' copied successfully"
-elif [ -f "kokoro-main-ref/kokoro.js/voices/af_heart.pt" ]; then
-    cp kokoro-main-ref/kokoro.js/voices/af_heart.pt kokoro-local/voices/
-    echo "✅ Voice file 'af_heart.pt' copied successfully"
+# espeak-ng detection (optional but recommended)
+if ! command -v espeak-ng >/dev/null 2>&1; then
+  log_warn "espeak-ng not found. Install it via 'brew install espeak-ng' (macOS) or 'sudo apt install espeak-ng' (Ubuntu)."
 else
-    echo "❌ Voice file not found. Please ensure the project structure is correct."
-    echo "   Expected: kokoro-main-ref/kokoro.js/voices/af_heart.pt or af_heart.bin"
-    exit 1
+  log_success "espeak-ng detected"
 fi
 
-# 检查espeak-ng
-if ! command -v espeak-ng &> /dev/null; then
-    echo "📦 Installing espeak-ng..."
-    if command -v brew &> /dev/null; then
-        brew install espeak-ng
-    else
-        echo "❌ Please install espeak-ng manually:"
-        echo "   macOS: brew install espeak-ng"
-        echo "   Ubuntu/Debian: sudo apt-get install espeak-ng"
-        exit 1
-    fi
-else
-    echo "✅ espeak-ng is already installed"
+# Setup virtual environment
+cd "$KOKORO_DIR"
+
+if [[ ! -d venv ]]; then
+  log_info "Creating Python virtual environment"
+  "$PYTHON_BIN" -m venv venv
+  log_success "Virtual environment created"
 fi
 
-# 设置Python虚拟环境
-echo "🔧 Setting up Python virtual environment..."
-cd kokoro-local
-
-# 创建虚拟环境
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
-    echo "✅ Virtual environment created"
-fi
-
-# 激活虚拟环境并安装依赖
-echo "📦 Installing Python dependencies..."
+# shellcheck disable=SC1091
 source venv/bin/activate
 
-# 升级pip
 pip install --upgrade pip
 
-# 安装PyTorch with MPS support (Apple Silicon)
-echo "🔥 Installing PyTorch with Metal acceleration..."
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Determine torch variant when auto
+if [[ "$TORCH_VARIANT" == "auto" ]]; then
+  if [[ "${KOKORO_DEVICE:-}" == "cuda" ]]; then
+    TORCH_VARIANT="cuda"
+  elif command -v nvidia-smi >/dev/null 2>&1; then
+    TORCH_VARIANT="cuda"
+  elif [[ "$(uname -s)" == "Darwin" ]]; then
+    TORCH_VARIANT="mps"
+  else
+    TORCH_VARIANT="cpu"
+  fi
+fi
 
-# 安装其他依赖
+log_info "Installing PyTorch variant: $TORCH_VARIANT"
+
+if python -c "import torch" >/dev/null 2>&1; then
+  log_info "PyTorch already installed in virtual environment"
+else
+  case "$TORCH_VARIANT" in
+    cuda)
+      INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
+      pip install --index-url "$INDEX" $TORCH_PACKAGES
+      ;;
+    mps)
+      INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
+      pip install --index-url "$INDEX" $TORCH_PACKAGES
+      ;;
+    cpu|*)
+      INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
+      pip install --index-url "$INDEX" $TORCH_PACKAGES
+      ;;
+  esac
+fi
+
 pip install -r requirements.txt
 
-# 验证安装
-echo "🧪 Testing installation..."
-python3 -c "
-import sys
-sys.path.append('../kokoro-main-ref')
-try:
-    import torch
-    print(f'✅ PyTorch {torch.__version__} installed')
-    print(f'✅ MPS available: {torch.backends.mps.is_available()}')
-    
-    import soundfile
-    print('✅ soundfile installed')
-    
-    import numpy
-    print('✅ numpy installed')
-    
-    print('🎯 Testing Kokoro import...')
-    from kokoro import KPipeline
-    print('✅ Kokoro can be imported')
-    
-except ImportError as e:
-    print(f'❌ Import error: {e}')
-    sys.exit(1)
-except Exception as e:
-    print(f'❌ Other error: {e}')
-    sys.exit(1)
-"
+log_info "Verifying installation"
+python - <<'PY'
+import os
+import torch
+import soundfile
+import numpy
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "🎉 Kokoro TTS setup completed successfully!"
-    echo ""
-    echo "🚀 Next steps:"
-    echo "   1. Add environment variables to .env.local:"
-    echo "      PYTORCH_ENABLE_MPS_FALLBACK=1"
-    echo "   2. Run 'npm run dev' to start the application"
-    echo "   3. The TTS service will initialize automatically"
-    echo ""
-    echo "📊 Expected performance:"
-    echo "   • Model loading time: 3-5 seconds (on startup)"
-    echo "   • Audio generation: 2-8 seconds (depending on text length)"
-    echo "   • Memory usage: ~1-2GB"
-    echo "   • Hardware acceleration: Metal (M4 GPU)"
-else
-    echo "❌ Setup failed. Please check the error messages above."
-    exit 1
-fi
+print(f"PyTorch {torch.__version__}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"MPS available: {getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available()}")
+print(f"soundfile {soundfile.__version__}")
+print(f"numpy {numpy.__version__}")
+PY
+
+log_success "Kokoro TTS setup complete"
+log_info "If you need to adjust CUDA or proxy settings, export KOKORO_CUDA_HOME, KOKORO_HTTP_PROXY, or related env vars before running this script."

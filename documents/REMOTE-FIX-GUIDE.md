@@ -114,7 +114,7 @@ pip install --no-cache-dir phonemizer==3.2.1
 ```
 
 ### Q2: CUDA相关错误
-**A2**: 检查CUDA环境变量:
+**A2**: 检查CUDA环境变量（或在运行脚本前导出 `KOKORO_CUDA_HOME` 让安装脚本自动追加这些路径）:
 ```bash
 export PATH=/usr/local/cuda-12.2/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda-12.2/lib64:$LD_LIBRARY_PATH

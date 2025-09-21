@@ -3,6 +3,13 @@ import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 
+import {
+  buildKokoroPythonEnv,
+  resolveKokoroPythonExecutable,
+  resolveKokoroWorkingDirectory,
+  resolveKokoroWrapperPath
+} from './kokoro-env'
+
 import { getWavAudioMetadata, GeneratedAudioResult } from './audio-utils'
 
 /**
@@ -159,9 +166,8 @@ export class KokoroTTSGPUService extends EventEmitter {
 
   private async startPythonProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // 使用真实的Kokoro GPU包装器
-      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper_real.py')
-      
+      const pythonPath = resolveKokoroWrapperPath()
+
       if (!fs.existsSync(pythonPath)) {
         console.error('❌ Kokoro GPU wrapper not found:', pythonPath)
         reject(new Error(`Kokoro GPU wrapper not found at ${pythonPath}`))
@@ -169,34 +175,33 @@ export class KokoroTTSGPUService extends EventEmitter {
       }
 
       console.log('🚀 Starting Kokoro GPU Python process...')
-      
-      // 为GPU服务器优化的环境变量
-      const env: NodeJS.ProcessEnv = {
-        ...process.env,
-        PYTORCH_ENABLE_MPS_FALLBACK: '1',
-        KOKORO_DEVICE: 'cuda',
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || ''),
-        PATH: `/usr/local/cuda-12.2/bin:${process.env.PATH || ''}`,
-        LD_LIBRARY_PATH: `/usr/local/cuda-12.2/lib64:${process.env.LD_LIBRARY_PATH || ''}`,
-        https_proxy: process.env.https_proxy || 'http://81.71.93.183:10811',
-        http_proxy: process.env.http_proxy || 'http://81.71.93.183:10811'
-      }
-      
-      console.log(`🔧 CUDA Device: cuda`)
-      console.log(`🔧 CUDA PATH: ${env.PATH}`)
-      console.log(`🌐 Proxy: ${env.https_proxy}`)
 
-      const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python3')
-      
-      if (!fs.existsSync(venvPythonPath)) {
-        console.warn('⚠️ Virtual environment Python not found, using system Python')
+      const env = buildKokoroPythonEnv({ preferDevice: 'cuda' })
+
+      console.log(`🔧 CUDA preference: ${env.KOKORO_DEVICE}`)
+      if (env.PATH) {
+        console.log(`🔧 PATH: ${env.PATH}`)
       }
-      
-      const pythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : 'python3'
+      if (env[process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH']) {
+        console.log(
+          `🔧 ${process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH'}: ${
+            env[process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH']
+          }`
+        )
+      }
+      if (env.https_proxy || env.http_proxy) {
+        console.log(`🌐 Proxy: ${env.https_proxy || env.http_proxy}`)
+      }
+
+      let pythonExecutable = resolveKokoroPythonExecutable()
+      if ((path.isAbsolute(pythonExecutable) || pythonExecutable.includes(path.sep)) && !fs.existsSync(pythonExecutable)) {
+        console.warn(`⚠️ Python executable ${pythonExecutable} not found, falling back to system python3`)
+        pythonExecutable = 'python3'
+      }
 
       // 启动Python进程
       this.process = spawn(pythonExecutable, [pythonPath], {
-        cwd: path.join(process.cwd(), 'kokoro-local'),
+        cwd: resolveKokoroWorkingDirectory(),
         env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
