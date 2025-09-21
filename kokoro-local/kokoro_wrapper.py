@@ -115,8 +115,8 @@ class KokoroTTSWrapper:
                 print(f"🌍 Initializing pipeline for language: {self.lang_code}", file=sys.stderr)
                 try:
                     # Check if local model exists
-                    local_model_path = "/home/ubuntu/Kokoro-82M"
-                    if os.path.exists(local_model_path):
+                    local_model_path = os.environ.get('KOKORO_LOCAL_MODEL_PATH')
+                    if local_model_path and os.path.exists(local_model_path):
                         print(f"Found local model at {local_model_path}", file=sys.stderr)
                         # Use local model by copying to expected cache location
                         import shutil
@@ -146,8 +146,10 @@ class KokoroTTSWrapper:
                     # 尝试在线模式
                     os.environ['HF_HUB_OFFLINE'] = '0'
                     os.environ['TRANSFORMERS_OFFLINE'] = '0'
-                    os.environ['http_proxy'] = 'http://81.71.93.183:10811'
-                    os.environ['https_proxy'] = 'http://81.71.93.183:10811'
+                    if 'KOKORO_HTTP_PROXY' in os.environ and 'http_proxy' not in os.environ:
+                        os.environ['http_proxy'] = os.environ['KOKORO_HTTP_PROXY']
+                    if 'KOKORO_HTTPS_PROXY' in os.environ and 'https_proxy' not in os.environ:
+                        os.environ['https_proxy'] = os.environ['KOKORO_HTTPS_PROXY']
                     
                     try:
                         self.pipeline = KPipeline(lang_code=self.lang_code)

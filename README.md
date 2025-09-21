@@ -39,7 +39,11 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
     ```bash
     npm run setup-kokoro
     ```
-    This will create a Python virtual environment in `kokoro-local/venv`, install dependencies, and download the required voice files.
+    This will create a Python virtual environment in `kokoro-local/venv`, install dependencies, and download the required voice files. You can customise the installer via environment variables before running the command, for example:
+    ```bash
+    KOKORO_TORCH_VARIANT=cuda KOKORO_CUDA_HOME=/usr/local/cuda-12.2 npm run setup-kokoro
+    ```
+    Supported overrides include `KOKORO_DEVICE`, `KOKORO_TORCH_INDEX_URL`, `KOKORO_REPO_PATH`, `KOKORO_VOICE_SOURCE`, and HTTP(S) proxy variables for offline deployments.
 
 4.  **Run database migrations:**
     ```bash

@@ -4,14 +4,47 @@ import sys
 import json
 import torch
 import numpy as np
-import base64
 import tempfile
-from io import BytesIO
+from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
 # 添加Kokoro路径到Python路径
-sys.path.append('/Users/arthur/Code/0712/kokoro-main-ref/kokoro.js')
+def _extend_sys_path() -> None:
+    """Ensure Kokoro sources are discoverable regardless of host layout."""
+    candidates = []
+
+    repo_override = os.environ.get('KOKORO_REPO_PATH')
+    if repo_override:
+        for raw_path in repo_override.split(os.pathsep):
+            raw_path = raw_path.strip()
+            if raw_path:
+                candidates.append(Path(raw_path))
+                candidates.append(Path(raw_path) / 'kokoro.js')
+    else:
+        project_root = Path(__file__).resolve().parents[1]
+        default_repo = project_root / 'kokoro-main-ref'
+        candidates.append(default_repo)
+        candidates.append(default_repo / 'kokoro.js')
+
+    additional = os.environ.get('KOKORO_ADDITIONAL_PYTHONPATH')
+    if additional:
+        for raw_path in additional.split(os.pathsep):
+            raw_path = raw_path.strip()
+            if raw_path:
+                candidates.append(Path(raw_path))
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                resolved = str(candidate.resolve())
+                if resolved not in sys.path:
+                    sys.path.append(resolved)
+        except Exception:
+            continue
+
+
+_extend_sys_path()
 
 # 导入真实的Kokoro模块
 try:
@@ -46,22 +79,52 @@ class KokoroTTSReal:
             # 设置代理（如果可用）
             if os.environ.get('https_proxy') or os.environ.get('http_proxy'):
                 print(f"🌐 Using proxy: {os.environ.get('https_proxy', os.environ.get('http_proxy'))}", file=sys.stderr)
-            
-            if torch.cuda.is_available():
+
+            preferred_device = os.environ.get('KOKORO_DEVICE', 'auto').lower()
+
+            def _use_cuda() -> bool:
+                if not torch.cuda.is_available():
+                    return False
                 self.device = 'cuda'
                 gpu_name = torch.cuda.get_device_name(0)
                 print(f"🚀 Using GPU: {gpu_name}", file=sys.stderr)
                 print(f"📊 GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB", file=sys.stderr)
                 print(f"🔥 CUDA Version: {torch.version.cuda}", file=sys.stderr)
-            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                return True
+
+            def _use_mps() -> bool:
+                if not hasattr(torch.backends, 'mps') or not torch.backends.mps.is_available():
+                    return False
                 self.device = 'mps'
+                os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK', '1')
                 print("🍎 Using Apple Silicon MPS", file=sys.stderr)
-            else:
+                return True
+
+            used = False
+            if preferred_device == 'cuda':
+                used = _use_cuda()
+                if not used:
+                    print("⚠️ Requested CUDA but no compatible GPU is available. Falling back to auto detection.", file=sys.stderr)
+            elif preferred_device in {'mps', 'metal'}:
+                used = _use_mps()
+                if not used:
+                    print("⚠️ Requested MPS but it is not available. Falling back to auto detection.", file=sys.stderr)
+            elif preferred_device == 'cpu':
                 self.device = 'cpu'
-                print("💻 Using CPU (slow)", file=sys.stderr)
-            
+                print("💻 Using CPU (forced)", file=sys.stderr)
+                used = True
+
+            if not used:
+                if _use_cuda():
+                    used = True
+                elif _use_mps():
+                    used = True
+                else:
+                    self.device = 'cpu'
+                    print("💻 Using CPU (fallback)", file=sys.stderr)
+
             sys.stderr.flush()
-            
+
         except Exception as e:
             self.device = 'cpu'
             print(f"⚠️ Device detection failed, falling back to CPU: {e}", file=sys.stderr)

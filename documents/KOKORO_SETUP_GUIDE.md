@@ -53,14 +53,14 @@ npm run dev
 
 ## ⚙️ 环境变量配置
 
-脚本会自动在 `.env.local` 文件中配置以下变量：
+脚本会自动在 `.env.local` 文件中配置以下变量（如未事先定义）：
 
 ```bash
 # PyTorch 配置
 PYTORCH_ENABLE_MPS_FALLBACK=1
 
 # Kokoro 设备选择
-KOKORO_DEVICE=cuda  # 或 cpu
+KOKORO_DEVICE=auto  # 根据脚本检测结果可能写入 cuda/mps/auto
 
 # 并发控制
 KOKORO_TTS_MAX_CONCURRENCY=2
@@ -68,7 +68,7 @@ KOKORO_TTS_MAX_CONCURRENCY=2
 
 ### 手动配置选项
 
-如果需要手动调整配置，可以修改 `.env.local` 文件：
+如果需要手动调整配置，可以修改 `.env.local` 或在运行脚本前导出环境变量：
 
 ```bash
 # 强制使用 CPU
@@ -77,11 +77,26 @@ KOKORO_DEVICE=cpu
 # 强制使用 CUDA
 KOKORO_DEVICE=cuda
 
+# 使用 Apple Silicon GPU
+KOKORO_DEVICE=mps
+
 # 调整并发度 (根据 CPU 核心数调整)
 KOKORO_TTS_MAX_CONCURRENCY=4
 
 # 启用调试模式
 KOKORO_DEBUG=true
+
+# 自定义 PyTorch 安装行为
+KOKORO_TORCH_VARIANT=cuda        # 或 cpu/mps/auto
+KOKORO_TORCH_INDEX_URL=https://download.pytorch.org/whl/cu118
+KOKORO_TORCH_PACKAGES="torch torchaudio torchvision"
+
+# 自定义 Kokoro 资源路径
+KOKORO_REPO_PATH=/opt/kokoro
+KOKORO_VOICE_SOURCE=/data/voices
+KOKORO_CUDA_HOME=/usr/local/cuda-12.2
+KOKORO_HTTP_PROXY=http://proxy.example.com:8080
+KOKORO_HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
 ## 🔧 故障排除
