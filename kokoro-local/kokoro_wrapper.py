@@ -14,6 +14,9 @@ import torch
 import soundfile as sf
 import io
 
+# Keep chunk size small to stay within Kokoro phoneme limits.
+MAX_CHUNK_CHAR_SIZE = 100
+
 # 设置日志
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -198,14 +201,14 @@ class KokoroTTSWrapper:
         
         # 处理长文本：分块而不是截取
         print(f"🔍 Text length check: {len(text)} chars", file=sys.stderr)
-        if len(text) > 500:
-            print(f"📝 Text is long ({len(text)} chars), will chunk into smaller pieces", file=sys.stderr)
+        if len(text) > MAX_CHUNK_CHAR_SIZE:
+            print(f"📝 Text is long ({len(text)} chars), will chunk into {MAX_CHUNK_CHAR_SIZE}-char pieces", file=sys.stderr)
             return await self.generate_speech_chunked(text, speed)
             
         # 对于短文本，直接使用单块处理
         return await self.generate_speech_single(text, speed)
     
-    def split_text_intelligently(self, text: str, max_chunk_size: int = 400) -> list:
+    def split_text_intelligently(self, text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list:
         """智能分割文本，优先在句子边界分割"""
         chunks = []
         
@@ -236,7 +239,7 @@ class KokoroTTSWrapper:
         
         return chunks
     
-    def split_by_sentences(self, text: str, max_chunk_size: int) -> list:
+    def split_by_sentences(self, text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list:
         """按句子分割文本"""
         import re
         
@@ -265,7 +268,7 @@ class KokoroTTSWrapper:
         
         return chunks
     
-    def split_by_commas(self, text: str, max_chunk_size: int) -> list:
+    def split_by_commas(self, text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list:
         """按逗号分割文本"""
         parts = text.split(', ')
         chunks = []

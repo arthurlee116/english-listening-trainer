@@ -25,6 +25,7 @@ DATABASE_URL=file:./data/app.db
 ADMIN_EMAIL=admin@listeningtrain.com
 ADMIN_PASSWORD=Admin123456
 ADMIN_NAME=System Administrator
+CEREBRAS_PROXY_URL=
 ```
 
 ## Common Commands
@@ -41,6 +42,10 @@ ADMIN_NAME=System Administrator
 - APIs: `app/api/ai/*`, `app/api/auth/*`, `app/api/admin/*`, `app/api/tts/route.ts`
 - Core libs: `lib/auth.ts`, `lib/database.ts`, `lib/ai-service.ts`, `lib/kokoro-service*.ts`
 - TTS env: `kokoro-local/`, setup script `scripts/setup-kokoro.sh`
+
+## Proxy Setup
+- Cerebras API calls default to `http://127.0.0.1:7890` in development and `http://81.71.93.183:10811` in production
+- Override the proxy by setting `CEREBRAS_PROXY_URL`
 
 ## TTS Notes
 - First load ~3–5s; generation ~2–8s; RAM ~1–2GB
@@ -67,4 +72,3 @@ ADMIN_NAME=System Administrator
 - Venv issues: recreate `kokoro-local/venv` (e.g., `python3.12 -m venv venv`)
 - AI failures: check API key/network/proxy
 - Auth/DB issues: verify `JWT_SECRET` and DB path permissions
-

@@ -6,7 +6,7 @@
 
 > 面向不同智能代理的补充说明：
 > - Claude Code 指南：见 `CLAUDE.md`
-> - Codex CLI 指南：见 `documents/CODEX.md`
+> - Codex CLI 指南：见 `AGENTS.md`
 
 ## 项目概述
 - 技术栈：Next.js 15、TypeScript、Prisma、SQLite、Kokoro 本地 TTS、Cerebras AI 内容生成
@@ -30,6 +30,8 @@ DATABASE_URL=file:./data/app.db
 ADMIN_EMAIL=admin@listeningtrain.com
 ADMIN_PASSWORD=Admin123456
 ADMIN_NAME=System Administrator
+# 可选代理覆盖（默认本地 127.0.0.1:7890，生产 81.71.93.183:10811）
+CEREBRAS_PROXY_URL=
 ```
 
 ## 常用命令速查
@@ -86,6 +88,9 @@ package.json 中可用脚本（节选）：
   - lib/ai-service.ts（AI 客户端）
 - TTS 环境与脚本
   - kokoro-local/（本地 TTS 环境）
+  - kokoro-local/kokoro_wrapper_real.py 使用 soundfile 写 WAV（无需 SciPy，需保证 libsndfile 可用）
+  - 语言/语音映射：lib/language-config.ts（GPU/CPU 服务共享，保持语音一致性）
+  - 文本分块：CPU/GPU 包装器统一按 100 字符切片，避免模型超长输入
   - scripts/setup-kokoro.sh（自动化安装）
 - 运维与部署
   - docker-compose.yml（容器化示例）
@@ -93,7 +98,7 @@ package.json 中可用脚本（节选）：
   - .env.production.example（生产配置模板）
 
 ## 开发与构建注意
-- 若需代理 Cerebras API，可在 lib/ark-helper.ts 配置 PROXY_URL
+- Cerebras API 调用默认使用环境感知代理：开发本地 `http://127.0.0.1:7890`，生产 `http://81.71.93.183:10811`，如需自定义请设置 `CEREBRAS_PROXY_URL`
 - 构建容错：next.config.mjs 对 TS/ESLint 报错容忍度较高（忽略严格失败，便于迭代）
 - TTS 首次加载 3–5s；生成音频约 2–8s；内存占用约 1–2GB
 - SQLite 在 `lib/database.ts` 中默认启用 WAL + busy_timeout，并通过 `hooks/use-auth-state.ts` 复用缓存用户信息；修改数据库初始化或认证缓存策略时需保持同步
@@ -137,6 +142,16 @@ package.json 中可用脚本（节选）：
 - 标题格式建议：[area] 一句话说明
 - 在提交前：确保能本地启动、核心 API 可用、lint 通过
 - 如涉及行为变更，请补充代码注释与必要的内嵌说明，便于后续代理理解
+
+## 最重要的规则
+- 以暗猜接口为耻，以认真查阅为荣。
+- 以模糊执行为耻，以寻求确认为荣。
+- 以盲想业务为耻，以人类确认为荣。
+- 以创造接口为耻，以复用现有为荣。
+- 以跳过验证为耻，以主动测试为荣。
+- 以破坏架构为耻，以遵循规范为荣。
+- 以假装理解为耻，以诚实无知为荣。
+- 以盲目修改为耻，以谨慎重构为荣。
 
 ——
 本文件旨在让各类编码代理在本仓库有清晰、统一的操作与约定。若项目结构或脚本有更新，请同步维护此文件。

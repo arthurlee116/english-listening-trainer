@@ -32,6 +32,7 @@ DATABASE_URL=file:./data/app.db
 ADMIN_EMAIL=admin@listeningtrain.com
 ADMIN_PASSWORD=Admin123456
 ADMIN_NAME=System Administrator
+CEREBRAS_PROXY_URL=
 ```
 
 ### 初始化和启动命令
@@ -74,6 +75,9 @@ npm run admin-dev            # 开发模式管理服务器
 - **Node.js 桥接**: `lib/kokoro-service.ts` - KokoroTTSService 类管理 Python 进程（CPU 版本）
 - **GPU 服务**: `lib/kokoro-service-gpu.ts` - GPU 版本带有断路器、指数退避和自动重启
 - **Python 包装器**: `kokoro-local/kokoro_wrapper.py` - Kokoro TTS 模型封装
+- **GPU 包装器**: `kokoro-local/kokoro_wrapper_real.py` - 通过 soundfile 写 WAV，避免 SciPy 依赖（需确认 libsndfile 就绪）
+- **语音映射**: `lib/language-config.ts` - 与 GPU 服务共用的语言→语音配置，确保生成语音一致
+- **分块策略**: CPU/GPU 包装器统一按 100 字符拆分长文本，绕开 Kokoro 的序列长度限制
 - **Metal/CUDA 加速**: 自动检测 Apple Silicon 或 CUDA 环境并开启加速
 - **音频存储与清理**: 生成的 WAV 文件保存在 `public/`；`lib/audio-cleanup-service.ts` 由 `lib/kokoro-init.ts` 自动启动，定期清理过期或超量文件
 - **接口契约**: `/api/tts` 返回 `success/audioUrl/duration/byteLength/provider`，前端播放器通过 `initialDuration` 即时渲染进度信息
@@ -107,7 +111,8 @@ npm run admin-dev            # 开发模式管理服务器
 ## 开发注意事项
 
 ### 代理配置
-如需代理访问 Cerebras API，在 `lib/ark-helper.ts` 中配置 `PROXY_URL`
+- Cerebras API 调用在开发时默认使用 `http://127.0.0.1:7890`，生产环境默认 `http://81.71.93.183:10811`
+- 通过设置 `CEREBRAS_PROXY_URL` 可覆盖默认代理，逻辑位于 `lib/ark-helper.ts`
 
 ### 构建配置
 - TypeScript 和 ESLint 错误在构建时被忽略（`next.config.mjs`）
@@ -235,3 +240,13 @@ npm run admin-dev            # 开发模式管理服务器
 - 每次做更改以后（更改完成确认可以运行，功能正常以后）进行git commit
 - 每次git commit后，都必须push到github
 - 严禁使用任何的模拟数据或者硬编码的测试数据
+
+## 最重要的规则
+- 以暗猜接口为耻，以认真查阅为荣。
+- 以模糊执行为耻，以寻求确认为荣。
+- 以盲想业务为耻，以人类确认为荣。
+- 以创造接口为耻，以复用现有为荣。
+- 以跳过验证为耻，以主动测试为荣。
+- 以破坏架构为耻，以遵循规范为荣。
+- 以假装理解为耻，以诚实无知为荣。
+- 以盲目修改为耻，以谨慎重构为荣。

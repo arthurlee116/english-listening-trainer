@@ -14,9 +14,14 @@ if (!CEREBRAS_API_KEY) {
   throw new Error("CEREBRAS_API_KEY 环境变量未设置")
 }
 
-// 代理配置（远程服务器代理）
-const PROXY_URL = 'http://127.0.0.1:7890'
-const proxyAgent = new HttpsProxyAgent(PROXY_URL)
+// Cerebras API 代理：允许通过环境变量覆盖，本地与云端默认不同
+const DEFAULT_LOCAL_PROXY = 'http://127.0.0.1:7890'
+const DEFAULT_REMOTE_PROXY = 'http://81.71.93.183:10811'
+
+const resolvedProxyUrl = process.env.CEREBRAS_PROXY_URL
+  ?? (process.env.NODE_ENV === 'production' ? DEFAULT_REMOTE_PROXY : DEFAULT_LOCAL_PROXY)
+
+const proxyAgent = new HttpsProxyAgent(resolvedProxyUrl)
 
 // 初始化 Cerebras 客户端，使用代理
 const client = new Cerebras({

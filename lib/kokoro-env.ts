@@ -19,6 +19,60 @@ const PATH_KEY = isWindows ? 'Path' : 'PATH'
 const LIBRARY_PATH_KEY = process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH'
 const PATH_DELIMITER = path.delimiter
 
+function safeExistsSync(candidate: string): boolean {
+  try {
+    return fs.existsSync(candidate)
+  } catch {
+    return false
+  }
+}
+
+function hasNvidiaIndicators(): boolean {
+  const { NVIDIA_VISIBLE_DEVICES, CUDA_VISIBLE_DEVICES, KOKORO_CUDA_HOME, CUDA_HOME, NVCUDA_PATH } = process.env
+
+  const hasVisibleDevices = (value?: string) => Boolean(value && value !== '' && value !== 'none')
+
+  if (hasVisibleDevices(NVIDIA_VISIBLE_DEVICES) || hasVisibleDevices(CUDA_VISIBLE_DEVICES)) {
+    return true
+  }
+
+  if (KOKORO_CUDA_HOME || CUDA_HOME || NVCUDA_PATH) {
+    return true
+  }
+
+  const indicatorPaths = [
+    '/proc/driver/nvidia/version',
+    '/proc/driver/nvidia/gpus',
+    '/dev/nvidiactl',
+    '/dev/nvidia0'
+  ]
+
+  return indicatorPaths.some(safeExistsSync)
+}
+
+export function detectKokoroDevicePreference(): KokoroDevicePreference {
+  const explicit = process.env.KOKORO_DEVICE?.toLowerCase() as KokoroDevicePreference | undefined
+  const allowedDevices: KokoroDevicePreference[] = ['auto', 'cuda', 'cpu', 'mps']
+
+  if (explicit && allowedDevices.includes(explicit)) {
+    return explicit
+  }
+
+  if (process.platform === 'darwin') {
+    if (process.arch === 'arm64') {
+      return 'mps'
+    }
+    // Intel Macs without discrete NVIDIA GPU should stick to CPU to avoid CUDA installs
+    return 'cpu'
+  }
+
+  if (hasNvidiaIndicators()) {
+    return 'cuda'
+  }
+
+  return 'auto'
+}
+
 function normalizePathList(...segments: Array<string | undefined>): string[] {
   return segments
     .filter((segment): segment is string => Boolean(segment && segment.trim().length > 0))

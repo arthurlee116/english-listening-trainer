@@ -4,10 +4,37 @@ import sys
 import json
 import torch
 import numpy as np
-import tempfile
+import io
+import re
+import soundfile as sf
 from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
+
+DEFAULT_VOICES = {
+    'a': 'af_bella',
+    'b': 'bf_emma',
+    'e': 'ef_dora',
+    'f': 'ff_siwis',
+    'h': 'hf_alpha',
+    'i': 'if_sara',
+    'p': 'pf_dora',
+    'j': 'jf_alpha',
+    'z': 'zf_ziqi'
+}
+
+# Keep chunk size small to stay within Kokoro phoneme limits.
+MAX_CHUNK_CHAR_SIZE = 100
+
+
+def _normalize_lang_code(lang_code: str) -> str:
+    normalized = lang_code.lower()
+    return ALIASES.get(normalized, normalized) if 'ALIASES' in globals() else normalized
+
+
+def _default_voice_for_lang(lang_code: str) -> str:
+    normalized = _normalize_lang_code(lang_code)
+    return DEFAULT_VOICES.get(normalized, 'af_bella')
 
 # 添加Kokoro路径到Python路径
 def _extend_sys_path() -> None:
@@ -50,7 +77,11 @@ _extend_sys_path()
 try:
     from kokoro.model import KModel
     from kokoro.pipeline import KPipeline
-    from kokoro import ALIASES, LANG_CODES
+    try:
+        # kokoro<0.9.0 re-exported helpers at package root; 0.9.4+ keeps them in pipeline
+        from kokoro import ALIASES, LANG_CODES  # type: ignore
+    except ImportError:
+        from kokoro.pipeline import ALIASES, LANG_CODES
     KOKORO_AVAILABLE = True
 except ImportError as e:
     print(f"❌ Failed to import Kokoro modules: {e}", file=sys.stderr)
@@ -191,6 +222,91 @@ class KokoroTTSReal:
             print(f"❌ Pipeline creation failed for {lang_code}_{voice}: {e}", file=sys.stderr)
             sys.stderr.flush()
             return None
+
+    @staticmethod
+    def split_text_intelligently(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list[str]:
+        """智能分割文本，优先按照段落与句子边界拆分长文本。"""
+        chunks: list[str] = []
+        paragraphs = text.split('\n\n')
+        current_chunk = ''
+
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+
+            if len(current_chunk) + len(paragraph) <= max_chunk_size:
+                current_chunk += (paragraph + '\n\n')
+                continue
+
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+                current_chunk = ''
+
+            if len(paragraph) > max_chunk_size:
+                chunks.extend(KokoroTTSReal.split_by_sentences(paragraph, max_chunk_size))
+            else:
+                current_chunk = paragraph + '\n\n'
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+
+        return chunks or [text]
+
+    @staticmethod
+    def split_by_sentences(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list[str]:
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        chunks: list[str] = []
+        current_chunk = ''
+
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) <= max_chunk_size:
+                current_chunk += (sentence + ' ')
+                continue
+
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+                current_chunk = ''
+
+            if len(sentence) > max_chunk_size:
+                chunks.extend(KokoroTTSReal.split_by_commas(sentence, max_chunk_size))
+            else:
+                current_chunk = sentence + ' '
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+
+        return chunks
+
+    @staticmethod
+    def split_by_commas(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list[str]:
+        parts = text.split(', ')
+        chunks: list[str] = []
+        current_chunk = ''
+
+        for part in parts:
+            if len(current_chunk) + len(part) <= max_chunk_size:
+                current_chunk += (part + ', ')
+                continue
+
+            if current_chunk.strip():
+                chunks.append(current_chunk.rstrip(', '))
+                current_chunk = ''
+
+            if len(part) > max_chunk_size:
+                remaining = part
+                while len(remaining) > max_chunk_size:
+                    chunks.append(remaining[:max_chunk_size])
+                    remaining = remaining[max_chunk_size:]
+                if remaining:
+                    current_chunk = remaining + ', '
+            else:
+                current_chunk = part + ', '
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.rstrip(', '))
+
+        return chunks
     
     def synthesize_audio(self, text, voice='af', speed=1.0, lang_code='en-us'):
         """使用真实Kokoro模型合成音频"""
@@ -202,7 +318,7 @@ class KokoroTTSReal:
                 raise Exception("Model not initialized")
             
             print(f"🎤 Synthesizing audio: {text[:50]}...", file=sys.stderr)
-            print(f"🎭 Voice: {voice}, Language: {lang_code}, Speed: {speed}", file=sys.stderr)
+            print(f"🎭 Voice request: {voice}, Language: {lang_code}, Speed: {speed}", file=sys.stderr)
             sys.stderr.flush()
             
             # 获取管道
@@ -210,69 +326,105 @@ class KokoroTTSReal:
             if not pipeline:
                 raise Exception(f"Failed to create pipeline for {lang_code}")
             
-            # 使用管道生成音频
-            results = list(pipeline(text, voice=voice, speed=speed))
-            
-            if not results or len(results) == 0:
-                raise Exception("No audio generated")
-            
-            # 获取最后一段音频（完整的音频）
-            graphemes, phonemes, audio = results[-1]
-            
-            if audio is None:
+            pipeline_lang = getattr(pipeline, 'lang_code', lang_code)
+            requested_voice = voice or _default_voice_for_lang(pipeline_lang)
+
+            # 确保语音包可用，必要时自动回退
+            def _ensure_voice(voice_id: str) -> str:
+                try:
+                    pipeline.load_voice(voice_id)
+                    return voice_id
+                except Exception as voice_error:
+                    fallback_voice = _default_voice_for_lang(pipeline_lang)
+                    if fallback_voice != voice_id:
+                        print(f"🔄 Voice fallback: {voice_id} → {fallback_voice} ({voice_error})", file=sys.stderr)
+                        sys.stderr.flush()
+                        pipeline.load_voice(fallback_voice)
+                        return fallback_voice
+                    raise
+
+            requested_voice = _ensure_voice(requested_voice)
+
+            # 遍历管道输出，收集所有音频段
+            audio_segments: list[torch.Tensor] = []
+            segment_count = 0
+
+            def _extract_audio(segment):
+                if hasattr(segment, 'audio'):
+                    return segment.audio, getattr(segment, 'graphemes', None)
+                if isinstance(segment, (list, tuple)) and len(segment) >= 3:
+                    return segment[2], segment[0]
+                return None, None
+
+            def _collect_segments(input_text: str, chunk_index: int | None = None) -> None:
+                nonlocal segment_count
+                for segment in pipeline(
+                    input_text,
+                    voice=requested_voice,
+                    speed=speed,
+                    split_pattern=r'\n+'
+                ):
+                    audio_tensor, graphemes = _extract_audio(segment)
+                    if audio_tensor is None:
+                        continue
+                    if isinstance(audio_tensor, torch.Tensor):
+                        audio_tensor = audio_tensor.detach().to('cpu')
+                    else:
+                        audio_tensor = torch.tensor(audio_tensor, dtype=torch.float32)
+                    audio_segments.append(audio_tensor)
+                    segment_count += 1
+                    segment_info = len(graphemes) if isinstance(graphemes, str) else 'unknown'
+                    prefix = f"chunk {chunk_index+1} " if chunk_index is not None else ''
+                    print(f"✅ Segment {segment_count} captured ({prefix}chars: {segment_info})", file=sys.stderr)
+
+            if len(text) > MAX_CHUNK_CHAR_SIZE:
+                chunks = self.split_text_intelligently(text)
+                print(f"🧩 Split text into {len(chunks)} chunks for processing", file=sys.stderr)
+                for idx, chunk_text in enumerate(chunks):
+                    print(f"🚀 Processing chunk {idx+1}/{len(chunks)} ({len(chunk_text)} chars)", file=sys.stderr)
+                    _collect_segments(chunk_text, idx)
+            else:
+                _collect_segments(text)
+
+            if not audio_segments:
                 raise Exception("No audio data generated")
-            
-            # 确保音频在CPU上处理
-            if isinstance(audio, torch.Tensor):
-                audio = audio.cpu()
-            
+
+            # 拼接所有音频段
+            combined_audio = torch.cat(audio_segments)
+
             # 转换为numpy数组
-            audio_array = audio.numpy() if hasattr(audio, 'numpy') else np.array(audio)
-            
+            audio_array = combined_audio.cpu().numpy() if hasattr(combined_audio, 'cpu') else np.array(combined_audio)
+
             # 确保音频数据是float32格式
             if audio_array.dtype != np.float32:
                 audio_array = audio_array.astype(np.float32)
-            
+
             # 归一化音频到[-1, 1]范围
             max_val = np.abs(audio_array).max()
             if max_val > 0:
                 audio_array = audio_array / max_val * 0.95  # 留一些余量避免削波
-            
+
             # Kokoro默认采样率是24000Hz
             sample_rate = 24000
-            
-            # 转换为16位整数
-            audio_int16 = (audio_array * 32767).astype(np.int16)
-            
-            print(f"🎵 Audio generated: {len(audio_int16)} samples at {sample_rate}Hz", file=sys.stderr)
+
+            print(f"🎵 Audio generated: {len(audio_array)} samples at {sample_rate}Hz (segments: {segment_count})", file=sys.stderr)
             sys.stderr.flush()
-            
-            # 创建WAV文件
+
+            # 创建WAV文件（保持PCM16以兼容前端播放器）
             try:
-                import scipy.io.wavfile
-                
-                # 写入临时文件
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
-                    scipy.io.wavfile.write(tmp_file.name, sample_rate, audio_int16)
-                    
-                    # 读取文件内容
-                    with open(tmp_file.name, 'rb') as f:
-                        audio_bytes = f.read()
-                    
-                    # 清理临时文件
-                    os.unlink(tmp_file.name)
-                
-                # 转换为hex字符串
+                buffer = io.BytesIO()
+                sf.write(buffer, audio_array, sample_rate, format='WAV', subtype='PCM_16')
+                audio_bytes = buffer.getvalue()
                 audio_hex = audio_bytes.hex()
-                
+
                 print(f"✅ Audio synthesized successfully: {len(audio_hex)} hex chars", file=sys.stderr)
-                print(f"📊 Audio size: {len(audio_bytes)} bytes", file=sys.stderr)
+                print(f"📊 Audio size: {len(audio_bytes)} bytes (voice: {requested_voice}, segments: {segment_count})", file=sys.stderr)
                 sys.stderr.flush()
-                
+
                 return audio_hex
-                
-            except ImportError:
-                raise Exception("scipy not available for WAV creation")
+
+            except Exception as wav_error:
+                raise Exception(f"Failed to encode WAV audio: {wav_error}")
                 
         except Exception as e:
             print(f"❌ Audio synthesis failed: {e}", file=sys.stderr)

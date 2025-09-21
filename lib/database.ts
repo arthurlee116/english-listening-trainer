@@ -3,7 +3,41 @@
  * 提供统一的数据库操作接口和错误处理机制
  */
 
+import fs from 'fs'
+import path from 'path'
+
 import { PrismaClient } from '@prisma/client'
+
+function normalizeSqliteUrl(rawUrl: string | undefined): string | undefined {
+  if (!rawUrl || !rawUrl.startsWith('file:')) return rawUrl
+
+  const filePath = rawUrl.slice('file:'.length)
+  const needsResolve = filePath.startsWith('./') || filePath.startsWith('../')
+  const resolvedPath = needsResolve ? path.resolve(process.cwd(), filePath) : filePath
+
+  if (resolvedPath !== filePath) {
+    return `file:${resolvedPath}`
+  }
+
+  return rawUrl
+}
+
+function ensureSqliteDirectory(sqliteUrl: string | undefined): void {
+  if (!sqliteUrl || !sqliteUrl.startsWith('file:')) return
+
+  const filePath = sqliteUrl.slice('file:'.length)
+  const directory = path.dirname(filePath)
+
+  if (!fs.existsSync(directory)) {
+    fs.mkdirSync(directory, { recursive: true })
+  }
+}
+
+const normalizedUrl = normalizeSqliteUrl(process.env.DATABASE_URL)
+if (normalizedUrl) {
+  process.env.DATABASE_URL = normalizedUrl
+  ensureSqliteDirectory(normalizedUrl)
+}
 
 type GlobalWithPrisma = typeof globalThis & { __eltPrisma?: PrismaClient }
 

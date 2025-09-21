@@ -23,8 +23,73 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
-PYTHON_VERSION="$($PYTHON_BIN --version 2>&1)"
-log_info "Using $PYTHON_VERSION"
+PYTHON_VERSION_RAW="$($PYTHON_BIN --version 2>&1)"
+PYTHON_VERSION_NUM="$($PYTHON_BIN - <<'PY'
+import sys
+print('.'.join(str(part) for part in sys.version_info[:3]))
+PY
+)"
+
+log_info "Using $PYTHON_VERSION_RAW"
+
+PY_MAJOR="${PYTHON_VERSION_NUM%%.*}"
+PY_MINOR_TMP="${PYTHON_VERSION_NUM#*.}"
+PY_MINOR="${PY_MINOR_TMP%%.*}"
+
+if [[ "$PY_MAJOR" != "3" || "$PY_MINOR" -lt 8 || "$PY_MINOR" -gt 12 ]]; then
+  if command -v python3.12 >/dev/null 2>&1; then
+    log_warn "Python $PYTHON_VERSION_NUM not supported; switching to python3.12"
+    PYTHON_BIN="${KOKORO_PYTHON:-python3.12}"
+    PYTHON_VERSION_RAW="$($PYTHON_BIN --version 2>&1)"
+    PYTHON_VERSION_NUM="$($PYTHON_BIN - <<'PY'
+import sys
+print('.'.join(str(part) for part in sys.version_info[:3]))
+PY
+)"
+    log_info "Using $PYTHON_VERSION_RAW"
+    PY_MAJOR="${PYTHON_VERSION_NUM%%.*}"
+    PY_MINOR_TMP="${PYTHON_VERSION_NUM#*.}"
+    PY_MINOR="${PY_MINOR_TMP%%.*}"
+  fi
+fi
+
+if [[ "$PY_MAJOR" != "3" || "$PY_MINOR" -lt 8 || "$PY_MINOR" -gt 12 ]]; then
+  log_error "Kokoro TTS requires Python 3.8–3.12 (detected $PYTHON_VERSION_NUM). Set KOKORO_PYTHON to a compatible interpreter."
+  exit 1
+fi
+
+if [[ -z "${SSL_CERT_FILE:-}" ]]; then
+  DEFAULT_SSL_CERT="$($PYTHON_BIN - <<'PY'
+import ssl
+path = ssl.get_default_verify_paths().openssl_cafile or ''
+print(path)
+PY
+)"
+  if [[ -n "$DEFAULT_SSL_CERT" && -f "$DEFAULT_SSL_CERT" ]]; then
+    export SSL_CERT_FILE="$DEFAULT_SSL_CERT"
+  fi
+fi
+
+if [[ -z "${REQUESTS_CA_BUNDLE:-}" && -n "${SSL_CERT_FILE:-}" ]]; then
+  export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
+fi
+
+if [[ -d "$KOKORO_DIR/venv" ]]; then
+  if [[ -x "$KOKORO_DIR/venv/bin/python" ]]; then
+    EXISTING_VENV_VERSION="$($KOKORO_DIR/venv/bin/python - <<'PY'
+import sys
+print('.'.join(str(part) for part in sys.version_info[:3]))
+PY
+    2>/dev/null || echo "")"
+    if [[ "$EXISTING_VENV_VERSION" != "$PYTHON_VERSION_NUM" ]]; then
+      log_warn "Existing virtualenv uses Python $EXISTING_VENV_VERSION; removing to rebuild with $PYTHON_VERSION_NUM"
+      rm -rf "$KOKORO_DIR/venv"
+    fi
+  else
+    log_warn "Existing virtualenv is missing python executable; removing"
+    rm -rf "$KOKORO_DIR/venv"
+  fi
+fi
 
 # Create directories
 mkdir -p "$VOICES_DIR" "$PROJECT_ROOT/public/audio"

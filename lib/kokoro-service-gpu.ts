@@ -5,12 +5,15 @@ import fs from 'fs'
 
 import {
   buildKokoroPythonEnv,
+  detectKokoroDevicePreference,
   resolveKokoroPythonExecutable,
   resolveKokoroWorkingDirectory,
   resolveKokoroWrapperPath
 } from './kokoro-env'
 
 import { getWavAudioMetadata, GeneratedAudioResult } from './audio-utils'
+import { DEFAULT_LANGUAGE, getLanguageConfig, isLanguageSupported } from './language-config'
+import type { ListeningLanguage } from './types'
 
 /**
  * 电路断路器状态机
@@ -176,9 +179,11 @@ export class KokoroTTSGPUService extends EventEmitter {
 
       console.log('🚀 Starting Kokoro GPU Python process...')
 
-      const env = buildKokoroPythonEnv({ preferDevice: 'cuda' })
+      // Heuristically pick the best accelerator for the host (Apple → MPS, NVIDIA → CUDA, fallback → auto)
+      const preferredDevice = detectKokoroDevicePreference()
+      const env = buildKokoroPythonEnv({ preferDevice: preferredDevice })
 
-      console.log(`🔧 CUDA preference: ${env.KOKORO_DEVICE}`)
+      console.log(`🔧 TTS device preference: ${env.KOKORO_DEVICE}`)
       if (env.PATH) {
         console.log(`🔧 PATH: ${env.PATH}`)
       }
@@ -380,7 +385,7 @@ export class KokoroTTSGPUService extends EventEmitter {
     }
   }
 
-  async generateAudio(text: string, speed: number = 1.0, _language: string = 'en-US'): Promise<GeneratedAudioResult> {
+  async generateAudio(text: string, speed: number = 1.0, language: string = DEFAULT_LANGUAGE): Promise<GeneratedAudioResult> {
     // 检查电路断路器状态
     if (!this.circuitBreaker.canExecute()) {
       const state = this.circuitBreaker.getState()
@@ -475,11 +480,21 @@ export class KokoroTTSGPUService extends EventEmitter {
         }
       })
 
+      const requestedLanguage = (language ?? DEFAULT_LANGUAGE) as ListeningLanguage
+      const effectiveLanguage = isLanguageSupported(requestedLanguage) ? requestedLanguage : DEFAULT_LANGUAGE
+      const languageConfig = getLanguageConfig(effectiveLanguage)
+      // Align GPU path with the shared language→voice mapping so we reuse the
+      // same Kokoro voice packs as the CPU service.
+      const langCodeForPython = languageConfig.code.length === 1 ? languageConfig.code : languageConfig.code.toLowerCase()
+      const voiceForPython = languageConfig.voice
+
+      console.log(`🎙️ GPU voice configuration → lang: ${effectiveLanguage} (${langCodeForPython}), voice: ${voiceForPython}`)
+
       const request = {
         text,
         speed,
-        lang_code: 'en-us',
-        voice: 'af'
+        lang_code: langCodeForPython,
+        voice: voiceForPython
       }
 
       const requestLine = JSON.stringify(request) + '\n'
