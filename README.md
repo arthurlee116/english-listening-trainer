@@ -33,7 +33,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
     ```bash
     cp .env.example .env.local
     ```
-    Update the file with your Cerebras API key and a secure `JWT_SECRET` (see `CLAUDE.md` for the full list).
+    Update the file with your Cerebras API key and a secure `JWT_SECRET` (see `CLAUDE.md` or `documents/CODEX.md` for the full list).
 
 3.  **Initialize Kokoro TTS (first time only):**
     ```bash

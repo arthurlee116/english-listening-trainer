@@ -17,6 +17,10 @@ interface TranslationSection {
   [key: string]: TranslationKey | TranslationSection;
 }
 
+function isTranslationKey(obj: any): obj is TranslationKey {
+  return obj && typeof obj === 'object' && typeof obj.en === 'string' && typeof obj.zh === 'string';
+}
+
 function validateTranslationFile(filePath: string): boolean {
   console.log(`\n📁 Validating ${filePath}...`);
 
@@ -54,7 +58,7 @@ function validateTranslationStructure(obj: any, prefix = ''): { validKeys: strin
     const fullKey = prefix ? `${prefix}.${key}` : key;
 
     if (value && typeof value === 'object') {
-      if (value.en && value.zh && typeof value.en === 'string' && typeof value.zh === 'string') {
+      if (isTranslationKey(value)) {
         // This is a valid TranslationKey
         validKeys.push(fullKey);
       } else {

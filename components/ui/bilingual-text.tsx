@@ -35,8 +35,10 @@ export function BilingualText({
     console.warn('BilingualText: Missing both translation key and en/zh props');
   }
 
+  const elementProps = props as React.HTMLAttributes<HTMLElement>;
+
   return (
-    <Component className={cn(className)} {...props}>
+    <Component className={cn(className)} {...elementProps}>
       {displayText}
     </Component>
   );

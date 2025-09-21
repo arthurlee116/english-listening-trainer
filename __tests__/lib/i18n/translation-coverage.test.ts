@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isValidTranslationKey, getFallbackText } from '@/lib/i18n/utils'
+import type { TranslationKey } from '@/lib/i18n/types'
 
 // Import translation files directly for testing
 import commonTranslations from '@/lib/i18n/translations/common.json'
@@ -120,7 +121,7 @@ describe('Translation Coverage', () => {
 
     it('should have all required common translation keys', () => {
       requiredCommonKeys.forEach(key => {
-        const value = key.split('.').reduce((obj, k) => obj?.[k], commonTranslations)
+        const value = key.split('.').reduce((obj: any, k: string) => obj?.[k], commonTranslations) as TranslationKey
         expect(value).toBeDefined()
         expect(isValidTranslationKey(value)).toBe(true)
       })
@@ -128,7 +129,7 @@ describe('Translation Coverage', () => {
 
     it('should have all required component translation keys', () => {
       requiredComponentKeys.forEach(key => {
-        const value = key.split('.').reduce((obj, k) => obj?.[k], componentsTranslations)
+        const value = key.split('.').reduce((obj: any, k: string) => obj?.[k], componentsTranslations) as TranslationKey
         expect(value).toBeDefined()
         expect(isValidTranslationKey(value)).toBe(true)
       })
@@ -136,7 +137,7 @@ describe('Translation Coverage', () => {
 
     it('should have all required page translation keys', () => {
       requiredPageKeys.forEach(key => {
-        const value = key.split('.').reduce((obj, k) => obj?.[k], pagesTranslations)
+        const value = key.split('.').reduce((obj: any, k: string) => obj?.[k], pagesTranslations) as TranslationKey
         expect(value).toBeDefined()
         expect(isValidTranslationKey(value)).toBe(true)
       })
@@ -153,18 +154,19 @@ describe('Translation Coverage', () => {
           
           if (value && typeof value === 'object' && 'en' in value && 'zh' in value) {
             // Check for common formatting issues
-            if (value.en.startsWith(' ') || value.en.endsWith(' ')) {
+            const translationKey = value as TranslationKey
+            if (translationKey.en.startsWith(' ') || translationKey.en.endsWith(' ')) {
               issues.push(`English text has leading/trailing spaces at ${currentPath}`)
             }
-            if (value.zh.startsWith(' ') || value.zh.endsWith(' ')) {
+            if (translationKey.zh.startsWith(' ') || translationKey.zh.endsWith(' ')) {
               issues.push(`Chinese text has leading/trailing spaces at ${currentPath}`)
             }
             
             // Check for empty strings
-            if (value.en === '') {
+            if (translationKey.en === '') {
               issues.push(`Empty English text at ${currentPath}`)
             }
-            if (value.zh === '') {
+            if (translationKey.zh === '') {
               issues.push(`Empty Chinese text at ${currentPath}`)
             }
           } else if (value && typeof value === 'object') {

@@ -52,10 +52,10 @@ export function withApiCache(
     if (req.method === 'GET') {
       const cached = apiCache.get(cacheKey)
       if (cached) {
-        return new NextResponse(cached.body, {
-          status: cached.status,
+        return new NextResponse(cached.body as BodyInit | null | undefined, {
+          status: cached.status as number | undefined,
           headers: {
-            ...cached.headers,
+            ...(cached.headers as Record<string, string>),
             'X-Cache': 'HIT',
             'X-Cache-Key': cacheKey
           }

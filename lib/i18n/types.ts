@@ -65,7 +65,7 @@ export interface UseBilingualTextReturn {
 }
 
 // Component prop types
-export interface BilingualTextProps {
+export interface BilingualTextProps extends Omit<React.HTMLAttributes<HTMLElement>, 'children'> {
   translationKey?: string;
   en?: string;
   zh?: string;

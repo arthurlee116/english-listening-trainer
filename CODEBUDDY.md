@@ -29,7 +29,7 @@ Running a single test
 - No test runner is configured in package.json. If ad-hoc scripts exist, run them via tsx (e.g., npm exec tsx path/to/script.ts). Add test commands here after a test framework is introduced.
 
 Environment setup
-- Copy env: cp .env.example .env.local (see CLAUDE.md for required keys like CEREBRAS_API_KEY, JWT_SECRET, DATABASE_URL). For production, use .env.production based on .env.production.example.
+- Copy env: cp .env.example .env.local (see CLAUDE.md or documents/CODEX.md for required keys like CEREBRAS_API_KEY, JWT_SECRET, DATABASE_URL). For production, use .env.production based on .env.production.example.
 - Python 3.8–3.12 required for Kokoro; run npm run setup-kokoro to create kokoro-local/venv and install deps.
 
 High-level architecture

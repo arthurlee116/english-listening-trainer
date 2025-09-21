@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { 
-  formatBilingualText, 
-  formatWithUnit, 
-  getDifficultyLabel, 
+import { describe, it, expect, vi } from 'vitest'
+import {
+  formatBilingualText,
+  formatWithUnit,
+  getDifficultyLabel,
   getDurationLabel,
   difficultyLevels,
   durationOptions

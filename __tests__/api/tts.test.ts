@@ -24,7 +24,7 @@ import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
 import { isLanguageSupported } from '@/lib/language-config'
 
 const mockKokoroTTSGPU = kokoroTTSGPU as any
-const mockIsLanguageSupported = isLanguageSupported as MockedFunction<typeof isLanguageSupported>
+const mockIsLanguageSupported = vi.mocked(isLanguageSupported)
 
 // Mock NextRequest
 const createMockNextRequest = (body: any): NextRequest => {

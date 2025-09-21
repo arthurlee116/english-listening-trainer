@@ -1,8 +1,12 @@
 # AGENTS.md
 
-为在本仓库中工作的智能编码代理提供一份精炼、可执行的项目说明与操作手册。内容基于现有代码与 CLAUDE.md 中的信息整理，旨在帮助你快速搭建环境、运行、修改与验证功能。
+为在本仓库中工作的智能编码代理提供一份精炼、可执行的项目说明与操作手册。内容基于现有代码与 CLAUDE.md、documents/CODEX.md 中的信息整理，旨在帮助你快速搭建环境、运行、修改与验证功能。
 
 > 新增文本类文档时，请直接放入 `documents/` 目录，避免污染仓库根目录。
+
+> 面向不同智能代理的补充说明：
+> - Claude Code 指南：见 `CLAUDE.md`
+> - Codex CLI 指南：见 `documents/CODEX.md`
 
 ## 项目概述
 - 技术栈：Next.js 15、TypeScript、Prisma、SQLite、Kokoro 本地 TTS、Cerebras AI 内容生成

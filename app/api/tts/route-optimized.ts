@@ -60,9 +60,9 @@ async function ttsHandler(request: NextRequest): Promise<NextResponse> {
 
       // 生成音频
       const audio = await kokoroTTS.generateAudio(text, speed)
-      
-      // 缓存音频URL
-      audioCache.set(cacheKey, audio, 30 * 60 * 1000) // 30分钟TTL
+
+      // 缓存音频URL - 类型断言为 Record<string, unknown>
+      audioCache.set(cacheKey, audio as unknown as Record<string, unknown>, 30 * 60 * 1000) // 30分钟TTL
       
       console.log(`✅ TTS音频生成完成: ${audio.audioUrl}`)
       return audio
