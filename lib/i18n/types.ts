@@ -71,7 +71,7 @@ export interface BilingualTextProps extends Omit<React.HTMLAttributes<HTMLElemen
   zh?: string;
   unit?: string;
   className?: string;
-  as?: keyof React.JSX.IntrinsicElements;
+  as?: keyof HTMLElementTagNameMap;
   options?: FormatOptions;
 }
 

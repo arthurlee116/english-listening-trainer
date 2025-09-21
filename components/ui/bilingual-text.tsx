@@ -35,12 +35,13 @@ export function BilingualText({
     console.warn('BilingualText: Missing both translation key and en/zh props');
   }
 
+  const Tag = Component || 'span';
   const elementProps = props as React.HTMLAttributes<HTMLElement>;
 
-  return (
-    <Component className={cn(className)} {...elementProps}>
-      {displayText}
-    </Component>
+  return React.createElement(
+    Tag,
+    { className: cn(className), ...elementProps },
+    displayText
   );
 }
 
