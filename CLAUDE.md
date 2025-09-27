@@ -155,6 +155,19 @@ npm run admin-dev            # 开发模式管理服务器
 - 设置数据库备份机制
 - 配置 HTTPS 确保 JWT cookies 安全传输
 
+## GPU Deployment (Tesla P40)
+- See `documents/DEPLOYMENT-GPU.md` for end-to-end CUDA guidance (Dockerfile, compose topology, scripts, troubleshooting).
+- Core scripts:
+  - `scripts/gpu-environment-check.sh` → `nvidia-smi` detection and `torch.cuda.is_available()` verification.
+  - `scripts/install-pytorch-gpu.sh` → idempotent Kokoro venv bootstrap for CUDA 12.1 (falls back to MPS/CPU when needed).
+  - `scripts/deploy-gpu.sh` → git pull → environment checks → Docker build → `prisma migrate deploy` → `docker compose up` → smoke tests.
+  - `scripts/smoke-test.sh` → hits `/api/health`, `/api/performance/metrics`, `/api/tts`; optional `--check-audio` asserts WAV creation inside the container.
+  - `scripts/rollback-gpu.sh` → stops services and optionally restarts with a specific `IMAGE_TAG`.
+- Compose (`docker-compose.gpu.yml`) mounts `./data`, `./public/audio`, `./logs`, `./backups` and exposes optional `admin` service via profile.
+- Dockerfile base: `nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04`, Node 18 + Python 3.10, and a pre-provisioned Kokoro virtualenv (`torch==2.3.0+cu121`, etc.) running as UID 1001.
+- Run `npm run verify-env -- --file .env.production` before deployments to ensure secrets are populated.
+- CPU fallback: `scripts/install-pytorch-gpu.sh --device cpu` and export `KOKORO_DEVICE=cpu` prior to invoking the deploy script.
+
 ## 系统重构记录 (2024-12)
 **重构类型**: 用户系统架构完全重写
 **改动范围**: 从邀请码访问控制系统改为标准的邮箱密码认证系统

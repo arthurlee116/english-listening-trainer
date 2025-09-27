@@ -4,6 +4,8 @@
 
 本文档详细说明如何在生产环境中部署英语听力训练应用。该应用基于 Next.js 15 构建，集成了 Cerebras AI 和本地 Kokoro TTS 引擎。
 
+> 使用 NVIDIA GPU（Tesla P40 等）请优先阅读 `documents/DEPLOYMENT-GPU.md`，其中包含容器化 CUDA 流水线、脚本说明与故障排查。
+
 ## 系统要求
 
 ### 最低配置

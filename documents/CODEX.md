@@ -59,12 +59,14 @@ CEREBRAS_PROXY_URL=
 ## Health & Checks
 - Verify: Kokoro setup, API key, DB write perms, admin seeding
 - Endpoints: `/api/health`, `/api/performance/metrics`, `/admin`
+- GPU servers: see `documents/DEPLOYMENT-GPU.md` plus helpers (`scripts/deploy-gpu.sh`, `scripts/gpu-environment-check.sh`, `scripts/install-pytorch-gpu.sh`).
 
 ## Agent Conventions
 - Follow AGENTS.md rules across this repo
 - Do not commit real secrets; use env files
 - When changing behavior or contracts, add concise notes to `CLAUDE.md`, `AGENTS.md`, and affected code
 - Prefer minimal, focused changes that match existing style
+- Verify production env files with `npm run verify-env -- --file .env.production` during release prep.
 
 ## Troubleshooting
 - Python version: must be 3.8–3.12

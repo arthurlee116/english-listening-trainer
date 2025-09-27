@@ -1,0 +1,125 @@
+version: "3.9"
+
+x-app-env: &app-env
+  NODE_ENV: ${NODE_ENV:-production}
+  NEXT_TELEMETRY_DISABLED: "1"
+  HOSTNAME: 0.0.0.0
+  PORT: 3000
+  PYTORCH_ENABLE_MPS_FALLBACK: "0"
+  KOKORO_DEVICE: cuda
+
+services:
+  migrate:
+    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    command: ["npx", "prisma", "migrate", "deploy"]
+    user: "1001:1001"
+    env_file:
+      - .env.production
+    environment:
+      <<: *app-env
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+      - type: bind
+        source: ./public/audio
+        target: /app/public/audio
+      - type: bind
+        source: ./logs
+        target: /app/logs
+      - type: bind
+        source: ./backups
+        target: /app/backups
+        propagation: rprivate
+    restart: "no"
+    profiles:
+      - migrate
+    networks:
+      - app-net
+
+  app:
+    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/app.db}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+      - type: bind
+        source: ./public/audio
+        target: /app/public/audio
+      - type: bind
+        source: ./logs
+        target: /app/logs
+      - type: bind
+        source: ./backups
+        target: /app/backups
+        propagation: rprivate
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    device_requests:
+      - driver: nvidia
+        count: -1
+        capabilities:
+          - gpu
+          - utility
+    runtime: nvidia
+    networks:
+      - app-net
+
+  admin:
+    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
+    profiles:
+      - admin
+    command: ["npm", "run", "admin"]
+    env_file:
+      - .env.production
+    environment:
+      <<: *app-env
+      PORT: 3005
+    ports:
+      - "3005:3005"
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+      - type: bind
+        source: ./public/audio
+        target: /app/public/audio
+      - type: bind
+        source: ./logs
+        target: /app/logs
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

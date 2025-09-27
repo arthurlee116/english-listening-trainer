@@ -132,6 +132,19 @@ package.json 中可用脚本（节选）：
 - 监控端点：/api/health（健康检查）、/api/performance/metrics（性能指标）
 - 管理面板：/admin（仅管理员）
 
+## GPU 部署流水线（Tesla P40）
+- 详见 `documents/DEPLOYMENT-GPU.md`，覆盖 Dockerfile、Compose、脚本执行顺序与故障排查。
+- 主要脚本：
+  - `scripts/gpu-environment-check.sh` 检测 `nvidia-smi`、驱动版本以及 `torch.cuda.is_available()`。
+  - `scripts/install-pytorch-gpu.sh` 按 GPU/CPU/MPS 自动创建 `kokoro-local/venv` 并安装匹配的 PyTorch 包（默认为 CUDA 12.1）。
+  - `scripts/deploy-gpu.sh` 完成 git pull → 环境诊断 → Docker 构建 → `prisma migrate deploy` → `docker compose up` → 烟雾测试。
+  - `scripts/smoke-test.sh` 依次访问 `/api/health`、`/api/performance/metrics`、`/api/tts`，可选 `--check-audio` 确认 WAV 写入。
+  - `scripts/rollback-gpu.sh` 停机或基于 `IMAGE_TAG` 重启旧镜像。
+- Compose：`docker-compose.gpu.yml` 默认构建 `english-listening-trainer:gpu`，核心服务 `app`（GPU）、一次性 `migrate`、可选 `admin`。绑定卷 `./data`、`./public/audio`、`./logs`、`./backups`。
+- Dockerfile 基于 `nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04`，`runtime` 阶段内置 `kokoro-local/venv`（`torch==2.3.0+cu121` 等）并以 UID 1001 运行。
+- 环境变量校验：新增 `npm run verify-env -- --file .env.production`，部署前必须替换模板占位符。
+- 无 GPU 时可执行 `scripts/install-pytorch-gpu.sh --device cpu` 并在运行前设置 `KOKORO_DEVICE=cpu`，对应文档中的 CPU fallback 指引。
+
 ## 面向智能代理的工作准则
 - 若你对代码进行了改进，请在 CLAUDE.md、AGENTS.md 与相关代码处添加注释，说明改动与原因
 - 除非我明确要求，禁止用模拟数据代替真实 AI 服务输出（可通过 feature flag 或兜底分支隔离）
