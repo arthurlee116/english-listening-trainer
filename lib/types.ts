@@ -154,3 +154,62 @@ export interface LoadingState {
   loadingText?: string;
   progress?: number;
 }
+
+// AI Analysis Types for Wrong Answers
+export interface RelatedSentence {
+  quote: string
+  comment: string
+}
+
+export interface AIAnalysisResponse {
+  analysis: string
+  key_reason: string
+  ability_tags: string[]
+  signal_words: string[]
+  strategy: string
+  related_sentences: RelatedSentence[]
+  confidence: 'high' | 'medium' | 'low'
+}
+
+export interface AIAnalysisRequest {
+  questionType: string
+  question: string
+  options?: string[]
+  userAnswer: string
+  correctAnswer: string
+  transcript: string
+  exerciseTopic: string
+  exerciseDifficulty: string
+  language: string
+  attemptedAt: string
+}
+
+// Wrong Answer Item interface for database-backed wrong answers
+export interface WrongAnswerItem {
+  answerId: string
+  questionId: string
+  sessionId: string
+  session: {
+    topic: string
+    difficulty: string
+    language: string
+    createdAt: string
+  }
+  question: {
+    index: number
+    type: string
+    question: string
+    options?: string[]
+    correctAnswer: string
+    explanation?: string
+    transcript: string
+  }
+  answer: {
+    userAnswer: string
+    isCorrect: boolean
+    attemptedAt: string
+    aiAnalysis?: AIAnalysisResponse
+    aiAnalysisGeneratedAt?: string
+    needsAnalysis: boolean
+  }
+}

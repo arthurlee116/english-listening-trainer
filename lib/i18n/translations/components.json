@@ -358,6 +358,10 @@
       "en": "Hide Listening Material",
       "zh": "隐藏听力材料"
     },
+    "loadingWrongAnswers": {
+      "en": "Loading wrong answers...",
+      "zh": "正在加载错题..."
+    },
     "questionTypes": {
       "multipleChoice": {
         "en": "Multiple Choice",
@@ -370,6 +374,130 @@
       "shortAnswer": {
         "en": "Short Answer",
         "zh": "简答题"
+      }
+    },
+    "batchAnalysis": {
+      "itemsNeedingAnalysis": {
+        "en": "{count} items need AI analysis",
+        "zh": "{count} 道题需要 AI 分析"
+      },
+      "generateAll": {
+        "en": "Batch Generate All Analysis",
+        "zh": "批量生成所有分析"
+      },
+      "confirmTitle": {
+        "en": "Batch Generate AI Analysis",
+        "zh": "批量生成 AI 分析"
+      },
+      "confirmDescription": {
+        "en": "This will generate AI analysis for {count} wrong answers. This process may take several minutes.",
+        "zh": "这将为 {count} 道错题生成 AI 分析。此过程可能需要几分钟时间。"
+      },
+      "processingWarning": {
+        "en": "Please do not close the page during processing.",
+        "zh": "处理过程中请勿关闭页面。"
+      },
+      "startProcessing": {
+        "en": "Start Processing",
+        "zh": "开始处理"
+      },
+      "successCount": {
+        "en": "{count} successful",
+        "zh": "{count} 个成功"
+      },
+      "failedCount": {
+        "en": "{count} failed",
+        "zh": "{count} 个失败"
+      },
+      "retryFailed": {
+        "en": "Retry Failed",
+        "zh": "重试失败项"
+      }
+    },
+    "export": {
+      "exportAsTxt": {
+        "en": "Export as TXT",
+        "zh": "导出分析为TXT"
+      },
+      "exporting": {
+        "en": "Exporting...",
+        "zh": "导出中..."
+      },
+      "exportComplete": {
+        "en": "Export completed successfully",
+        "zh": "导出完成"
+      },
+      "exportFailed": {
+        "en": "Export failed",
+        "zh": "导出失败"
+      }
+    }
+  },
+  "aiAnalysisCard": {
+    "title": {
+      "en": "AI Analysis",
+      "zh": "AI 分析"
+    },
+    "notGenerated": {
+      "en": "AI analysis not generated yet",
+      "zh": "尚未生成 AI 分析"
+    },
+    "generating": {
+      "en": "Generating AI analysis...",
+      "zh": "正在生成 AI 分析..."
+    },
+    "analysisComplete": {
+      "en": "AI analysis complete",
+      "zh": "AI 分析完成"
+    },
+    "analysisFailed": {
+      "en": "AI analysis failed",
+      "zh": "AI 分析失败"
+    },
+    "generateAnalysis": {
+      "en": "Generate Analysis",
+      "zh": "生成分析"
+    },
+    "detailedAnalysis": {
+      "en": "Detailed Analysis",
+      "zh": "详细分析"
+    },
+    "keyReason": {
+      "en": "Key Reason",
+      "zh": "主要原因"
+    },
+    "abilityTags": {
+      "en": "Ability Tags",
+      "zh": "能力标签"
+    },
+    "signalWords": {
+      "en": "Signal Words",
+      "zh": "关键词"
+    },
+    "strategy": {
+      "en": "Strategy",
+      "zh": "策略建议"
+    },
+    "relatedSentences": {
+      "en": "Related Sentences",
+      "zh": "相关句子"
+    },
+    "errorMessage": {
+      "en": "Failed to generate AI analysis. Please try again.",
+      "zh": "生成 AI 分析失败，请重试。"
+    },
+    "confidence": {
+      "high": {
+        "en": "High Confidence",
+        "zh": "高置信度"
+      },
+      "medium": {
+        "en": "Medium Confidence",
+        "zh": "中等置信度"
+      },
+      "low": {
+        "en": "Low Confidence",
+        "zh": "低置信度"
       }
     }
   },

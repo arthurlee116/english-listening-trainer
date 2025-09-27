@@ -11,6 +11,7 @@ import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book } from "l
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthDialog } from "@/components/auth-dialog"
+import { MigrationNotification } from "@/components/migration-notification"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
 import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
@@ -26,6 +27,7 @@ import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
+import { useLegacyMigration } from "@/hooks/use-legacy-migration"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
 
@@ -83,6 +85,7 @@ export const MainApp = () => {
 
   const { toast } = useToast()
   const { t } = useBilingualText()
+  const { shouldShowNotification } = useLegacyMigration()
 
   const handleUserAuthenticated = useCallback((userData: AuthUserInfo, token: string) => {
     setAuthenticatedUser(userData, token)
@@ -440,6 +443,13 @@ export const MainApp = () => {
           </div>
         </div>
       </header>
+
+      {/* Migration Notification */}
+      {shouldShowNotification() && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <MigrationNotification />
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

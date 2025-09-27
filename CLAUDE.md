@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 这是一个基于 Next.js 15 的英语听力训练应用，使用 AI 生成内容和本地 Kokoro TTS 引擎。主要特点：
 - 邮箱密码用户认证系统（JWT会话管理）
 - Cerebras AI 驱动的内容生成
+- AI 驱动的错题分析系统（详细中文解析和学习策略）
 - 本地 Kokoro TTS（支持 Apple Silicon Metal 加速）  
 - SQLite/Prisma 数据持久化
 - TypeScript 全栈开发
@@ -71,6 +72,13 @@ npm run admin-dev            # 开发模式管理服务器
 3. **问题生成**: `POST /api/ai/questions` - 生成单选题和简答题
 4. **答案评分**: `POST /api/ai/grade` - AI 自动评分和反馈
 
+### 错题 AI 分析系统
+1. **历史数据导入**: `POST /api/practice/import-legacy` - 自动导入 localStorage 历史数据
+2. **单题分析**: `POST /api/ai/wrong-answers/analyze` - 生成详细中文错题分析
+3. **批量分析**: `POST /api/ai/wrong-answers/analyze-batch` - 并发处理多题分析（最多100题）
+4. **错题列表**: `GET /api/wrong-answers/list` - 获取用户错题和分析结果
+5. **数据导出**: 支持将错题和分析导出为 TXT 文件
+
 ### 本地 TTS 架构
 - **Node.js 桥接**: `lib/kokoro-service.ts` - KokoroTTSService 类管理 Python 进程（CPU 版本）
 - **GPU 服务**: `lib/kokoro-service-gpu.ts` - GPU 版本带有断路器、指数退避和自动重启
@@ -85,6 +93,8 @@ npm run admin-dev            # 开发模式管理服务器
 ### 数据库设计
 - **users**: 用户信息和认证数据
 - **practice_sessions**: 练习记录存储（关联到用户）
+- **practice_questions**: 练习题目详情（关联到会话）
+- **practice_answers**: 用户答案和 AI 分析结果（关联到题目）
 
 ## 关键文件和目录
 
