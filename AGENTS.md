@@ -12,6 +12,7 @@
 - 技术栈：Next.js 15、TypeScript、Prisma、SQLite、Kokoro 本地 TTS、Cerebras AI 内容生成
 - 功能域：邮箱密码认证（JWT 会话、httpOnly cookies）、AI 生成听力材料与题目、TTS 生成音频、练习记录存储、管理员面板
 - 运行平台：推荐 macOS（Apple Silicon 可启用 Metal/MPS 加速）
+- 新功能：AI 驱动的错题分析系统，提供详细的中文解析和学习建议
 
 ## 前置依赖
 - Node.js >= 18
@@ -62,6 +63,11 @@ package.json 中可用脚本（节选）：
   - POST /api/ai/transcript：生成听力材料（符合 CEFR）
   - POST /api/ai/questions：生成题目（单选/简答）
   - POST /api/ai/grade：自动评分与反馈
+- 错题 AI 分析系统
+  - POST /api/ai/wrong-answers/analyze：单题 AI 分析
+  - POST /api/ai/wrong-answers/analyze-batch：批量 AI 分析（最多100题并发）
+  - GET /api/wrong-answers/list：获取用户错题列表（支持分页和筛选）
+  - POST /api/practice/import-legacy：导入历史练习数据
 - 本地 TTS
   - Node 桥接：lib/kokoro-service.ts（管理 Python 进程）
   - GPU 版本：lib/kokoro-service-gpu.ts（含断路器和指数退避）
@@ -71,7 +77,8 @@ package.json 中可用脚本（节选）：
   - 清理：lib/audio-cleanup-service.ts 自动定时清理旧文件（在 lib/kokoro-init.ts 启动）
 - 数据库
   - Prisma + SQLite，DATABASE_URL 默认 file:./data/app.db
-  - 主要表：users、practice_sessions
+  - 主要表：users、practice_sessions、practice_questions、practice_answers
+  - 错题分析：AI 分析结果存储为 JSON，支持跨设备同步
 
 ## 重要目录与文件
 - 前端入口与 UI

@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { Card } from "@/components/ui/card"
@@ -30,6 +30,7 @@ import { AssessmentInterface } from "@/components/assessment-interface"
 import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
+import { useLegacyMigration } from "@/hooks/use-legacy-migration"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", labelKey: "difficultyLevels.A1" },
@@ -96,6 +97,9 @@ function HomePage() {
   
   const { toast } = useToast()
   const { t } = useBilingualText()
+  
+  // Legacy data migration hook
+  const { migrationStatus } = useLegacyMigration()
 
   // Helper function to format bilingual toast messages with parameters
   const formatToastMessage = (key: string, params?: Record<string, string | number>): string => {
@@ -147,6 +151,22 @@ function HomePage() {
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResultType | null>(null)
 
   const wordCount = useMemo(() => duration * 2, [duration])
+
+  // Handle legacy data migration status changes
+  useEffect(() => {
+    if (migrationStatus.isComplete && !migrationStatus.hasError && migrationStatus.imported) {
+      toast({
+        title: "Legacy Data Migrated",
+        description: `Successfully migrated ${migrationStatus.imported.sessions} practice sessions to the database.`,
+      })
+    } else if (migrationStatus.isComplete && migrationStatus.hasError) {
+      toast({
+        title: "Migration Error",
+        description: migrationStatus.message,
+        variant: "destructive",
+      })
+    }
+  }, [migrationStatus, toast])
 
   // 记忆化计算，避免不必要的重新渲染
   const isSetupComplete = useMemo(() => {

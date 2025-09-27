@@ -38,17 +38,20 @@ model User {
 model PracticeSession {
   id           String   @id @default(cuid())
   userId       String   @map("user_id")
-  exerciseData String   @map("exercise_data") // JSON 格式的完整练习数据
+  exerciseData String?  @map("exercise_data") // JSON 格式的完整练习数据 (legacy support)
   difficulty   String   // CEFR 级别 (A1, A2, B1, B2, C1, C2)
   language     String   @default("en-US") // 听力语言
   topic        String   // 练习主题
+  transcript   String   // 听力材料文本
   accuracy     Float?   // 准确率 (0-1)
   score        Int?     // 总分
   duration     Int?     // 练习时长(秒)
   createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   
   // 关联关系
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions    PracticeQuestion[]
   
   // 优化索引 - 针对常见查询模式
   @@index([userId, createdAt(sort: Desc)]) // 用户练习历史查询（按时间倒序）
@@ -57,5 +60,61 @@ model PracticeSession {
   @@index([language, createdAt]) // 按语言统计分析
   @@index([accuracy]) // 按准确率统计
   @@index([userId, difficulty, createdAt]) // 用户特定难度练习查询
+  @@index([userId, difficulty], map: "user_difficulty_filter_idx") // 用户难度过滤优化
+  @@index([userId, language], map: "user_language_filter_idx") // 用户语言过滤优化
+  @@index([topic], map: "topic_search_idx") // 主题搜索优化
   @@map("practice_sessions")
+}
+
+// ==========================================
+// 练习题目表 - 存储具体题目信息
+// ==========================================
+model PracticeQuestion {
+  id                 String            @id @default(cuid())
+  sessionId          String            @map("session_id")
+  index              Int               // 题目在会话中的序号
+  type               String            // 题目类型 (multiple_choice, fill_blank, etc.)
+  question           String            // 题目内容
+  options            String?           // JSON 格式的选项 (适用于选择题)
+  correctAnswer      String            @map("correct_answer")
+  explanation        String?           // 题目解释
+  transcriptSnapshot String?           @map("transcript_snapshot") // 相关听力片段
+  createdAt          DateTime          @default(now()) @map("created_at")
+  
+  // 关联关系
+  session            PracticeSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers            PracticeAnswer[]
+  
+  // 优化索引
+  @@index([sessionId, index]) // 按会话和题目序号查询
+  @@index([type, createdAt]) // 按题目类型统计
+  @@index([type], map: "question_type_filter_idx") // 按题目类型过滤优化
+  @@index([question], map: "question_content_search_idx") // 题目内容搜索优化
+  @@map("practice_questions")
+}
+
+// ==========================================
+// 练习答案表 - 存储用户答案和AI分析
+// ==========================================
+model PracticeAnswer {
+  id                     String            @id @default(cuid())
+  questionId             String            @map("question_id")
+  userAnswer             String            @map("user_answer")
+  isCorrect              Boolean           @map("is_correct")
+  attemptedAt            DateTime          @default(now()) @map("attempted_at")
+  aiAnalysis             String?           @map("ai_analysis") // JSON 格式的AI分析结果
+  aiAnalysisGeneratedAt  DateTime?         @map("ai_analysis_generated_at")
+  tags                   String            @default("[]") // JSON 数组格式的标签
+  needsAnalysis          Boolean           @default(true) @map("needs_analysis")
+  
+  // 关联关系
+  question               PracticeQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  // 优化索引
+  @@index([questionId]) // 按题目查询答案
+  @@index([isCorrect, attemptedAt]) // 按正确性和时间查询
+  @@index([needsAnalysis, isCorrect]) // 查询需要AI分析的错误答案
+  @@index([aiAnalysisGeneratedAt]) // 按AI分析时间查询
+  @@index([isCorrect, attemptedAt(sort: Desc)], map: "wrong_answers_list_idx") // 错误答案列表查询优化
+  @@map("practice_answers")
 }
