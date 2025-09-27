@@ -4,6 +4,8 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KOKORO_DIR="$PROJECT_ROOT/kokoro-local"
 VOICES_DIR="$KOKORO_DIR/voices"
+VENV_DIR="${KOKORO_VENV_DIR:-$KOKORO_DIR/venv}"
+
 DEFAULT_VOICE_SOURCE="$PROJECT_ROOT/kokoro-main-ref/kokoro.js/voices"
 PYTHON_BIN="${KOKORO_PYTHON:-python3}"
 TORCH_VARIANT="${KOKORO_TORCH_VARIANT:-auto}"
@@ -16,6 +18,7 @@ log_error() { printf "\033[1;31m[ERROR]\033[0m %s\n" "$1"; }
 log_success() { printf "\033[1;32m[SUCCESS]\033[0m %s\n" "$1"; }
 
 log_info "Preparing Kokoro TTS environment"
+log_info "Virtualenv target: $VENV_DIR"
 
 # Ensure python is available
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
@@ -74,20 +77,20 @@ if [[ -z "${REQUESTS_CA_BUNDLE:-}" && -n "${SSL_CERT_FILE:-}" ]]; then
   export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
 fi
 
-if [[ -d "$KOKORO_DIR/venv" ]]; then
-  if [[ -x "$KOKORO_DIR/venv/bin/python" ]]; then
-    EXISTING_VENV_VERSION="$($KOKORO_DIR/venv/bin/python - <<'PY'
+if [[ -d "$VENV_DIR" ]]; then
+  if [[ -x "$VENV_DIR/bin/python" ]]; then
+    EXISTING_VENV_VERSION="$($VENV_DIR/bin/python - <<'PY'
 import sys
 print('.'.join(str(part) for part in sys.version_info[:3]))
 PY
     2>/dev/null || echo "")"
     if [[ "$EXISTING_VENV_VERSION" != "$PYTHON_VERSION_NUM" ]]; then
       log_warn "Existing virtualenv uses Python $EXISTING_VENV_VERSION; removing to rebuild with $PYTHON_VERSION_NUM"
-      rm -rf "$KOKORO_DIR/venv"
+      rm -rf "$VENV_DIR"
     fi
   else
     log_warn "Existing virtualenv is missing python executable; removing"
-    rm -rf "$KOKORO_DIR/venv"
+    rm -rf "$VENV_DIR"
   fi
 fi
 
@@ -130,14 +133,14 @@ fi
 # Setup virtual environment
 cd "$KOKORO_DIR"
 
-if [[ ! -d venv ]]; then
+if [[ ! -d "$VENV_DIR" ]]; then
   log_info "Creating Python virtual environment"
-  "$PYTHON_BIN" -m venv venv
+  "$PYTHON_BIN" -m venv "$VENV_DIR"
   log_success "Virtual environment created"
 fi
 
 # shellcheck disable=SC1091
-source venv/bin/activate
+source "$VENV_DIR/bin/activate"
 
 pip install --upgrade pip
 

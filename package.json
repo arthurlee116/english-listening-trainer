@@ -24,6 +24,8 @@
     "migrate-data": "tsx scripts/migrate-data.ts",
     "migrate-data:verify": "tsx scripts/migrate-data.ts --verify-only",
     "migrate-data:rollback": "tsx scripts/migrate-data.ts --rollback",
+    "verify-i18n-setup": "tsx scripts/verify-i18n-setup.ts",
+    "verify-env": "tsx scripts/verify-env.ts",
     "test-mcp": "node scripts/test-mcp.js",
     "fix-mcp": "npm cache clean --force && node scripts/test-mcp.js",
     "fix-mcp-sudo": "sudo npm cache clean --force && sudo npm install -g minimax-mcp-js && node scripts/test-mcp.js",
