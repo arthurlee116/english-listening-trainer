@@ -234,19 +234,54 @@ export class ExportService {
    * Get display name for language code
    */
   private static getLanguageDisplayName(language: string): string {
+    if (!language) {
+      return ''
+    }
+
+    const normalized = language.toLowerCase()
+
     const languageMap: Record<string, string> = {
       'en': '英语',
+      'en-us': '英语（美式）',
+      'en-gb': '英语（英式）',
       'zh': '中文',
+      'zh-cn': '中文（简体）',
+      'zh-hans': '中文（简体）',
+      'zh-hant': '中文（繁体）',
+      'zh-tw': '中文（繁体）',
+      'chinese': '中文',
       'ja': '日语',
+      'ja-jp': '日语',
       'ko': '韩语',
+      'ko-kr': '韩语',
       'fr': '法语',
+      'fr-fr': '法语',
       'es': '西班牙语',
-      'de': '德语',
-      'it': '意大利语',
+      'es-es': '西班牙语',
       'pt': '葡萄牙语',
-      'ru': '俄语'
+      'pt-br': '葡萄牙语（巴西）',
+      'de': '德语',
+      'de-de': '德语',
+      'it': '意大利语',
+      'it-it': '意大利语',
+      'ru': '俄语',
+      'ru-ru': '俄语',
+      'hi': '印地语',
+      'hi-in': '印地语'
     }
-    return languageMap[language] || language
+
+    if (languageMap[normalized]) {
+      return languageMap[normalized]
+    }
+
+    if (normalized.includes('-')) {
+      const base = normalized.split('-')[0]
+      if (languageMap[base]) {
+        return languageMap[base]
+      }
+    }
+
+    return language
   }
 
   /**

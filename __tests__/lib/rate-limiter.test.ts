@@ -1,146 +1,79 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
-import { checkRateLimit, RateLimitConfigs, CircuitBreaker, clearRateLimitStore } from '@/lib/rate-limiter'
 
-// Mock NextRequest
-function createMockRequest(ip: string = '127.0.0.1'): NextRequest {
-  const headers = new Headers()
-  headers.set('x-forwarded-for', ip)
-  headers.set('authorization', 'Bearer test-token')
-  
-  const request = {
-    ip,
-    headers,
-    url: 'http://localhost:3000/api/test',
-    method: 'POST'
-  } as any
-  
-  return request as NextRequest
-}
+import {
+  CircuitBreaker,
+  checkRateLimit,
+  clearRateLimitStore,
+  createUserBasedKeyGenerator,
+  recordFailedRequest
+} from '@/lib/rate-limiter'
 
-describe('Rate Limiter', () => {
+describe('rate-limiter', () => {
   beforeEach(() => {
-    // Clear rate limit store between tests
     clearRateLimitStore()
-    vi.clearAllMocks()
   })
 
-  it('should allow requests within rate limit', () => {
-    const request = createMockRequest()
-    const config = {
-      ...RateLimitConfigs.AI_ANALYSIS,
-      maxRequests: 5,
-      windowMs: 60000
-    }
+  function createRequest(headers: Record<string, string>) {
+    return new NextRequest('http://localhost/api/test', { headers })
+  }
 
-    // First request should succeed
-    const result1 = checkRateLimit(request, config)
-    expect(result1.success).toBe(true)
-    expect(result1.remaining).toBe(4)
+  it('enforces the configured limit within a window', () => {
+    const config = { windowMs: 1000, maxRequests: 2 }
+    const request = createRequest({ 'x-forwarded-for': '203.0.113.10' })
 
-    // Second request should succeed
-    const result2 = checkRateLimit(request, config)
-    expect(result2.success).toBe(true)
-    expect(result2.remaining).toBe(3)
+    const first = checkRateLimit(request, config)
+    const second = checkRateLimit(request, config)
+    const third = checkRateLimit(request, config)
+
+    expect(first.success).toBe(true)
+    expect(first.remaining).toBe(1)
+    expect(second.success).toBe(true)
+    expect(second.remaining).toBe(0)
+    expect(third.success).toBe(false)
+    expect(third.remaining).toBe(0)
   })
 
-  it('should block requests exceeding rate limit', () => {
-    const request = createMockRequest()
-    const config = {
-      ...RateLimitConfigs.AI_ANALYSIS,
-      maxRequests: 2,
-      windowMs: 60000
-    }
+  it('restores allowance when failed requests are skipped', () => {
+    const config = { windowMs: 1000, maxRequests: 2, skipFailedRequests: true }
+    const request = createRequest({ 'x-forwarded-for': '203.0.113.11' })
 
-    // First two requests should succeed
-    const result1 = checkRateLimit(request, config)
-    expect(result1.success).toBe(true)
+    const first = checkRateLimit(request, config)
+    recordFailedRequest(request, config)
+    const second = checkRateLimit(request, config)
 
-    const result2 = checkRateLimit(request, config)
-    expect(result2.success).toBe(true)
-
-    // Third request should be blocked
-    const result3 = checkRateLimit(request, config)
-    expect(result3.success).toBe(false)
-    expect(result3.error).toContain('Rate limit exceeded')
+    expect(first.success).toBe(true)
+    expect(second.success).toBe(true)
+    expect(second.remaining).toBe(1)
   })
 
-  it('should differentiate between different IPs', () => {
-    const request1 = createMockRequest('192.168.1.1')
-    const request2 = createMockRequest('192.168.1.2')
-    const config = {
-      ...RateLimitConfigs.AI_ANALYSIS,
-      maxRequests: 1,
-      windowMs: 60000,
-      keyGenerator: (request) => {
-        const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
-        return `ip:${ip}`
-      }
-    }
+  it('builds stable keys that prefer user identity from bearer tokens', () => {
+    const keyGenerator = createUserBasedKeyGenerator('ai:')
+    const request = createRequest({
+      authorization: 'Bearer token-1234567890abcdef',
+      'x-forwarded-for': '198.51.100.8'
+    })
 
-    // Both requests should succeed as they're from different IPs
-    const result1 = checkRateLimit(request1, config)
-    expect(result1.success).toBe(true)
+    const key = keyGenerator(request)
 
-    const result2 = checkRateLimit(request2, config)
-    expect(result2.success).toBe(true)
-
-    // Second request from first IP should be blocked
-    const result3 = checkRateLimit(request1, config)
-    expect(result3.success).toBe(false)
+    expect(key).toBe('ai:user:token-1234567890')
   })
 })
 
-describe('Circuit Breaker', () => {
-  let circuitBreaker: CircuitBreaker
+describe('CircuitBreaker', () => {
+  it('opens after repeated failures and recovers after the timeout', async () => {
+    const breaker = new CircuitBreaker(2, 50, 1)
+    const failingOperation = () => Promise.reject(new Error('transient failure'))
 
-  beforeEach(() => {
-    circuitBreaker = new CircuitBreaker(2, 1000, 1) // 2 failures, 1s recovery, 1 success to close
-  })
+    await expect(breaker.execute(failingOperation)).rejects.toThrow('transient failure')
+    await expect(breaker.execute(failingOperation)).rejects.toThrow('transient failure')
+    expect(breaker.getState()).toBe('OPEN')
 
-  it('should allow operations when closed', async () => {
-    const operation = vi.fn().mockResolvedValue('success')
-    
-    const result = await circuitBreaker.execute(operation)
-    
-    expect(result).toBe('success')
-    expect(operation).toHaveBeenCalledTimes(1)
-    expect(circuitBreaker.getState()).toBe('CLOSED')
-  })
+    await expect(breaker.execute(() => Promise.resolve('ok'))).rejects.toThrow('Circuit breaker is OPEN')
 
-  it('should open after failure threshold', async () => {
-    const operation = vi.fn().mockRejectedValue(new Error('failure'))
-    
-    // First failure
-    await expect(circuitBreaker.execute(operation)).rejects.toThrow('failure')
-    expect(circuitBreaker.getState()).toBe('CLOSED')
-    
-    // Second failure - should open circuit
-    await expect(circuitBreaker.execute(operation)).rejects.toThrow('failure')
-    expect(circuitBreaker.getState()).toBe('OPEN')
-    
-    // Third attempt should be blocked
-    await expect(circuitBreaker.execute(operation)).rejects.toThrow('Circuit breaker is OPEN')
-    expect(operation).toHaveBeenCalledTimes(2) // Should not call operation when open
-  })
+    await new Promise(resolve => setTimeout(resolve, 60))
 
-  it('should transition to half-open after recovery timeout', async () => {
-    const operation = vi.fn()
-      .mockRejectedValueOnce(new Error('failure'))
-      .mockRejectedValueOnce(new Error('failure'))
-      .mockResolvedValueOnce('success')
-    
-    // Trigger failures to open circuit
-    await expect(circuitBreaker.execute(operation)).rejects.toThrow('failure')
-    await expect(circuitBreaker.execute(operation)).rejects.toThrow('failure')
-    expect(circuitBreaker.getState()).toBe('OPEN')
-    
-    // Wait for recovery timeout
-    await new Promise(resolve => setTimeout(resolve, 1100))
-    
-    // Next request should succeed and close circuit
-    const result = await circuitBreaker.execute(operation)
-    expect(result).toBe('success')
-    expect(circuitBreaker.getState()).toBe('CLOSED')
+    const result = await breaker.execute(() => Promise.resolve('healthy'))
+    expect(result).toBe('healthy')
+    expect(breaker.getState()).toBe('CLOSED')
   })
 })

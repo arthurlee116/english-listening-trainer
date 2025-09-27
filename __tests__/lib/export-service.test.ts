@@ -98,7 +98,7 @@ describe('ExportService', () => {
       const content = await ExportService.exportToTXT([mockWrongAnswerItem], {
         includeTranscript: true
       })
-      
+
       expect(content).toContain('【听力材料】')
       expect(content).toContain('Good morning! I hope you brought an umbrella')
     })
@@ -107,8 +107,22 @@ describe('ExportService', () => {
       const content = await ExportService.exportToTXT([mockWrongAnswerItem], {
         includeTranscript: false
       })
-      
+
       expect(content).not.toContain('【听力材料】')
+    })
+
+    it('should localize hyphenated language codes', async () => {
+      const itemWithLocaleLanguage: WrongAnswerItem = {
+        ...mockWrongAnswerItem,
+        session: {
+          ...mockWrongAnswerItem.session,
+          language: 'en-US'
+        }
+      }
+
+      const content = await ExportService.exportToTXT([itemWithLocaleLanguage])
+
+      expect(content).toContain('语言: 英语（美式）')
     })
   })
 
