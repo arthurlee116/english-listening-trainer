@@ -411,7 +411,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                   {availableAchievements.map((achievement) => (
                     <div
                       key={achievement.id}
-                      className="flex flex-col items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-60"
+                      className="flex flex-col items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-light dark:border-gray-700 opacity-60"
                     >
                       <Star className="w-6 h-6 text-gray-400 mb-2" />
                       <div className="text-center">

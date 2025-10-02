@@ -354,7 +354,7 @@ const QuestionInterfaceComponent = ({
                       variant="outline"
                       className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
                     >
-                      {t(`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`)}
+                      {t(`components.specializedPractice.focusAreas.${area}`)}
                     </Badge>
                   ))}
                 </div>

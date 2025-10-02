@@ -303,7 +303,7 @@ const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip
   
   return (
     <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
-      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4 icon-error-light" />
       <h3 className="font-medium text-red-800 mb-2">
         <BilingualText translationKey="components.audioPlayer.audioError" />
       </h3>
@@ -331,7 +331,7 @@ const AudioErrorDisplay = React.memo(({ loading, loadingMessage, onRetry, onSkip
             </>
           ) : (
             <>
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2 icon-button-outline-light" />
               <BilingualText translationKey="components.audioPlayer.retryGenerateAudio" />
             </>
           )}
@@ -359,7 +359,7 @@ const AudioLoadingDisplay = React.memo(({ loadingMessage }: AudioLoadingDisplayP
   
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-      <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
+      <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin icon-loading-light" />
       <h3 className="font-medium text-blue-800 mb-2">
         {loadingMessage || t("components.audioPlayer.loadingAudio")}
       </h3>
@@ -419,7 +419,7 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
           disabled={!audioUrl}
           className="glass-effect bg-transparent rounded-full"
         >
-          <SkipBack className="w-4 h-4" />
+          <SkipBack className="w-4 h-4 icon-interactive-light" />
         </Button>
         
         <Button
@@ -428,7 +428,7 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
           disabled={!audioUrl}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
         >
-          {state.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
+          {state.isPlaying ? <Pause className="w-6 h-6 icon-button-primary-light" /> : <Play className="w-6 h-6 ml-1 icon-button-primary-light" />}
         </Button>
         
         <Button
@@ -438,13 +438,13 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
           disabled={!audioUrl}
           className="glass-effect bg-transparent rounded-full"
         >
-          <SkipForward className="w-4 h-4" />
+          <SkipForward className="w-4 h-4 icon-interactive-light" />
         </Button>
       </div>
       
       {/* Volume Control */}
       <div className="flex items-center gap-3 mb-6">
-        <Volume2 className="w-4 h-4 text-gray-500" />
+        <Volume2 className="w-4 h-4 text-gray-500 icon-tertiary-light" />
         <Slider
           value={[state.volume * 100]}
           onValueChange={controls.setVolume}
@@ -459,9 +459,9 @@ const AudioPlayerInterface = React.memo(({ audioRef, audioUrl, state, controls, 
 AudioPlayerInterface.displayName = 'AudioPlayerInterface'
 
 const AudioReadyDisplay = React.memo(() => (
-  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+  <div className="bg-gray-50 border border-light rounded-lg p-8 text-center">
     <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-      <Volume2 className="w-6 h-6 text-gray-400" />
+      <Volume2 className="w-6 h-6 text-gray-400 icon-muted-light" />
     </div>
     <h3 className="font-medium text-gray-800 mb-2">
       <BilingualText translationKey="components.audioPlayer.readyToGenerate" />
@@ -516,7 +516,7 @@ const PlayerControls = React.memo(({
         className="w-full glass-effect bg-transparent"
         disabled={loading}
       >
-        <RefreshCw className="w-4 h-4 mr-2" />
+        <RefreshCw className="w-4 h-4 mr-2 icon-button-outline-light" />
         <BilingualText translationKey="components.audioPlayer.regenerateListeningMaterial" />
       </Button>
     )}

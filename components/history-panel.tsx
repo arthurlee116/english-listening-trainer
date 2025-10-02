@@ -15,6 +15,7 @@ import { BilingualText } from "@/components/ui/bilingual-text"
 import { getProgressMetrics } from "@/lib/storage"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import type { UserProgressMetrics } from "@/lib/types"
 
 interface HistoryPanelProps {
   onBack: () => void
@@ -29,7 +30,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
   const [languageFilter, setLanguageFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
-  const [progressMetrics, setProgressMetrics] = useState<unknown>(null)
+  const [progressMetrics, setProgressMetrics] = useState<UserProgressMetrics | null>(null)
   const [noteFilter, setNoteFilter] = useState<string>("all")
   const [focusAreaFilter, setFocusAreaFilter] = useState<string>("all")
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -409,7 +410,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                                     className="text-xs px-2 py-0.5"
                                     title={label?.description}
                                   >
-                                    <BilingualText translationKey={`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`} />
+                                    <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
                                     {areaAccuracy !== undefined && (
                                       <span className="ml-1 text-gray-500">({areaAccuracy}%)</span>
                                     )}
