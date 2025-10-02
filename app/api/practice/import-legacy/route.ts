@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { ensureTableColumn } from '@/lib/database'
 import { PrismaClient } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -244,9 +246,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
       }
 
       // Validate date format
-      try {
-        new Date(session.createdAt)
-      } catch {
+      const createdAtDate = new Date(session.createdAt)
+      if (Number.isNaN(createdAtDate.getTime())) {
         allValidationErrors.push(`Session ${sessionIndex}: createdAt must be a valid date string`)
       }
 
@@ -270,9 +271,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
           }
 
           // Validate date format for attemptedAt
-          try {
-            new Date(answer.attemptedAt)
-          } catch {
+          const attemptedAtDate = new Date(answer.attemptedAt)
+          if (Number.isNaN(attemptedAtDate.getTime())) {
             allValidationErrors.push(`Session ${sessionIndex}, Question ${questionIndex}, Answer ${answerIndex}: attemptedAt must be a valid date string`)
           }
         }
@@ -297,6 +297,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
     let importedQuestions = 0
     let importedAnswers = 0
 
+    const hasFocusAreasColumn = await ensureTableColumn(prisma, 'practice_questions', 'focus_areas', 'TEXT')
+
+    if (!hasFocusAreasColumn) {
+      console.error('Import legacy data: focus_areas column is missing and could not be created')
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Database schema is missing required columns',
+          code: ImportErrorCode.DATABASE_ERROR,
+          details: 'practice_questions.focus_areas column is required for import'
+        },
+        { status: 500 }
+      )
+    }
+
     console.log(`Import legacy data: Starting database transaction for ${sessions.length} sessions`, { userId })
 
     // Use database transaction to ensure data consistency
@@ -304,37 +319,46 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
       await prisma.$transaction(async (tx) => {
         for (const legacySession of sessions) {
           try {
+            // Prepare session data with exerciseData for legacy compatibility
+            const sessionData = {
+              userId: userId!,
+              topic: legacySession.topic,
+              difficulty: legacySession.difficulty,
+              language: legacySession.language,
+              transcript: legacySession.transcript,
+              score: legacySession.score || null,
+              exerciseData: JSON.stringify(legacySession), // Serialize full legacy session as JSON for backward compatibility
+              createdAt: new Date(legacySession.createdAt),
+              updatedAt: new Date(legacySession.createdAt)
+            }
+
             // Create practice session
             const practiceSession = await tx.practiceSession.create({
-              data: {
-                userId: userId!,
-                topic: legacySession.topic,
-                difficulty: legacySession.difficulty,
-                language: legacySession.language,
-                transcript: legacySession.transcript,
-                score: legacySession.score || null,
-                createdAt: new Date(legacySession.createdAt),
-                updatedAt: new Date(legacySession.createdAt)
-              }
+              data: sessionData
             })
 
             importedSessions++
 
             // Create questions and answers for this session
             for (const legacyQuestion of legacySession.questions) {
+              const questionData: Prisma.PracticeQuestionUncheckedCreateInput = {
+                sessionId: practiceSession.id,
+                index: legacyQuestion.index,
+                type: legacyQuestion.type,
+                question: legacyQuestion.question,
+                options: legacyQuestion.options ? JSON.stringify(legacyQuestion.options) : null,
+                correctAnswer: legacyQuestion.correctAnswer,
+                explanation: legacyQuestion.explanation || null,
+                transcriptSnapshot: null, // Legacy data doesn't have this field
+                createdAt: new Date(legacySession.createdAt)
+              }
+
+              if (hasFocusAreasColumn) {
+                questionData.focusAreas = null
+              }
+
               const practiceQuestion = await tx.practiceQuestion.create({
-                data: {
-                  sessionId: practiceSession.id,
-                  index: legacyQuestion.index,
-                  type: legacyQuestion.type,
-                  question: legacyQuestion.question,
-                  options: legacyQuestion.options ? JSON.stringify(legacyQuestion.options) : null,
-                  correctAnswer: legacyQuestion.correctAnswer,
-                  explanation: legacyQuestion.explanation || null,
-                  transcriptSnapshot: null, // Legacy data doesn't have this field
-                  focusAreas: null, // Legacy data doesn't have focus areas
-                  createdAt: new Date(legacySession.createdAt)
-                }
+                data: questionData
               })
 
               importedQuestions++
@@ -361,8 +385,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
             console.error(`Import legacy data: Error processing session ${legacySession.sessionId}`, { 
               error: sessionError, 
               userId, 
+              sessionId: legacySession.sessionId
+            })
+
+            // Safe access to Prisma error properties using type assertion
+            const prismaCode = sessionError && typeof sessionError === 'object' && 'code' in sessionError ? (sessionError as any).code : undefined
+            const prismaMeta = sessionError && typeof sessionError === 'object' && 'meta' in sessionError ? (sessionError as any).meta : undefined
+
+            console.error(`Import legacy data: Error processing session ${legacySession.sessionId} (Prisma details)`, { 
+              prismaCode,
+              prismaMeta,
+              userId, 
               sessionId: legacySession.sessionId 
             })
+
             throw sessionError // Re-throw to trigger transaction rollback
           }
         }
@@ -372,6 +408,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
     } catch (transactionError) {
       console.error('Import legacy data: Database transaction failed', { 
         error: transactionError, 
+        userId,
+        sessionsCount: sessions.length
+      })
+      
+      // Safe access to Prisma error properties using type assertion
+      const prismaCode = transactionError && typeof transactionError === 'object' && 'code' in transactionError ? (transactionError as any).code : undefined
+      const prismaMeta = transactionError && typeof transactionError === 'object' && 'meta' in transactionError ? (transactionError as any).meta : undefined
+
+      console.error('Import legacy data: Database transaction failed (Prisma details)', { 
+        prismaCode,
+        prismaMeta,
         userId,
         sessionsCount: sessions.length
       })
@@ -460,7 +507,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
           success: false,
           error: 'Data type validation failed',
           code: ImportErrorCode.VALIDATION_ERROR,
-          details: error.message
+           details: error.message
         },
         { status: 400 }
       )

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { ensureTableColumn } from '@/lib/database'
 import { PrismaClient } from '@prisma/client'
 import type { FocusArea } from '@/lib/types'
+import type { Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -92,6 +94,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const hasFocusAreasColumn = await ensureTableColumn(prisma, 'practice_questions', 'focus_areas', 'TEXT')
+
+    if (!hasFocusAreasColumn) {
+      return NextResponse.json(
+        { error: '数据库结构缺少 practice_questions.focus_areas 列，无法保存练习记录' },
+        { status: 500 }
+      )
+    }
+
     // 使用事务保存练习记录和题目数据
     const result = await prisma.$transaction(async (tx) => {
       // 保存练习会话
@@ -128,18 +139,23 @@ export async function POST(request: NextRequest) {
           }
 
           // 创建题目记录
+          const questionData: Prisma.PracticeQuestionUncheckedCreateInput = {
+            sessionId: practiceSession.id,
+            index: i,
+            type: (question.type as string) || 'single',
+            question: (question.question as string) || '',
+            options: question.options ? JSON.stringify(question.options) : null,
+            correctAnswer: (question.answer as string) || '',
+            explanation: (question.explanation as string) || null,
+            transcriptSnapshot: null
+          }
+
+          if (hasFocusAreasColumn) {
+            questionData.focusAreas = focusAreasJson
+          }
+
           const practiceQuestion = await tx.practiceQuestion.create({
-            data: {
-              sessionId: practiceSession.id,
-              index: i,
-              type: (question.type as string) || 'single',
-              question: (question.question as string) || '',
-              options: question.options ? JSON.stringify(question.options) : null,
-              correctAnswer: (question.answer as string) || '',
-              explanation: (question.explanation as string) || null,
-              transcriptSnapshot: null, // 可以后续扩展
-              focusAreas: focusAreasJson
-            }
+            data: questionData
           })
 
           // 如果有对应的答案结果，创建答案记录

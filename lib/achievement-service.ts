@@ -177,7 +177,7 @@ function calculateProgressFromHistory(exercises: Exercise[], existingMetrics?: U
     // 在大数据量时让出控制权，避免UI冻结
     if (i > 0 && i % BATCH_SIZE === 0) {
       // 使用setTimeout(0)让出执行权，但在测试环境中跳过
-      if (typeof window !== 'undefined' && window.requestIdleCallback) {
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback !== 'undefined') {
         // 在浏览器环境中使用requestIdleCallback
         continue
       }

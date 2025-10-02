@@ -30,7 +30,7 @@ function initializeClient() {
     if (resolvedProxyUrl) {
       console.log(`Initializing Cerebras client with proxy: ${resolvedProxyUrl}`)
       proxyAgent = new HttpsProxyAgent(resolvedProxyUrl)
-      
+
       client = new Cerebras({
         apiKey: CEREBRAS_API_KEY,
         httpAgent: proxyAgent,
@@ -62,21 +62,21 @@ async function checkProxyHealth(): Promise<boolean> {
   if (now - lastProxyCheck < PROXY_CHECK_INTERVAL) {
     return proxyHealthy
   }
-  
+
   lastProxyCheck = now
-  
+
   if (!proxyAgent) {
     proxyHealthy = true
     return true
   }
-  
+
   try {
     // Simple health check - try to make a minimal request
     const testClient = new Cerebras({
       apiKey: CEREBRAS_API_KEY,
       httpAgent: proxyAgent,
     })
-    
+
     // Make a minimal request to test connectivity
     await testClient.chat.completions.create({
       model: CEREBRAS_MODEL_ID,
@@ -84,7 +84,7 @@ async function checkProxyHealth(): Promise<boolean> {
       max_tokens: 1,
       temperature: 0
     })
-    
+
     proxyHealthy = true
     return true
   } catch (error) {
@@ -119,7 +119,7 @@ export async function callArkAPI(
 ): Promise<unknown> {
   let currentClient = client
   let triedFallback = false
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Check proxy health on first attempt
@@ -131,7 +131,7 @@ export async function callArkAPI(
           triedFallback = true
         }
       }
-      
+
       const response = await currentClient.chat.completions.create({
         model: CEREBRAS_MODEL_ID,
         messages: messages.map(msg => ({
@@ -168,10 +168,10 @@ export async function callArkAPI(
       }
 
       return parsedContent
-      
+
     } catch (error) {
       console.error(`Cerebras API attempt ${attempt} failed:`, error)
-      
+
       // If this is a proxy-related error and we haven't tried fallback yet
       if (!triedFallback && proxyAgent && isProxyError(error)) {
         console.log('Proxy error detected, switching to fallback client')
@@ -181,22 +181,22 @@ export async function callArkAPI(
         attempt--
         continue
       }
-      
+
       // If this is the last attempt, throw the error
       if (attempt === maxRetries) {
         throw new Error(`Cerebras API failed after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
-      
+
       // Exponential backoff with jitter
       const baseDelay = Math.pow(2, attempt) * 1000
       const jitter = Math.random() * 1000
       const delay = baseDelay + jitter
-      
+
       console.log(`Retrying in ${delay}ms...`)
       await new Promise((r) => setTimeout(r, delay))
     }
   }
-  
+
   throw new Error("Cerebras API failed after max retries")
 }
 
@@ -205,7 +205,7 @@ export async function callArkAPI(
  */
 function isProxyError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
-  
+
   const message = error.message.toLowerCase()
   return (
     message.includes('proxy') ||
