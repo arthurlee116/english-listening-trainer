@@ -1,177 +1,52 @@
-# AGENTS.md
+# Repository Guidelines
 
-为在本仓库中工作的智能编码代理提供一份精炼、可执行的项目说明与操作手册。内容基于现有代码与 CLAUDE.md、documents/CODEX.md 中的信息整理，旨在帮助你快速搭建环境、运行、修改与验证功能。
+## Project Structure & Module Organization
+- `app/` holds Next.js route handlers, layouts, and global styles; keep new pages in feature folders under `app/`.
+- `components/` contains reusable UI and form primitives shared across views.
+- `lib/` groups domain services (TTS, AI analysis, Kokoro) plus configuration helpers; co-locate new service modules here.
+- `prisma/schema.prisma` owns the database model; migrations and seed data live in `prisma/` and `scripts/`.
+- Tests are split across `__tests__/` (unit, integration, e2e) and `src/test/` fixtures; assets and public audio reside under `public/` and `data/`.
 
-> 新增文本类文档时，请直接放入 `documents/` 目录，避免污染仓库根目录。
+## Build, Test, and Development Commands
+- `npm run dev` starts the Next dev server on port 3000 with hot reload.
+- `npm run build` runs `prisma generate` and compiles the production Next bundle.
+- `npm run start` serves the built app; use after `npm run build`.
+- `npm run test` runs the full Vitest suite; append `--run` for CI-friendly mode.
+- `npm run db:migrate` applies local migrations; `npm run db:seed` populates sample content.
+- `npm run admin` boots the admin companion server; use `npm run admin-dev` when iterating on admin features.
 
-> 面向不同智能代理的补充说明：
-> - Claude Code 指南：见 `CLAUDE.md`
-> - Codex CLI 指南：见 `AGENTS.md`
+## Coding Style & Naming Conventions
+- TypeScript is required; prefer explicit return types on exported functions and keep file names kebab-case (e.g. `user-progress.ts`).
+- React components use PascalCase filenames and default exports when shared broadly.
+- Follow ESLint and `next lint`; run `npm run lint` before submitting.
+- Tailwind utilities are the default styling tool; colocate component styles via class names instead of new CSS modules.
 
-## 项目概述
-- 技术栈：Next.js 15、TypeScript、Prisma、SQLite、Kokoro 本地 TTS、Cerebras AI 内容生成
-- 功能域：邮箱密码认证（JWT 会话、httpOnly cookies）、AI 生成听力材料与题目、TTS 生成音频、练习记录存储、管理员面板
-- 运行平台：推荐 macOS（Apple Silicon 可启用 Metal/MPS 加速）
-- 新功能：AI 驱动的错题分析系统，提供详细的中文解析和学习建议
+## Testing Guidelines
+- Vitest powers unit and integration tests; Testing Library covers React behavior, while `__tests__/e2e` holds higher-level flows.
+- Name tests after the feature under test (`feature-name.test.ts`) and mirror the source folder structure.
+- Keep new tests deterministic; mock external APIs like TTS or Cerebras SDK using local fixtures in `__tests__/utils`.
+- Aim for meaningful assertions around audio rendering, AI feedback, and Prisma interactions; add smoke tests when introducing new routes.
 
-## 前置依赖
-- Node.js >= 18
-- Python 3.8–3.12（Kokoro TTS 不支持 3.13+）
-- 推荐包管理器：npm
+## Commit & Pull Request Guidelines
+- Align with lightweight Conventional Commits (`feat:`, `fix:`, `docs:`). Keep messages ≤72 characters and note user-facing language updates.
+- Pull requests should include: summary, testing notes (commands run), linked issue or doc reference, and screenshots/GIFs for UI changes.
+- Request review from domain owners when touching `lib/` AI services or Prisma schema. Add migration notes in the PR body when schema changes occur.
 
-## 环境变量
-在项目根目录创建 .env.local（或 .env）并设置：
-```
-# .env.local
-CEREBRAS_API_KEY=your_api_key_here
-PYTORCH_ENABLE_MPS_FALLBACK=1
-JWT_SECRET=your-jwt-secret-here
-DATABASE_URL=file:./data/app.db
-# 可选管理员账号（用于初始化）
-ADMIN_EMAIL=admin@listeningtrain.com
-ADMIN_PASSWORD=Admin123456
-ADMIN_NAME=System Administrator
-# 可选代理覆盖（默认本地 127.0.0.1:7890，生产 81.71.93.183:10811）
-CEREBRAS_PROXY_URL=
-```
+## Environment & Data Setup
+- Copy `.env.example` to `.env.local` and run `npm run verify-env` before starting.
+- Use `npm run docker:dev-db` for a throwaway Postgres instance, or `npm run db:reset` to refresh the local database.
+- Track sensitive credentials in `admin_cookies.txt`/`test_cookies.txt` only for local debugging—do not commit or share externally.
 
-## 常用命令速查
-- 安装依赖：npm install
-- 初始化 Kokoro TTS：npm run setup-kokoro
-- 初始化管理员账号：npm run seed-user-db
-- 启动开发：npm run dev（Next.js 开发服务器）
-- 构建生产：npm run build
-- 启动生产：npm run start
-- 代码检查：npm run lint
-- 单元/集成测试：npm test -- --run
-- 管理后台（3005）：npm run admin（或 npm run admin-dev）
-
-package.json 中可用脚本（节选）：
-- dev、build、start、lint
-- admin、admin-dev
-- prisma 相关：db:generate、db:migrate、db:deploy、db:studio、db:push、db:reset
-- TTS 相关：setup-kokoro
-
-## 架构与核心流程
-- 认证系统
-  - 路由：app/api/auth/*
-  - 会话：JWT 存于 httpOnly cookie；支持“记住我”
-  - 密码规范：>= 8 字符，包含大小写与数字
-  - 管理端：/admin（仅管理员）
-- AI 内容生成
-  - POST /api/ai/topics：按难度与时长生成话题
-  - POST /api/ai/transcript：生成听力材料（符合 CEFR）
-  - POST /api/ai/questions：生成题目（单选/简答）
-  - POST /api/ai/grade：自动评分与反馈
-- 错题 AI 分析系统
-  - POST /api/ai/wrong-answers/analyze：单题 AI 分析
-  - POST /api/ai/wrong-answers/analyze-batch：批量 AI 分析（最多100题并发）
-  - GET /api/wrong-answers/list：获取用户错题列表（支持分页和筛选）
-  - POST /api/practice/import-legacy：导入历史练习数据
-- 本地 TTS
-  - Node 桥接：lib/kokoro-service.ts（管理 Python 进程）
-  - GPU 版本：lib/kokoro-service-gpu.ts（含断路器和指数退避）
-  - Python 包装：kokoro-local/kokoro_wrapper.py
-  - 加速：Apple Silicon 自动启用 MPS/Metal（PYTORCH_ENABLE_MPS_FALLBACK=1）
-  - 输出：音频文件存放于 public/
-  - 清理：lib/audio-cleanup-service.ts 自动定时清理旧文件（在 lib/kokoro-init.ts 启动）
-- 数据库
-  - Prisma + SQLite，DATABASE_URL 默认 file:./data/app.db
-  - 主要表：users、practice_sessions、practice_questions、practice_answers
-  - 错题分析：AI 分析结果存储为 JSON，支持跨设备同步
-
-## 重要目录与文件
-- 前端入口与 UI
-  - app/page.tsx（主流程与状态）
-  - components/audio-player.tsx（可变速播放）
-  - components/auth-dialog.tsx（登录/注册）
-- 服务端与 API
-  - app/api/ai/*（Cerebras AI 接口）
-  - app/api/auth/*（认证）
-  - app/api/admin/*（管理员功能）
-  - app/api/tts/route.ts（本地 TTS）
-  - lib/auth.ts（JWT/用户工具）
-  - lib/database.ts（SQLite 封装）
-  - lib/ai-service.ts（AI 客户端）
-- TTS 环境与脚本
-  - kokoro-local/（本地 TTS 环境）
-  - kokoro-local/kokoro_wrapper_real.py 使用 soundfile 写 WAV（无需 SciPy，需保证 libsndfile 可用）
-  - 语言/语音映射：lib/language-config.ts（GPU/CPU 服务共享，保持语音一致性）
-  - 文本分块：CPU/GPU 包装器统一按 100 字符切片，避免模型超长输入
-  - scripts/setup-kokoro.sh（自动化安装）
-- 运维与部署
-  - docker-compose.yml（容器化示例）
-  - nginx/nginx.conf.example（反向代理模板）
-  - .env.production.example（生产配置模板）
-
-## 开发与构建注意
-- Cerebras API 调用默认使用环境感知代理：开发本地 `http://127.0.0.1:7890`，生产 `http://81.71.93.183:10811`，如需自定义请设置 `CEREBRAS_PROXY_URL`
-- 构建容错：next.config.mjs 对 TS/ESLint 报错容忍度较高（忽略严格失败，便于迭代）
-- TTS 首次加载 3–5s；生成音频约 2–8s；内存占用约 1–2GB
-- SQLite 在 `lib/database.ts` 中默认启用 WAL + busy_timeout，并通过 `hooks/use-auth-state.ts` 复用缓存用户信息；修改数据库初始化或认证缓存策略时需保持同步
-- `/api/tts` 现会返回音频时长，前端通过 `initialDuration` 属性即时渲染；更新 TTS API 或播放器组件时务必维持该返回契约
-
-## 校验与联调建议（无正式测试框架）
-- 运行 npm run lint、npm test -- --run 保持代码质量
-- 本地核验清单：
-  1) Kokoro TTS 初始化成功（scripts/setup-kokoro.sh）
-  2) CEREBRAS_API_KEY 生效
-  3) SQLite 文件与目录权限可写
-  4) 管理员账号可用（执行 seed 脚本）
-  5) 访问 /api/health、/api/performance/metrics、/admin 验证核心链路
-
-## 安全与合规
-- 严禁提交任何真实密钥与凭据（使用 .env* 文件与本地环境变量）
-- JWT_SECRET 必须使用高强度随机值
-- 生产启用 HTTPS 以保护 cookies 传输安全
-- 考虑音频与数据库备份/清理策略
-
-## 故障排查（常见问题）
-- Python 版本：必须 3.8–3.12（python3 --version）
-- TTS 初始化失败：重跑 npm run setup-kokoro
-- 虚拟环境异常：删除并重建 venv（例如 python3.12 -m venv venv）
-- AI 生成失败：检查 API Key 与网络/代理
-- 认证异常：检查 JWT_SECRET、数据库可写性
-- 架构不一致：删除 data/app.db 后重新初始化
-
-## 部署与运维
-- 优先使用 docker-compose.yml + Nginx 模板示例
-- 监控端点：/api/health（健康检查）、/api/performance/metrics（性能指标）
-- 管理面板：/admin（仅管理员）
-
-## GPU 部署流水线（Tesla P40）
-- 详见 `documents/DEPLOYMENT-GPU.md`，覆盖 Dockerfile、Compose、脚本执行顺序与故障排查。
-- 主要脚本：
-  - `scripts/gpu-environment-check.sh` 检测 `nvidia-smi`、驱动版本以及 `torch.cuda.is_available()`。
-  - `scripts/install-pytorch-gpu.sh` 按 GPU/CPU/MPS 自动创建 `kokoro-local/venv` 并安装匹配的 PyTorch 包（默认为 CUDA 12.1）。
-  - `scripts/deploy-gpu.sh` 完成 git pull → 环境诊断 → Docker 构建 → `prisma migrate deploy` → `docker compose up` → 烟雾测试。
-  - `scripts/smoke-test.sh` 依次访问 `/api/health`、`/api/performance/metrics`、`/api/tts`，可选 `--check-audio` 确认 WAV 写入。
-  - `scripts/rollback-gpu.sh` 停机或基于 `IMAGE_TAG` 重启旧镜像。
-- Compose：`docker-compose.gpu.yml` 默认构建 `english-listening-trainer:gpu`，核心服务 `app`（GPU）、一次性 `migrate`、可选 `admin`。绑定卷 `./data`、`./public/audio`、`./logs`、`./backups`。
-- Dockerfile 基于 `nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04`，`runtime` 阶段内置 `kokoro-local/venv`（`torch==2.3.0+cu121` 等）并以 UID 1001 运行。
-- 环境变量校验：新增 `npm run verify-env -- --file .env.production`，部署前必须替换模板占位符。
-- 无 GPU 时可执行 `scripts/install-pytorch-gpu.sh --device cpu` 并在运行前设置 `KOKORO_DEVICE=cpu`，对应文档中的 CPU fallback 指引。
-
-## 面向智能代理的工作准则
-- 若你对代码进行了改进，请在 CLAUDE.md、AGENTS.md 与相关代码处添加注释，说明改动与原因
-- 除非我明确要求，禁止用模拟数据代替真实 AI 服务输出（可通过 feature flag 或兜底分支隔离）
-- 若新代码存在问题，请修复当前实现，不要回退到旧版本功能
-- 每次完成可运行的改动后进行小步提交（信息清晰、范围单一）
-
-## 变更范围建议（Pull Request 提示）
-- 标题格式建议：[area] 一句话说明
-- 在提交前：确保能本地启动、核心 API 可用、lint 通过
-- 如涉及行为变更，请补充代码注释与必要的内嵌说明，便于后续代理理解
-
-## 最重要的规则
-- 以暗猜接口为耻，以认真查阅为荣。
-- 以模糊执行为耻，以寻求确认为荣。
-- 以盲想业务为耻，以人类确认为荣。
-- 以创造接口为耻，以复用现有为荣。
-- 以跳过验证为耻，以主动测试为荣。
-- 以破坏架构为耻，以遵循规范为荣。
-- 以假装理解为耻，以诚实无知为荣。
-- 以盲目修改为耻，以谨慎重构为荣。
-
-——
-本文件旨在让各类编码代理在本仓库有清晰、统一的操作与约定。若项目结构或脚本有更新，请同步维护此文件。
+## User Rule (Superimportant)
+1. My system is Mac/Windows.
+2. My system has a M4 processor.
+3. My system  has 32GB of RAM.
+4. 以暗猜接口为耻，以认真查阅为荣。
+5. 以模糊执行为耻，以寻求确认为荣。
+6. 以盲想业务为耻，以人类确认为荣。
+7. 以创造接口为耻，以复用现有为荣。
+8. 以跳过验证为耻，以主动测试为荣。
+9. 以破坏架构为耻，以遵循规范为荣。
+10. 以假装理解为耻，以诚实无知为荣。
+11. 以盲目修改为耻，以谨慎重构为荣。
+12. 不要每次完成任务都打开一个brower preview
