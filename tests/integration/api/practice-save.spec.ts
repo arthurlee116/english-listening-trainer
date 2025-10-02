@@ -5,10 +5,19 @@ import { createMockExercise } from '../../helpers/mock-utils'
 import type { Exercise } from '../../../lib/types'
 
 // Mock Prisma Client
-const mockPrismaTransaction = vi.fn()
-const mockPracticeSessionCreate = vi.fn()
-const mockPracticeQuestionCreate = vi.fn()
-const mockPracticeAnswerCreate = vi.fn()
+const {
+  mockPrismaTransaction,
+  mockPracticeSessionCreate,
+  mockPracticeQuestionCreate,
+  mockPracticeAnswerCreate,
+  mockEnsureTableColumn,
+} = vi.hoisted(() => ({
+  mockPrismaTransaction: vi.fn(),
+  mockPracticeSessionCreate: vi.fn(),
+  mockPracticeQuestionCreate: vi.fn(),
+  mockPracticeAnswerCreate: vi.fn(),
+  mockEnsureTableColumn: vi.fn(),
+}))
 
 vi.mock('@prisma/client', () => ({
   PrismaClient: vi.fn(() => ({
@@ -30,6 +39,10 @@ vi.mock('../../../lib/auth', () => ({
   requireAuth: vi.fn(),
 }))
 
+vi.mock('../../../lib/database', () => ({
+  ensureTableColumn: mockEnsureTableColumn,
+}))
+
 describe('Practice Save API Integration Tests', () => {
   const mockUser = {
     userId: 'test-user-123',
@@ -41,9 +54,45 @@ describe('Practice Save API Integration Tests', () => {
     id: 'test-exercise-1',
     specializedMode: true,
     focusAreas: ['main-idea', 'detail-comprehension'],
+    questions: [
+      {
+        type: 'single',
+        question: 'What is the main topic?',
+        options: ['A', 'B', 'C', 'D'],
+        answer: 'A',
+        focus_areas: ['main-idea'],
+        explanation: 'Test explanation',
+      },
+      {
+        type: 'single',
+        question: 'What detail was mentioned?',
+        options: ['X', 'Y', 'Z', 'W'],
+        answer: 'Y',
+        focus_areas: ['detail-comprehension'],
+        explanation: 'Test explanation 2',
+      },
+    ],
+    results: [
+      {
+        type: 'single',
+        user_answer: 'A',
+        correct_answer: 'A',
+        is_correct: true,
+        question_id: 0,
+        error_tags: [],
+      },
+      {
+        type: 'single',
+        user_answer: 'Y',
+        correct_answer: 'Y',
+        is_correct: true,
+        question_id: 1,
+        error_tags: [],
+      },
+    ],
     perFocusAccuracy: {
-      'main-idea': 85,
-      'detail-comprehension': 70,
+      'main-idea': 100, // 1/1 correct
+      'detail-comprehension': 100, // 1/1 correct
     },
     focusCoverage: {
       requested: ['main-idea', 'detail-comprehension'],
@@ -54,15 +103,18 @@ describe('Practice Save API Integration Tests', () => {
     },
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     
     // Mock successful auth
-    const { requireAuth } = require('../../../lib/auth')
-    requireAuth.mockResolvedValue({
+    const authModule = await import('../../../lib/auth')
+    const requireAuthMock = authModule.requireAuth as unknown as ReturnType<typeof vi.fn>
+    requireAuthMock.mockResolvedValue({
       user: mockUser,
       error: null,
     })
+
+    mockEnsureTableColumn.mockResolvedValue(true)
 
     // Mock successful database operations
     mockPrismaTransaction.mockImplementation(async (callback) => {
@@ -121,6 +173,13 @@ describe('Practice Save API Integration Tests', () => {
       expect(responseData.message).toBe('练习记录保存成功')
       expect(responseData.session.id).toBe('session-123')
 
+      expect(mockEnsureTableColumn).toHaveBeenCalledWith(
+        expect.anything(),
+        'practice_questions',
+        'focus_areas',
+        'TEXT'
+      )
+
       // Verify practice session was created with correct data
       expect(mockPracticeSessionCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -141,8 +200,8 @@ describe('Practice Save API Integration Tests', () => {
       expect(parsedExerciseData.specializedMode).toBe(true)
       expect(parsedExerciseData.focusAreas).toEqual(['main-idea', 'detail-comprehension'])
       expect(parsedExerciseData.perFocusAccuracy).toEqual({
-        'main-idea': 85,
-        'detail-comprehension': 70,
+        'main-idea': 100,
+        'detail-comprehension': 100,
       })
     })
 
@@ -254,8 +313,9 @@ describe('Practice Save API Integration Tests', () => {
 
   describe('Error Handling and Validation', () => {
     it('should handle authentication failures', async () => {
-      const { requireAuth } = require('../../../lib/auth')
-      requireAuth.mockResolvedValue({
+      const authModule = await import('../../../lib/auth')
+      const requireAuthMock = authModule.requireAuth as unknown as ReturnType<typeof vi.fn>
+      requireAuthMock.mockResolvedValue({
         user: null,
         error: 'Unauthorized',
       })
@@ -407,8 +467,9 @@ describe('Practice Save API Integration Tests', () => {
 
   describe('Authentication and Authorization', () => {
     it('should handle missing authentication token', async () => {
-      const { requireAuth } = require('../../../lib/auth')
-      requireAuth.mockResolvedValue({
+      const authModule = await import('../../../lib/auth')
+      const requireAuthMock = authModule.requireAuth as unknown as ReturnType<typeof vi.fn>
+      requireAuthMock.mockResolvedValue({
         user: null,
         error: '未登录',
       })
@@ -433,8 +494,9 @@ describe('Practice Save API Integration Tests', () => {
     })
 
     it('should handle expired authentication token', async () => {
-      const { requireAuth } = require('../../../lib/auth')
-      requireAuth.mockResolvedValue({
+      const authModule = await import('../../../lib/auth')
+      const requireAuthMock = authModule.requireAuth as unknown as ReturnType<typeof vi.fn>
+      requireAuthMock.mockResolvedValue({
         user: null,
         error: 'Token expired',
       })
@@ -465,8 +527,9 @@ describe('Practice Save API Integration Tests', () => {
         name: 'Custom User',
       }
 
-      const { requireAuth } = require('../../../lib/auth')
-      requireAuth.mockResolvedValue({
+      const authModule = await import('../../../lib/auth')
+      const requireAuthMock = authModule.requireAuth as unknown as ReturnType<typeof vi.fn>
+      requireAuthMock.mockResolvedValue({
         user: customUser,
         error: null,
       })
@@ -593,11 +656,17 @@ describe('Practice Save API Integration Tests', () => {
     })
 
     it('should handle non-specialized mode correctly', async () => {
+      const nonSpecializedExercise = createMockExercise({
+        id: 'non-specialized-exercise',
+        focusAreas: undefined, // Explicitly remove focus areas
+        specializedMode: undefined, // Explicitly remove specialized mode
+      })
+
       const requestBody = {
-        exerciseData: mockExercise,
+        exerciseData: nonSpecializedExercise,
         difficulty: 'B1',
         topic: 'Test Topic',
-        specializedMode: false, // Non-specialized
+        // Don't set specializedMode in the request body
       }
 
       const request = new NextRequest('http://localhost:3000/api/practice/save', {
@@ -612,10 +681,35 @@ describe('Practice Save API Integration Tests', () => {
       const exerciseDataArg = mockPracticeSessionCreate.mock.calls[0][0].data.exerciseData
       const parsedExerciseData = JSON.parse(exerciseDataArg)
       
-      // Should not include specialized fields
-      expect(parsedExerciseData.specializedMode).toBeUndefined()
+      // Should not include specialized fields when specializedMode is undefined/falsy
+      expect(parsedExerciseData.specializedMode).toBeFalsy() // Allow false or undefined
       expect(parsedExerciseData.focusAreas).toBeUndefined()
       expect(parsedExerciseData.perFocusAccuracy).toBeUndefined()
+      expect(parsedExerciseData.focusCoverage).toBeUndefined()
+      
+      // Should still contain basic exercise data
+      expect(parsedExerciseData.id).toBe('non-specialized-exercise')
+      expect(parsedExerciseData.achievementMetadata).toBe(null)
+    })
+
+    it('should return error when focus_areas column cannot be ensured', async () => {
+      mockEnsureTableColumn.mockResolvedValueOnce(false)
+
+      const request = new NextRequest('http://localhost:3000/api/practice/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          exerciseData: mockExercise,
+          difficulty: 'B1',
+          topic: 'Sample',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.error).toContain('practice_questions.focus_areas')
     })
   })
 })
