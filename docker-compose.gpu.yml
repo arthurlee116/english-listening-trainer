@@ -34,7 +34,6 @@ services:
       - type: bind
         source: ./backups
         target: /app/backups
-        propagation: rprivate
     restart: "no"
     profiles:
       - migrate
@@ -68,7 +67,6 @@ services:
       - type: bind
         source: ./backups
         target: /app/backups
-        propagation: rprivate
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
