@@ -1,0 +1,460 @@
+{
+  "summary": {
+    "totalTests": 34,
+    "averageExecutionTime": 10.894394617647068,
+    "maxExecutionTime": 350.06395899999984,
+    "totalMemoryUsed": 1722356784,
+    "slowestTests": [
+      {
+        "testName": "should retry on storage failures",
+        "executionTime": 350.06395899999984,
+        "memoryUsage": {
+          "heapUsed": 49767728,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641129
+      },
+      {
+        "testName": "should limit number of notes to maximum",
+        "executionTime": 6.444874999999911,
+        "memoryUsage": {
+          "heapUsed": 52527920,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641139
+      },
+      {
+        "testName": "should handle localStorage errors gracefully",
+        "executionTime": 2.625833000000057,
+        "memoryUsage": {
+          "heapUsed": 48832144,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330640775
+      },
+      {
+        "testName": "should save exercise to history",
+        "executionTime": 2.1669580000000224,
+        "memoryUsage": {
+          "heapUsed": 48013312,
+          "heapTotal": 89948160,
+          "external": 5281933
+        },
+        "timestamp": 1759330640770
+      },
+      {
+        "testName": "should limit history to maximum 10 items",
+        "executionTime": 1.3253750000001219,
+        "memoryUsage": {
+          "heapUsed": 48642880,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330640773
+      }
+    ],
+    "memoryHeaviestTests": [
+      {
+        "testName": "should return false when localStorage throws error",
+        "executionTime": 0.18295800000009876,
+        "memoryUsage": {
+          "heapUsed": 53387344,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641142
+      },
+      {
+        "testName": "should return true when localStorage is available",
+        "executionTime": 0.3840829999999187,
+        "memoryUsage": {
+          "heapUsed": 53308816,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641142
+      },
+      {
+        "testName": "should handle storage errors gracefully",
+        "executionTime": 0.3279579999998532,
+        "memoryUsage": {
+          "heapUsed": 53215472,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641141
+      },
+      {
+        "testName": "should return false for non-existent note",
+        "executionTime": 0.20000000000004547,
+        "memoryUsage": {
+          "heapUsed": 53114176,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641141
+      },
+      {
+        "testName": "should delete existing note",
+        "executionTime": 0.3738749999999982,
+        "memoryUsage": {
+          "heapUsed": 53043128,
+          "heapTotal": 89948160,
+          "external": 5281973
+        },
+        "timestamp": 1759330641141
+      }
+    ]
+  },
+  "metrics": [
+    {
+      "testName": "should save exercise to history",
+      "executionTime": 2.1669580000000224,
+      "memoryUsage": {
+        "heapUsed": 48013312,
+        "heapTotal": 89948160,
+        "external": 5281933
+      },
+      "timestamp": 1759330640770
+    },
+    {
+      "testName": "should add new exercises to the beginning of history",
+      "executionTime": 0.378832999999986,
+      "memoryUsage": {
+        "heapUsed": 48129304,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640771
+    },
+    {
+      "testName": "should limit history to maximum 10 items",
+      "executionTime": 1.3253750000001219,
+      "memoryUsage": {
+        "heapUsed": 48642880,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640773
+    },
+    {
+      "testName": "should handle localStorage errors gracefully",
+      "executionTime": 2.625833000000057,
+      "memoryUsage": {
+        "heapUsed": 48832144,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640775
+    },
+    {
+      "testName": "should return empty array when no history exists",
+      "executionTime": 0.09904199999982666,
+      "memoryUsage": {
+        "heapUsed": 48904104,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640776
+    },
+    {
+      "testName": "should return stored history",
+      "executionTime": 0.3813340000001517,
+      "memoryUsage": {
+        "heapUsed": 49021448,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640776
+    },
+    {
+      "testName": "should handle corrupted localStorage data gracefully",
+      "executionTime": 0.3840410000000247,
+      "memoryUsage": {
+        "heapUsed": 49122000,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640777
+    },
+    {
+      "testName": "should clear all history",
+      "executionTime": 0.19733300000007148,
+      "memoryUsage": {
+        "heapUsed": 49205032,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640777
+    },
+    {
+      "testName": "should handle localStorage errors gracefully",
+      "executionTime": 0.2603750000000673,
+      "memoryUsage": {
+        "heapUsed": 49358000,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640777
+    },
+    {
+      "testName": "should save progress metrics with retry mechanism",
+      "executionTime": 0.36495800000011513,
+      "memoryUsage": {
+        "heapUsed": 49464216,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640778
+    },
+    {
+      "testName": "should validate data integrity before saving",
+      "executionTime": 0.506458000000066,
+      "memoryUsage": {
+        "heapUsed": 49554592,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640778
+    },
+    {
+      "testName": "should truncate weekly trend when data is too large",
+      "executionTime": 0.21575000000007094,
+      "memoryUsage": {
+        "heapUsed": 49639904,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330640778
+    },
+    {
+      "testName": "should retry on storage failures",
+      "executionTime": 350.06395899999984,
+      "memoryUsage": {
+        "heapUsed": 49767728,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641129
+    },
+    {
+      "testName": "should return default metrics when no data exists",
+      "executionTime": 0.17620899999997164,
+      "memoryUsage": {
+        "heapUsed": 49840360,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641129
+    },
+    {
+      "testName": "should validate and fix corrupted data",
+      "executionTime": 0.37629100000003746,
+      "memoryUsage": {
+        "heapUsed": 49944208,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641129
+    },
+    {
+      "testName": "should handle JSON parsing errors gracefully",
+      "executionTime": 0.22733400000015536,
+      "memoryUsage": {
+        "heapUsed": 50028832,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641130
+    },
+    {
+      "testName": "should convert exercise with totalDurationSec",
+      "executionTime": 0.29424999999991996,
+      "memoryUsage": {
+        "heapUsed": 50114168,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641130
+    },
+    {
+      "testName": "should use fallback duration calculation when totalDurationSec is missing",
+      "executionTime": 0.21212500000001455,
+      "memoryUsage": {
+        "heapUsed": 50187648,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641130
+    },
+    {
+      "testName": "should use word-based estimation for unreasonable time differences",
+      "executionTime": 0.19791699999996126,
+      "memoryUsage": {
+        "heapUsed": 50253624,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641131
+    },
+    {
+      "testName": "should handle exercises with no results",
+      "executionTime": 0.18220799999994597,
+      "memoryUsage": {
+        "heapUsed": 50330432,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641131
+    },
+    {
+      "testName": "should save practice note successfully",
+      "executionTime": 0.36741700000015953,
+      "memoryUsage": {
+        "heapUsed": 50422656,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641131
+    },
+    {
+      "testName": "should update existing note",
+      "executionTime": 0.19516699999985576,
+      "memoryUsage": {
+        "heapUsed": 50498488,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641132
+    },
+    {
+      "testName": "should enforce size limits",
+      "executionTime": 0.2606670000000122,
+      "memoryUsage": {
+        "heapUsed": 50586352,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641132
+    },
+    {
+      "testName": "should limit number of notes to maximum",
+      "executionTime": 6.444874999999911,
+      "memoryUsage": {
+        "heapUsed": 52527920,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641139
+    },
+    {
+      "testName": "should handle storage errors gracefully",
+      "executionTime": 0.3786250000000564,
+      "memoryUsage": {
+        "heapUsed": 52627088,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641139
+    },
+    {
+      "testName": "should handle non-string input",
+      "executionTime": 0.15087499999981446,
+      "memoryUsage": {
+        "heapUsed": 52704064,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641139
+    },
+    {
+      "testName": "should return empty string for non-existent note",
+      "executionTime": 0.07349999999996726,
+      "memoryUsage": {
+        "heapUsed": 52774472,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641139
+    },
+    {
+      "testName": "should return saved note",
+      "executionTime": 0.11958400000003166,
+      "memoryUsage": {
+        "heapUsed": 52844952,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641140
+    },
+    {
+      "testName": "should handle storage errors gracefully",
+      "executionTime": 0.3132500000001528,
+      "memoryUsage": {
+        "heapUsed": 52947920,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641140
+    },
+    {
+      "testName": "should delete existing note",
+      "executionTime": 0.3738749999999982,
+      "memoryUsage": {
+        "heapUsed": 53043128,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641141
+    },
+    {
+      "testName": "should return false for non-existent note",
+      "executionTime": 0.20000000000004547,
+      "memoryUsage": {
+        "heapUsed": 53114176,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641141
+    },
+    {
+      "testName": "should handle storage errors gracefully",
+      "executionTime": 0.3279579999998532,
+      "memoryUsage": {
+        "heapUsed": 53215472,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641141
+    },
+    {
+      "testName": "should return true when localStorage is available",
+      "executionTime": 0.3840829999999187,
+      "memoryUsage": {
+        "heapUsed": 53308816,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641142
+    },
+    {
+      "testName": "should return false when localStorage throws error",
+      "executionTime": 0.18295800000009876,
+      "memoryUsage": {
+        "heapUsed": 53387344,
+        "heapTotal": 89948160,
+        "external": 5281973
+      },
+      "timestamp": 1759330641142
+    }
+  ],
+  "thresholds": {
+    "maxExecutionTime": 5000,
+    "maxMemoryUsage": 104857600,
+    "failFastOnCritical": true
+  },
+  "timestamp": 1759330641143
+}
