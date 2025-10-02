@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 
-import { Loader2, Sparkles, History, MessageSquare, User, Settings, LogOut, Book, Keyboard } from "lucide-react"
+import { Loader2, Sparkles, History, User, Settings, LogOut, Book, Keyboard } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthDialog } from "@/components/auth-dialog"
@@ -132,7 +132,10 @@ function HomePage() {
   const { toast } = useToast()
   const { t } = useBilingualText()
   
-  // Legacy data migration hook
+  // 使用状态来控制组件是否已在客户端挂载
+  const [hasMounted, setHasMounted] = useState(false)
+  
+  // Legacy data migration hook - 在客户端挂载后安全执行
   const { migrationStatus } = useLegacyMigration()
 
   // Helper function to format bilingual toast messages with parameters
@@ -209,7 +212,7 @@ function HomePage() {
   const exerciseStartTimeRef = useRef<number | null>(null)
   
   // 快捷键设置
-  const { enabled: shortcutsEnabled, setEnabled: setShortcutsEnabled, onboarded, setOnboarded } = useShortcutSettings()
+  const { enabled: shortcutsEnabled, onboarded, setOnboarded } = useShortcutSettings()
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState<boolean>(false)
   
   // Enhanced loading states for better UX
@@ -752,6 +755,12 @@ function HomePage() {
     }
   }, [focusAreaStats, debouncedFunctions])
 
+  // 客户端挂载状态管理
+  useEffect(() => {
+    console.log('📱 页面组件挂载完成，设置 hasMounted = true')
+    setHasMounted(true)
+  }, [])
+
   // 快捷键系统初始化和入门引导
   useEffect(() => {
     if (shortcutsEnabled && !onboarded && isAuthenticated) {
@@ -935,7 +944,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, topic, wordCount, language, toast, cachedApiCall])
+  }, [difficulty, topic, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
 
   const handleApplyTemplate = useCallback((tpl: PracticeTemplate) => {
     let appliedLanguage: ListeningLanguage = tpl.language
@@ -1343,11 +1352,6 @@ function HomePage() {
     }
   }, [currentExercise, toast])
 
-  const handleFeedback = useCallback(() => {
-    const subject = encodeURIComponent("English Listening Trainer Feedback")
-    const body = encodeURIComponent(`Page URL: ${window.location.href}\n\nFeedback:\n`)
-    window.open(`mailto:laoli3699@qq.com?subject=${subject}&body=${body}`)
-  }, [])
 
   // 快捷键处理函数
   const handleShortcut: ShortcutHandler = useCallback((action) => {
@@ -1365,7 +1369,8 @@ function HomePage() {
         break
       case 'toggle-specialized-mode':
         if (step === 'setup') {
-          setIsSpecializedMode(!isSpecializedMode)
+          console.log('Specialized Mode Toggle - Current State:', isSpecializedMode, 'Focus Areas:', selectedFocusAreas, 'Window Width:', window.innerWidth)
+          handleSpecializedModeToggle()
         }
         break
       case 'close-dialog':
@@ -1388,17 +1393,7 @@ function HomePage() {
     }
   }, [step, isSpecializedMode, showShortcutHelp, showOnboarding])
 
-  // 快捷键设置切换
-  const handleToggleShortcuts = useCallback(() => {
-    const newEnabled = !shortcutsEnabled
-    setShortcutsEnabled(newEnabled)
-    toast({
-      title: newEnabled ? t("shortcuts.shortcutsEnabled") : t("shortcuts.shortcutsDisabled"),
-      description: newEnabled ? t("shortcuts.onboardingDescription") : "",
-    })
-  }, [shortcutsEnabled, setShortcutsEnabled, toast, t])
 
-  // 完成入门引导
   const handleCompleteOnboarding = useCallback(() => {
     setOnboarded(true)
     setShowOnboarding(false)
@@ -1440,9 +1435,10 @@ function HomePage() {
   }, [])
 
   // 专项模式核心逻辑函数
-  const handleSpecializedModeToggle = useCallback((enabled: boolean) => {
-    setIsSpecializedMode(enabled)
-    if (!enabled) {
+  const handleSpecializedModeToggle = useCallback((enabled?: boolean) => {
+    const newState = enabled !== undefined ? enabled : !isSpecializedMode
+    setIsSpecializedMode(newState)
+    if (!newState) {
       // 关闭专项模式时清空相关状态
       setSelectedFocusAreas([])
       setFocusCoverage(null)
@@ -1455,7 +1451,7 @@ function HomePage() {
       setAudioError(false)
       exerciseStartTimeRef.current = null
     }
-  }, [])
+  }, [isSpecializedMode])
 
   const handleFocusAreaSelection = useCallback((areas: FocusArea[]) => {
     // Use debounced selection to prevent rapid state updates
@@ -1616,8 +1612,11 @@ function HomePage() {
     return perFocusAccuracy
   }, [selectedFocusAreas])
 
-  // 如果正在加载认证状态，显示加载界面
-  if (isLoading) {
+  // 如果正在加载认证状态或未完成客户端挂载，显示加载界面
+  console.log(`🔄 渲染状态检查: isLoading=${isLoading}, hasMounted=${hasMounted}, isAuthenticated=${isAuthenticated}`)
+  
+  if (isLoading || !hasMounted) {
+    console.log('🔄 显示加载界面...')
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <Card className="p-8 text-center">
@@ -1635,6 +1634,7 @@ function HomePage() {
 
   // 如果用户未认证，显示认证对话框
   if (!isAuthenticated) {
+    console.log('🔐 显示登录对话框...')
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <AuthDialog
@@ -1704,142 +1704,162 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <header className="flex justify-between items-center mb-8" role="banner">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                <BilingualText translationKey="pages.home.title" />
-              </h1>
-              {/* Specialized Mode Badge */}
-              {isSpecializedMode && (
-                <Badge variant="default" className="bg-blue-600 text-white">
-                  <BilingualText translationKey="components.specializedPractice.title" />
-                  {selectedFocusAreas.length > 0 && (
-                    <span className="ml-1">({selectedFocusAreas.length})</span>
-                  )}
-                </Badge>
-              )}
-            </div>
-            <p className="text-gray-600 dark:text-gray-300">
-              <BilingualText translationKey="pages.home.subtitle" />
-            </p>
-            
-            {/* Coverage Warning */}
-            {isSpecializedMode && focusCoverage && focusCoverage.coverage < 1 && (
-              <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">!</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                      <BilingualText translationKey="components.specializedPractice.coverage.warning" />
-                    </p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                      <BilingualText 
-                        translationKey="components.specializedPractice.coverage.warningDescription"
-                      />
-                      {` (${Math.round(focusCoverage.coverage * 100)}%)`}
-                    </p>
-                    {focusCoverage.unmatchedTags.length > 0 && (
-                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                        <BilingualText translationKey="components.specializedPractice.coverage.unmatchedTags" />
-                        {`: ${focusCoverage.unmatchedTags.map(tag => 
-                          t(`components.specializedPractice.focusAreas.${tag.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`)
-                        ).join(', ')}`}
-                      </p>
-                    )}
-                  </div>
-                </div>
+        {/* Main Header Panel */}
+        <div className="mb-8 flex justify-center">
+          <div className="bg-slate-900/50 backdrop-blur rounded-3xl p-6 md:p-8 shadow-2xl max-w-5xl w-full">
+            {/* Main Title Section */}
+            <div className="text-center mb-6">
+              <div className="space-y-2 mb-4">
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-sky-400 leading-tight" style={{maxWidth: '560px', margin: '0 auto', textWrap: 'balance'}}>
+                  English Listening Trainer
+                </h1>
+                <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-sky-400 leading-tight" style={{maxWidth: '560px', margin: '0 auto', textWrap: 'balance'}}>
+                  英语听力训练器
+                </h2>
               </div>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            {/* User Menu */}
-            {isAuthenticated && user && (
-              <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 shadow-sm border border-gray-200" role="region" aria-label={t("labels.userMenu")}>
-                <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium">{user.name || user.email}</span>
-                {user.isAdmin && (
-                  <Badge variant="outline" className="text-green-600 border-green-300">
-                    <BilingualText translationKey="labels.administrator" />
+              <div className="text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed">
+                <p className="mb-1">Improve your English listening skills with AI-powered exercises</p>
+                <p>通过AI驱动的练习提升您的英语听力技能</p>
+              </div>
+            </div>
+            
+            {/* Action Buttons Section */}
+            <div className="flex flex-wrap gap-3 justify-center items-center lg:gap-4">
+              {/* User Info Row */}
+              <div className="flex flex-wrap gap-2 w-full justify-center sm:w-auto">
+                {/* User Info */}
+                {isAuthenticated && user && (
+                  <Badge variant="secondary" className="bg-slate-900/60 text-sky-400 border-slate-700">
+                    <User className="w-4 h-4 mr-2" />
+                    <span className="text-sm">{user.name || user.email}</span>
+                    {user.isAdmin && (
+                      <span className="ml-2 text-xs text-green-400">Admin</span>
+                    )}
                   </Badge>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="p-1 h-6 w-6 text-gray-500 hover:text-red-600"
-                  title={t("buttons.logout")}
-                  aria-label={t("buttons.logout")}
-                >
-                  <LogOut className="w-3 h-3" />
+                
+                {/* Personalized Difficulty Badge */}
+                {assessmentResult && (
+                  <Badge variant="secondary" className="bg-slate-900/60 text-sky-400 border-slate-700">
+                    <span className="text-sm">
+                      个性化难度：{assessmentResult.difficultyRange.name}
+                      <span className="ml-1">({assessmentResult.difficultyRange.min}-{assessmentResult.difficultyRange.max})</span>
+                    </span>
+                  </Badge>
+                )}
+                
+                {/* Specialized Mode Badge */}
+                {isSpecializedMode && (
+                  <Badge variant="secondary" className="bg-slate-900/60 text-sky-400 border-slate-700">
+                    <BilingualText translationKey="components.specializedPractice.title" />
+                    {selectedFocusAreas.length > 0 && (
+                      <span className="ml-1">({selectedFocusAreas.length})</span>
+                    )}
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Primary Action Buttons Row */}
+              <div className="flex flex-wrap gap-2 justify-center sm:gap-3">
+                <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.assessment" /></span>
+                  <span className="sm:hidden">Assessment</span>
+                </Button>
+                
+                <Button variant="outline" size="sm" onClick={() => setStep("history")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
+                  <History className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.history" /></span>
+                  <span className="sm:hidden">History</span>
+                </Button>
+                
+                <Button variant="outline" size="sm" onClick={() => setStep("wrong-answers")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
+                  <Book className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.wrongAnswersBook" /></span>
+                  <span className="sm:hidden">错题本</span>
                 </Button>
               </div>
-            )}
-            {/* Personalized Difficulty Badge */}
-            {assessmentResult && (
-              <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50">
-                <BilingualText translationKey="labels.personalizedDifficulty" />：{assessmentResult.difficultyRange.name}
-                <span className="ml-1">({assessmentResult.difficultyRange.min}-{assessmentResult.difficultyRange.max})</span>
-              </Badge>
-            )}
-            {/* Main Navigation */}
-            <nav className="flex gap-2" role="navigation" aria-label={t("labels.mainNavigation")}>
-              <ThemeToggle />
-              <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="glass-effect">
-                <Sparkles className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="buttons.assessment" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setStep("history")} className="glass-effect">
-                <History className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="buttons.history" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setStep("wrong-answers")} className="glass-effect">
-                <Book className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="buttons.wrongAnswersBook" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => window.open('/admin', '_blank')} className="glass-effect">
-                <Settings className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="buttons.admin" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleFeedback} className="glass-effect bg-transparent">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="buttons.feedback" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowShortcutHelp(true)} 
-                className="glass-effect bg-transparent"
-                title={t("shortcuts.title")}
-              >
-                <Keyboard className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="shortcuts.title" />
-              </Button>
-              <Button 
-                variant={shortcutsEnabled ? "default" : "outline"} 
-                size="sm" 
-                onClick={handleToggleShortcuts}
-                className={`glass-effect ${shortcutsEnabled ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-transparent'}`}
-                title={shortcutsEnabled ? t("shortcuts.disableShortcuts") : t("shortcuts.enableShortcuts")}
-              >
-                <Keyboard className={`w-4 h-4 mr-2 ${shortcutsEnabled ? 'text-white' : ''}`} />
-                <BilingualText translationKey={shortcutsEnabled ? "shortcuts.shortcutsEnabled" : "shortcuts.shortcutsDisabled"} />
-              </Button>
-            </nav>
+              
+              {/* Secondary Action Buttons Row */}
+              <div className="flex flex-wrap gap-2 justify-center sm:gap-3">
+                {user?.isAdmin && (
+                  <Button variant="outline" size="sm" onClick={() => window.open('/admin', '_blank')} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
+                    <Settings className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline"><BilingualText translationKey="buttons.admin" /></span>
+                    <span className="sm:hidden">Admin</span>
+                  </Button>
+                )}
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowShortcutHelp(true)} 
+                  className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80"
+                  title={t("shortcuts.title")}
+                >
+                  <Keyboard className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline"><BilingualText translationKey="shortcuts.title" /></span>
+                  <span className="sm:hidden">快捷键</span>
+                </Button>
+                
+                <ThemeToggle />
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleLogout}
+                  className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80"
+                  title={t("buttons.logout")}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.logout" /></span>
+                  <span className="sm:hidden">登出</span>
+                </Button>
+              </div>
+            </div>
           </div>
-        </header>
+        </div>
+        
+        {/* Coverage Warning */}
+        {isSpecializedMode && focusCoverage && focusCoverage.coverage < 1 && (
+          <div className="max-w-5xl mx-auto mb-8">
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">!</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    <BilingualText translationKey="components.specializedPractice.coverage.warning" />
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    <BilingualText 
+                      translationKey="components.specializedPractice.coverage.warningDescription"
+                    />
+                    {` (${Math.round(focusCoverage.coverage * 100)}%)`}
+                  </p>
+                  {focusCoverage.unmatchedTags.length > 0 && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      <BilingualText translationKey="components.specializedPractice.coverage.unmatchedTags" />
+                      {`: ${focusCoverage.unmatchedTags.map(tag => 
+                        t(`components.specializedPractice.focusAreas.${tag}`)
+                      ).join(', ')}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Setup Step */}
         {step === "setup" && (
           <div className="max-w-2xl mx-auto space-y-4">
-            {/* Specialized Mode Status - Mobile Optimized */}
+            {/* Specialized Mode Status Display */}
             {isSpecializedMode && selectedFocusAreas.length > 0 && (
-              <Card className="glass-effect p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
-                  <h3 className="font-semibold text-blue-800 dark:text-blue-200 text-sm sm:text-base">
+              <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="font-semibold text-sky-400">
                     <BilingualText translationKey="components.specializedPractice.selectedAreas" />
                     {` (${selectedFocusAreas.length}/5)`}
                   </h3>
@@ -1847,21 +1867,21 @@ function HomePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSpecializedModeToggle(false)}
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200 self-start sm:self-auto text-xs sm:text-sm"
+                    className="text-sky-400 hover:text-sky-300"
                   >
                     <BilingualText translationKey="components.specializedPractice.disableMode" />
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <div className="flex flex-wrap gap-2">
                   {selectedFocusAreas.map((area) => {
                     const stats = focusAreaStats[area]
                     return (
                       <Badge
                         key={area}
                         variant="secondary"
-                        className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 text-xs sm:text-sm px-2 py-1"
+                        className="bg-slate-800/60 text-sky-300 border-slate-600"
                       >
-                        <BilingualText translationKey={`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`} />
+                        <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
                         {stats && stats.attempts > 0 && (
                           <span className="ml-1 text-xs opacity-75">
                             ({stats.accuracy.toFixed(0)}%)
@@ -1872,7 +1892,7 @@ function HomePage() {
                   })}
                 </div>
                 {focusCoverage && focusCoverage.coverage < 1 && (
-                  <div className="mt-3 p-2 sm:p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded text-xs sm:text-sm">
+                  <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-700 rounded text-sm text-yellow-200">
                     <BilingualText translationKey="components.specializedPractice.coverage.warning" />
                     {`: ${Math.round(focusCoverage.coverage * 100)}%`}
                   </div>
@@ -1880,17 +1900,17 @@ function HomePage() {
               </Card>
             )}
             {/* Templates List */}
-            <Card className="glass-effect p-4">
+            <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-semibold text-sky-400">
                   <BilingualText translationKey="pages.templates.title" />
                 </h3>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-slate-400">
                   <BilingualText translationKey="pages.templates.deviceNotice" />
                 </span>
               </div>
               {templates.length === 0 ? (
-                <p className="text-sm text-gray-600 dark:text-gray-300">
+                <p className="text-sm text-slate-300">
                   <BilingualText translationKey="pages.templates.emptyPlaceholder" />
                 </p>
               ) : (
@@ -1942,10 +1962,10 @@ function HomePage() {
               )}
             </Card>
 
-            <Card className="glass-effect p-8">
+            <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-8">
               <div className="flex items-center gap-3 mb-6">
-                <Sparkles className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-bold">
+                <Sparkles className="w-6 h-6 text-sky-400" />
+                <h2 className="text-2xl font-bold text-sky-400">
                   <BilingualText translationKey="labels.createExercise" />
                 </h2>
               </div>
@@ -1953,11 +1973,11 @@ function HomePage() {
               <div className="space-y-6">
                 {/* Difficulty Selection */}
                 <div>
-<Label htmlFor="difficulty" className="text-base font-medium">
+<Label htmlFor="difficulty" className="text-base font-medium text-slate-300">
   <BilingualText translationKey="labels.difficulty" />
 </Label>
 <Select value={difficulty} onValueChange={(value) => setDifficulty(value as DifficultyLevel | "")}>
-  <SelectTrigger aria-label={t("labels.difficulty")} className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+  <SelectTrigger aria-label={t("labels.difficulty")} className="border border-slate-600 bg-slate-800/50 text-slate-200">
     <SelectValue placeholder={t("labels.selectDifficulty")} />
   </SelectTrigger>
                     <SelectContent>
@@ -1976,11 +1996,11 @@ function HomePage() {
 
                 {/* Language Selection */}
                 <div>
-                  <Label htmlFor="language" className="text-base font-medium">
+                  <Label htmlFor="language" className="text-base font-medium text-slate-300">
                     <BilingualText translationKey="labels.listeningLanguage" />
                   </Label>
                   <Select value={language} onValueChange={(value) => handleLanguageChange(value as ListeningLanguage)}>
-<SelectTrigger aria-label={t("labels.listeningLanguage")} className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+<SelectTrigger aria-label={t("labels.listeningLanguage")} className="border border-slate-600 bg-slate-800/50 text-slate-200">
   <SelectValue placeholder={t("labels.selectLanguage")} />
 </SelectTrigger>
                     <SelectContent>
@@ -1995,11 +2015,11 @@ function HomePage() {
 
                 {/* Duration Selection */}
                 <div>
-                  <Label htmlFor="duration" className="text-base font-medium">
+                  <Label htmlFor="duration" className="text-base font-medium text-slate-300">
                     <BilingualText translationKey="labels.duration" />
                   </Label>
                   <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
-<SelectTrigger aria-label={t("labels.duration")} className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+<SelectTrigger aria-label={t("labels.duration")} className="border border-slate-600 bg-slate-800/50 text-slate-200">
   <SelectValue placeholder={t("labels.selectDuration")} />
 </SelectTrigger>
                     <SelectContent>
@@ -2012,25 +2032,25 @@ function HomePage() {
                   </Select>
                 </div>
 
-                {/* Specialized Practice Mode - Mobile Optimized */}
-                <Card className="glass-effect p-3 sm:p-4 border-blue-200 dark:border-blue-800">
-                  <div className="space-y-3 sm:space-y-4">
+                {/* Specialized Practice Mode */}
+                <Card className="bg-slate-800/30 backdrop-blur border-slate-600 p-4">
+                  <div className="space-y-4">
                     {/* Mode Toggle */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex-1">
-                        <h3 className="text-base sm:text-lg font-semibold text-blue-700 dark:text-blue-300">
+                        <h3 className="text-base sm:text-lg font-semibold text-sky-400">
                           <BilingualText translationKey="components.specializedPractice.title" />
                         </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        <p className="text-xs sm:text-sm text-slate-400">
                           <BilingualText translationKey="components.specializedPractice.description" />
                         </p>
                       </div>
                       <Button
                         variant={isSpecializedMode ? "default" : "outline"}
                         size="sm"
-                        onClick={() => handleSpecializedModeToggle(!isSpecializedMode)}
+                        onClick={() => handleSpecializedModeToggle()}
                         className={`
-                          ${isSpecializedMode ? "bg-blue-600 hover:bg-blue-700" : ""} 
+                          ${isSpecializedMode ? "bg-sky-600 hover:bg-sky-700 text-white" : "bg-slate-800/60 text-sky-400 border-slate-600 hover:bg-slate-700/80"} 
                           text-xs sm:text-sm px-3 py-2 touch-manipulation
                           self-start sm:self-auto min-w-[120px] sm:min-w-[140px]
                         `}
@@ -2044,23 +2064,23 @@ function HomePage() {
                     {/* Specialized Mode Configuration */}
                     {isSpecializedMode && (
                       <div className="space-y-4 border-t border-blue-200 dark:border-blue-800 pt-4">
-                        {/* Recommendations Section - Mobile Optimized */}
+                        {/* Recommendations Section */}
                         {recommendedFocusAreas.length > 0 && (
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-lg">
+                          <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-600">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                              <h4 className="font-medium text-blue-800 dark:text-blue-200 text-sm sm:text-base">
+                              <h4 className="font-medium text-sky-300 text-sm sm:text-base">
                                 <BilingualText translationKey="components.specializedPractice.recommendedAreas" />
                               </h4>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={handleApplyRecommendations}
-                                className="text-blue-600 border-blue-300 hover:bg-blue-100 dark:text-blue-300 dark:border-blue-600 dark:hover:bg-blue-900/30 text-xs sm:text-sm self-start sm:self-auto"
+                                className="bg-slate-700/60 text-sky-400 border-slate-600 hover:bg-slate-600/80 text-xs sm:text-sm self-start sm:self-auto"
                               >
                                 <BilingualText translationKey="components.specializedPractice.applyRecommendations" />
                               </Button>
                             </div>
-                            <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-300 mb-3">
+                            <p className="text-xs sm:text-sm text-slate-400 mb-3">
                               <BilingualText translationKey="components.specializedPractice.recommendedAreasDescription" />
                             </p>
                             <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -2072,10 +2092,10 @@ function HomePage() {
                                     key={area}
                                     variant="secondary"
                                     className={`
-                                      bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 
+                                      bg-slate-700/60 text-sky-300 border-slate-600
                                       text-xs sm:text-sm px-2 py-1 touch-manipulation
                                       ${canAdd 
-                                        ? 'cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-700 active:scale-95' 
+                                        ? 'cursor-pointer hover:bg-slate-600/80 active:scale-95' 
                                         : 'opacity-50 cursor-not-allowed'
                                       }
                                     `}
@@ -2087,9 +2107,9 @@ function HomePage() {
                                     role="button"
                                     tabIndex={canAdd ? 0 : -1}
                                     aria-pressed={canAdd}
-                                    aria-label={`${t(`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`)} - ${canAdd ? t("messages.tapToToggle") : t("messages.selectionLimit")}`}
+                                    aria-label={`${t(`components.specializedPractice.focusAreas.${area}`)} - ${canAdd ? t("messages.tapToToggle") : t("messages.selectionLimit")}`}
                                   >
-                                    <BilingualText translationKey={`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`} />
+                                    <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
                                     {stats && (
                                       <span className="ml-1 text-xs opacity-75">
                                         ({stats.accuracy.toFixed(0)}%)
@@ -2104,10 +2124,10 @@ function HomePage() {
 
                         {/* Enhanced Loading States with Progress */}
                         {(isLoadingRecommendations || loadingStates.computingStats || loadingStates.generatingRecommendations) && (
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-3">
+                          <div className="bg-slate-800/40 border border-slate-600 p-4 rounded-lg space-y-3">
                             <div className="flex items-center justify-center">
-                              <Loader2 className="w-4 h-4 animate-spin mr-2 text-blue-600" />
-                              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                              <Loader2 className="w-4 h-4 animate-spin mr-2 text-sky-400" />
+                              <span className="text-sm font-medium text-sky-300">
                                 {loadingStates.computingStats && (
                                   <BilingualText translationKey="components.specializedPractice.computingStats" />
                                 )}
@@ -2123,7 +2143,7 @@ function HomePage() {
                             {/* Progress Bar */}
                             {progressInfo && (
                               <div className="space-y-2">
-                                <div className="flex justify-between text-xs text-blue-600 dark:text-blue-300">
+                                <div className="flex justify-between text-xs text-sky-400">
                                   <span>{progressInfo.message}</span>
                                   <span>{progressInfo.current}/{progressInfo.total}</span>
                                 </div>
@@ -2223,7 +2243,7 @@ function HomePage() {
                                   role="button"
                                   tabIndex={0}
                                   aria-pressed={isSelected}
-                                  aria-label={`${t(`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`)} - ${isSelected ? t("messages.focusAreaSelected") : canSelect ? t("messages.tapToToggle") : t("messages.selectionLimit")}`}
+                                  aria-label={`${t(`components.specializedPractice.focusAreas.${area}`)} - ${isSelected ? t("messages.focusAreaSelected") : canSelect ? t("messages.tapToToggle") : t("messages.selectionLimit")}`}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
                                       e.preventDefault()
@@ -2237,7 +2257,7 @@ function HomePage() {
                                 >
                                   <div className="flex items-start justify-between mb-2">
                                     <h5 className={`text-sm sm:text-base font-medium leading-tight ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                                      <BilingualText translationKey={`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`} />
+                                      <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
                                     </h5>
                                     <div className="flex-shrink-0 ml-2">
                                       {isSelected ? (

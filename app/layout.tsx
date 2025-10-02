@@ -22,7 +22,7 @@ const RootLayout = ({
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange
+          disableTransitionOnChange={false}
         >
           <ErrorBoundary>
             {children}

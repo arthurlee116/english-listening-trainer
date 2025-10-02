@@ -1325,11 +1325,11 @@
       }
     },
     "focusAreas": {
-      "mainidea": {
+      "main-idea": {
         "en": "Main Idea",
         "zh": "主旨理解"
       },
-      "detailcomprehension": {
+      "detail-comprehension": {
         "en": "Detail Comprehension",
         "zh": "细节理解"
       },
@@ -1341,7 +1341,7 @@
         "en": "Vocabulary",
         "zh": "词汇理解"
       },
-      "causeeffect": {
+      "cause-effect": {
         "en": "Cause & Effect",
         "zh": "因果关系"
       },
@@ -1349,7 +1349,7 @@
         "en": "Sequence",
         "zh": "时序逻辑"
       },
-      "speakerattitude": {
+      "speaker-attitude": {
         "en": "Speaker Attitude",
         "zh": "说话者态度"
       },
@@ -1357,21 +1357,21 @@
         "en": "Comparison",
         "zh": "对比分析"
       },
-      "numberinformation": {
+      "number-information": {
         "en": "Number Information",
         "zh": "数字信息"
       },
-      "timereference": {
+      "time-reference": {
         "en": "Time Reference",
         "zh": "时间信息"
       }
     },
     "focusAreaDescriptions": {
-      "mainidea": {
+      "main-idea": {
         "en": "Understanding the central theme or main point",
         "zh": "理解中心主题或要点"
       },
-      "detailcomprehension": {
+      "detail-comprehension": {
         "en": "Identifying specific facts and explicit information",
         "zh": "识别具体事实和明确信息"
       },
@@ -1383,7 +1383,7 @@
         "en": "Understanding word meanings and context-specific usage",
         "zh": "理解词汇含义和语境用法"
       },
-      "causeeffect": {
+      "cause-effect": {
         "en": "Identifying causal relationships and logical connections",
         "zh": "识别因果关系和逻辑联系"
       },
@@ -1391,7 +1391,7 @@
         "en": "Understanding chronological order and sequence of events",
         "zh": "理解时间顺序和事件序列"
       },
-      "speakerattitude": {
+      "speaker-attitude": {
         "en": "Recognizing speaker's tone, opinion, and emotional stance",
         "zh": "识别说话者的语调、观点和情感立场"
       },
@@ -1399,11 +1399,11 @@
         "en": "Understanding similarities, differences, and comparative relationships",
         "zh": "理解相似性、差异性和比较关系"
       },
-      "numberinformation": {
+      "number-information": {
         "en": "Processing numerical data, quantities, and statistical information",
         "zh": "处理数字数据、数量和统计信息"
       },
-      "timereference": {
+      "time-reference": {
         "en": "Understanding temporal references, dates, and time-related information",
         "zh": "理解时间引用、日期和时间相关信息"
       }
