@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
+import type { FocusArea } from '@/lib/types'
 
 const prisma = new PrismaClient()
 
@@ -16,7 +17,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { exerciseData, difficulty, language, topic, accuracy, score, duration } = await request.json()
+    const { 
+      exerciseData, 
+      difficulty, 
+      language, 
+      topic, 
+      accuracy, 
+      score, 
+      duration, 
+      achievementMetadata,
+      // 专项练习相关字段
+      focusAreas,
+      focusCoverage,
+      specializedMode
+    } = await request.json()
 
     // 验证必填字段
     if (!exerciseData || !difficulty || !topic) {
@@ -26,25 +40,135 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 保存练习记录
-    const practiceSession = await prisma.practiceSession.create({
-      data: {
-        userId: authResult.user.userId,
-        exerciseData: JSON.stringify(exerciseData),
-        difficulty,
-        language: language || 'en-US',
-        topic,
-        accuracy: accuracy || null,
-        score: score || null,
-        duration: duration || null
+    // 安全解析和合并 exerciseData
+    let parsedExerciseData: Record<string, unknown> = {}
+    try {
+      // 如果 exerciseData 是字符串，尝试解析
+      if (typeof exerciseData === 'string') {
+        parsedExerciseData = JSON.parse(exerciseData)
+      } else {
+        parsedExerciseData = { ...exerciseData }
       }
+    } catch (error) {
+      console.warn('Failed to parse exerciseData, using as object:', error)
+      parsedExerciseData = typeof exerciseData === 'object' ? { ...exerciseData } : {}
+    }
+
+    // 计算专项成绩 (perFocusAccuracy)
+    const perFocusAccuracy: Record<string, number> = {}
+    if (specializedMode && focusAreas && Array.isArray(focusAreas) && parsedExerciseData.results) {
+      const results = parsedExerciseData.results as Array<{is_correct?: boolean}>
+      const questions = (parsedExerciseData.questions as Array<{focus_areas?: FocusArea[]}>) || []
+      
+      focusAreas.forEach((area: FocusArea) => {
+        let areaCorrect = 0
+        let areaTotal = 0
+        
+        questions.forEach((question, index: number) => {
+          if (question.focus_areas && question.focus_areas.includes(area)) {
+            areaTotal++
+            if (results[index] && results[index].is_correct) {
+              areaCorrect++
+            }
+          }
+        })
+        
+        if (areaTotal > 0) {
+          perFocusAccuracy[area] = Math.round((areaCorrect / areaTotal) * 100)
+        }
+      })
+    }
+
+    // 合并专项练习数据
+    const enhancedExerciseData = {
+      ...parsedExerciseData,
+      achievementMetadata: achievementMetadata || null,
+      // 专项练习字段
+      ...(specializedMode && {
+        focusAreas: focusAreas || [],
+        focusCoverage: focusCoverage || null,
+        specializedMode: true,
+        perFocusAccuracy
+      })
+    }
+
+    // 使用事务保存练习记录和题目数据
+    const result = await prisma.$transaction(async (tx) => {
+      // 保存练习会话
+      const practiceSession = await tx.practiceSession.create({
+        data: {
+          userId: authResult.user!.userId,
+          exerciseData: JSON.stringify(enhancedExerciseData),
+          difficulty,
+          language: language || 'en-US',
+          topic,
+          transcript: (parsedExerciseData.transcript as string) || '',
+          accuracy: accuracy || null,
+          score: score || null,
+          duration: duration || null
+        }
+      })
+
+      // 如果有题目数据，保存题目和答案
+      if (parsedExerciseData.questions && Array.isArray(parsedExerciseData.questions)) {
+        const questions = parsedExerciseData.questions as Array<Record<string, unknown>>
+        const results = (parsedExerciseData.results as Array<Record<string, unknown>>) || []
+
+        for (let i = 0; i < questions.length; i++) {
+          const question = questions[i]
+          
+          // 安全解析 focus_areas
+          let focusAreasJson: string | null = null
+          if (question.focus_areas && Array.isArray(question.focus_areas)) {
+            try {
+              focusAreasJson = JSON.stringify(question.focus_areas)
+            } catch (error) {
+              console.warn('Failed to serialize focus_areas for question', { questionIndex: i, error })
+            }
+          }
+
+          // 创建题目记录
+          const practiceQuestion = await tx.practiceQuestion.create({
+            data: {
+              sessionId: practiceSession.id,
+              index: i,
+              type: (question.type as string) || 'single',
+              question: (question.question as string) || '',
+              options: question.options ? JSON.stringify(question.options) : null,
+              correctAnswer: (question.answer as string) || '',
+              explanation: (question.explanation as string) || null,
+              transcriptSnapshot: null, // 可以后续扩展
+              focusAreas: focusAreasJson
+            }
+          })
+
+          // 如果有对应的答案结果，创建答案记录
+          if (results[i]) {
+            const result = results[i]
+            await tx.practiceAnswer.create({
+              data: {
+                questionId: practiceQuestion.id,
+                userAnswer: (result.user_answer as string) || '',
+                isCorrect: (result.is_correct as boolean) || false,
+                attemptedAt: new Date(),
+                aiAnalysis: null,
+                aiAnalysisGeneratedAt: null,
+                tags: '[]',
+                needsAnalysis: !(result.is_correct as boolean) // 错题需要分析
+              }
+            })
+          }
+        }
+      }
+
+      return practiceSession
     })
 
     return NextResponse.json({
       message: '练习记录保存成功',
       session: {
-        id: practiceSession.id,
-        createdAt: practiceSession.createdAt
+        id: result.id,
+        createdAt: result.createdAt
       }
     })
 

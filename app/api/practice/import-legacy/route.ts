@@ -332,6 +332,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
                   correctAnswer: legacyQuestion.correctAnswer,
                   explanation: legacyQuestion.explanation || null,
                   transcriptSnapshot: null, // Legacy data doesn't have this field
+                  focusAreas: null, // Legacy data doesn't have focus areas
                   createdAt: new Date(legacySession.createdAt)
                 }
               })

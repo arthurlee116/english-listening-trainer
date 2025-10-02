@@ -8,15 +8,22 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 import { Slider } from "@/components/ui/slider"
+import { Badge } from "@/components/ui/badge"
 import { Loader2, Play, Pause, SkipBack, SkipForward } from "lucide-react"
 import type { Question } from "@/lib/types"
+
 import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
+import { PLAYBACK_SPEED_OPTIONS, PLAYBACK_RATE_STORAGE_KEY, DEFAULT_PLAYBACK_RATE, parsePlaybackRate } from "@/lib/constants"
+import { BilingualText } from "@/components/ui/bilingual-text"
+import { useToast } from "@/hooks/use-toast"
 
 // 简化的音频播放器Hook，专门用于问题界面
 function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(initialDuration ?? 0)
+  const [playbackRate, setPlaybackRate] = useState(DEFAULT_PLAYBACK_RATE)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
@@ -41,6 +48,12 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
     audio.addEventListener("play", handlePlay)
     audio.addEventListener("pause", handlePause)
     audio.addEventListener("ended", handleEnded)
+    // 应用当前倍速
+    try {
+      audio.playbackRate = playbackRate
+    } catch {
+      audio.playbackRate = DEFAULT_PLAYBACK_RATE
+    }
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime)
@@ -49,7 +62,7 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
       audio.removeEventListener("pause", handlePause)
       audio.removeEventListener("ended", handleEnded)
     }
-  }, [audioUrl, initialDuration])
+  }, [audioUrl, initialDuration, playbackRate])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
@@ -58,7 +71,10 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
     if (isPlaying) {
       audio.pause()
     } else {
-      audio.play().catch(console.error)
+      const playPromise = audio.play()
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(console.error)
+      }
     }
   }, [isPlaying])
 
@@ -95,11 +111,40 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
     }
   }, [initialDuration])
 
+  // 初始化读取倍速设置
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem(PLAYBACK_RATE_STORAGE_KEY) : null
+      const rate = parsePlaybackRate(saved ?? DEFAULT_PLAYBACK_RATE)
+      setPlaybackRate(rate)
+      const audio = audioRef.current
+      if (audio) {
+        audio.playbackRate = rate
+      }
+    } catch {
+      setPlaybackRate(DEFAULT_PLAYBACK_RATE)
+    }
+  }, [])
+
+  // 倍速变化时应用到音频元素
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    try {
+      audio.playbackRate = playbackRate
+    } catch {
+      audio.playbackRate = DEFAULT_PLAYBACK_RATE
+      setPlaybackRate(DEFAULT_PLAYBACK_RATE)
+    }
+  }, [playbackRate])
+
   return {
     isPlaying,
     currentTime,
     duration,
     audioRef,
+    playbackRate,
+    setPlaybackRate,
     togglePlayPause,
     handleSeek,
     skipBackward,
@@ -132,17 +177,46 @@ const QuestionInterfaceComponent = ({
   initialDuration,
 }: QuestionInterfaceProps) => {
   const { t } = useBilingualText()
+  const { toast } = useToast()
   const {
     isPlaying,
     currentTime,
     duration,
     audioRef,
+    playbackRate,
+    setPlaybackRate,
     togglePlayPause,
     handleSeek,
     skipBackward,
     skipForward,
     formatTime
   } = useSimpleAudioPlayer(audioUrl, initialDuration)
+
+  // storage 事件同步倍速
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === PLAYBACK_RATE_STORAGE_KEY) {
+        const rate = parsePlaybackRate(e.newValue ?? DEFAULT_PLAYBACK_RATE)
+        setPlaybackRate(rate)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [setPlaybackRate])
+
+  const handleRateChange = useCallback((value: string) => {
+    const next = parsePlaybackRate(value)
+    setPlaybackRate(next)
+    try {
+      window.localStorage.setItem(PLAYBACK_RATE_STORAGE_KEY, String(next))
+    } catch {
+      // Ignore localStorage errors
+    }
+    toast({
+      title: t("components.audioPlayer.playbackRateChangedTitle"),
+      description: t("components.audioPlayer.playbackRateChangedDesc").replace('{rate}', String(next)),
+    })
+  }, [setPlaybackRate, toast, t])
 
   // 答题逻辑 - 优化性能
   const handleSingleChoiceAnswer = useCallback((questionIndex: number, value: string) => {
@@ -192,6 +266,8 @@ const QuestionInterfaceComponent = ({
               variant="outline"
               size="icon"
               onClick={skipBackward}
+              aria-label={t('components.audioPlayer.skipBackward')}
+              title={t('components.audioPlayer.skipBackward')}
               className="glass-effect bg-transparent rounded-full"
             >
               <SkipBack className="w-4 h-4" />
@@ -200,6 +276,8 @@ const QuestionInterfaceComponent = ({
             <Button
               size="lg"
               onClick={togglePlayPause}
+              aria-label={isPlaying ? t('components.audioPlayer.pause') : t('components.audioPlayer.play')}
+              title={isPlaying ? t('components.audioPlayer.pause') : t('components.audioPlayer.play')}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-12 h-12 rounded-full"
             >
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
@@ -209,10 +287,31 @@ const QuestionInterfaceComponent = ({
               variant="outline"
               size="icon"
               onClick={skipForward}
+              aria-label={t('components.audioPlayer.skipForward')}
+              title={t('components.audioPlayer.skipForward')}
               className="glass-effect bg-transparent rounded-full"
             >
               <SkipForward className="w-4 h-4" />
             </Button>
+          </div>
+
+          {/* Playback Speed */}
+          <div className="flex items-center gap-3 mb-2 justify-center">
+            <span className="text-sm text-gray-600">
+              <BilingualText translationKey="components.audioPlayer.playbackRateLabel" />
+            </span>
+            <Select value={String(playbackRate)} onValueChange={handleRateChange}>
+              <SelectTrigger aria-label={t("components.audioPlayer.playbackRateAriaLabel")} className="w-28">
+                <SelectValue placeholder={t("components.audioPlayer.playbackRatePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {PLAYBACK_SPEED_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={String(opt.value)}>
+                    <BilingualText translationKey={opt.labelKey} />
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Volume control removed as per UX request */}
@@ -241,6 +340,26 @@ const QuestionInterfaceComponent = ({
               )}
             </div>
             <h3 className="text-lg font-medium mb-4">{question.question}</h3>
+            
+            {/* Focus Areas Display */}
+            {question.focus_areas && question.focus_areas.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    {t('components.questionInterface.focusAreas')}:
+                  </span>
+                  {question.focus_areas.filter(area => area && typeof area === 'string').map((area) => (
+                    <Badge
+                      key={area}
+                      variant="outline"
+                      className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+                    >
+                      {t(`components.specializedPractice.focusAreas.${area.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()).replace(/^[a-z]/, (letter) => letter.toLowerCase())}`)}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {question.type === "single" && question.options ? (

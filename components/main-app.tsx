@@ -140,7 +140,8 @@ export const MainApp = () => {
     setLoadingMessage(t("common.messages.processing"))
 
     try {
-      const topics = await generateTopics(difficulty, wordCount, language)
+      const response = await generateTopics(difficulty, wordCount, language)
+      const topics = response?.topics || []
       setSuggestedTopics(topics)
       toast({
         title: t("common.messages.topicGenerationSuccess"),
@@ -168,8 +169,8 @@ export const MainApp = () => {
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       try {
-        const generatedTranscript = await generateTranscript(difficulty, wordCount, topic, language)
-        setTranscript(generatedTranscript)
+        const response = await generateTranscript(difficulty, wordCount, topic, language)
+        setTranscript(response?.transcript || "")
         setCanRegenerate(true)
       } catch (error) {
         console.error(`Transcript generation attempt ${attempt} failed:`, error)
@@ -241,7 +242,8 @@ export const MainApp = () => {
     setLoadingMessage(t("common.messages.processing"))
 
     try {
-      const generatedQuestions = await generateQuestions(difficulty, transcript, language, duration)
+      const response = await generateQuestions(difficulty, transcript, language, duration)
+      const generatedQuestions = response?.questions || []
       setQuestions(generatedQuestions)
       setStep("questions")
       toast({
@@ -507,7 +509,7 @@ export const MainApp = () => {
                         Difficulty Level
                       </Label>
                       <Select value={difficulty} onValueChange={(value: DifficultyLevel) => setDifficulty(value)}>
-                        <SelectTrigger className="glass-effect">
+                        <SelectTrigger id="difficulty" className="glass-effect">
                           <SelectValue placeholder="选择难度级别" />
                         </SelectTrigger>
                         <SelectContent>

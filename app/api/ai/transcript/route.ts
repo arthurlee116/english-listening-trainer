@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
 import { countWords, meetsLengthRequirement } from '@/lib/text-expansion'
-import type { ListeningLanguage } from '@/lib/types'
+import type { ListeningLanguage, TranscriptGenerationResponse } from '@/lib/types'
+import { 
+  validateFocusAreas, 
+  calculateFocusCoverage, 
+  generateFocusAreasPrompt,
+  extractProvidedFocusAreas
+} from '@/lib/focus-area-utils'
 
 interface TranscriptResponse {
   transcript: string
@@ -21,11 +27,14 @@ const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, wordCount, topic, language = 'en-US', difficultyLevel } = await request.json()
+    const { difficulty, wordCount, topic, language = 'en-US', difficultyLevel, focusAreas } = await request.json()
 
     if (!difficulty || !wordCount || !topic) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
+
+    // 验证和处理 focusAreas 参数
+    const validatedFocusAreas = validateFocusAreas(focusAreas)
 
     const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
 
@@ -36,10 +45,13 @@ export async function POST(request: NextRequest) {
       difficultyDescription = getDifficultyPromptModifier(difficultyLevel, language)
     }
 
+    // 生成专项练习提示词
+    const focusAreasPrompt = generateFocusAreasPrompt(validatedFocusAreas, languageName)
+
     // 生成初始听力稿
     const basePrompt = `You are a professional listening comprehension script generator. Generate a ${languageName} listening script on the topic: "${topic}".
 
-${difficultyDescription}
+${difficultyDescription}${focusAreasPrompt}
 
 Requirements:
 - Target length: approximately ${wordCount} words
@@ -48,6 +60,7 @@ Requirements:
 - Match the specified difficulty characteristics exactly
 - Avoid redundancy and repetition
 - Return only the script content, no additional explanations or punctuation
+${validatedFocusAreas.length > 0 ? `- Content should provide opportunities to practice: ${validatedFocusAreas.join(', ')}` : ''}
 
 Generate the listening script in ${languageName}.`
 
@@ -64,7 +77,7 @@ Generate the listening script in ${languageName}.`
     const maxTotalAttempts = 3  // 最多3次完整生成循环
     let bestTranscript = ''
     let bestWordCount = 0
-    let totalExpansionAttempts = 0
+    let _totalExpansionAttempts = 0
 
     // 主循环：最多3次完整生成尝试
     for (let attempt = 0; attempt < maxTotalAttempts; attempt++) {
@@ -128,21 +141,26 @@ Generate the listening script in ${languageName}.`
 
         if (expandResponse.ok) {
           const expansionResult = await expandResponse.json()
-          totalExpansionAttempts += expansionResult.expansionAttempts
+          _totalExpansionAttempts += expansionResult.expansionAttempts
           
           console.log(`扩写结果: ${expansionResult.originalWordCount} -> ${expansionResult.finalWordCount} 词`)
           
           if (expansionResult.meetsRequirement) {
             // 扩写成功且达到95%要求
             console.log(`✅ 第 ${totalGenerationAttempts} 次生成成功：达到95%要求`)
-            return NextResponse.json({
+            
+            // 计算覆盖率
+            const providedAreas = extractProvidedFocusAreas(expansionResult.expandedText, validatedFocusAreas)
+            const focusCoverage = calculateFocusCoverage(validatedFocusAreas, providedAreas)
+            
+            const response: TranscriptGenerationResponse = {
               success: true,
               transcript: expansionResult.expandedText,
-              wordCount: expansionResult.finalWordCount,
-              generationAttempts: totalGenerationAttempts,
-              expansionAttempts: totalExpansionAttempts,
-              message: `生成成功：达到95%要求，${expansionResult.finalWordCount} / ${wordCount} 词`
-            })
+              focusCoverage: validatedFocusAreas.length > 0 ? focusCoverage : undefined,
+              attempts: totalGenerationAttempts
+            }
+            
+            return NextResponse.json(response)
           } else {
             // 扩写后未达到95%，检查是否达到90%
             if (meetsLengthRequirement(expansionResult.expandedText, wordCount, 0.9)) {
@@ -165,14 +183,20 @@ Generate the listening script in ${languageName}.`
     // 所有尝试都完成后，返回最佳结果
     if (bestTranscript) {
       console.log(`📊 返回最佳结果：${bestWordCount} / ${wordCount} 词`)
-      return NextResponse.json({
+      
+      // 计算覆盖率
+      const providedAreas = extractProvidedFocusAreas(bestTranscript, validatedFocusAreas)
+      const focusCoverage = calculateFocusCoverage(validatedFocusAreas, providedAreas)
+      
+      const response: TranscriptGenerationResponse = {
         success: true,
         transcript: bestTranscript,
-        wordCount: bestWordCount,
-        generationAttempts: totalGenerationAttempts,
-        expansionAttempts: totalExpansionAttempts,
-        warning: `经过${totalGenerationAttempts}次生成尝试，最佳结果：${bestWordCount} / ${wordCount} 词`
-      })
+        focusCoverage: validatedFocusAreas.length > 0 ? focusCoverage : undefined,
+        attempts: totalGenerationAttempts,
+        degradationReason: `经过${totalGenerationAttempts}次生成尝试，最佳结果：${bestWordCount} / ${wordCount} 词`
+      }
+      
+      return NextResponse.json(response)
     } else {
       console.error(`❌ 所有生成尝试都失败`)
       return NextResponse.json({ 

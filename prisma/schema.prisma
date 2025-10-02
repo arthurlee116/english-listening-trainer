@@ -79,6 +79,7 @@ model PracticeQuestion {
   correctAnswer      String            @map("correct_answer")
   explanation        String?           // 题目解释
   transcriptSnapshot String?           @map("transcript_snapshot") // 相关听力片段
+  focusAreas         String?           @map("focus_areas") // JSON 格式的能力标签数组
   createdAt          DateTime          @default(now()) @map("created_at")
   
   // 关联关系
@@ -90,6 +91,7 @@ model PracticeQuestion {
   @@index([type, createdAt]) // 按题目类型统计
   @@index([type], map: "question_type_filter_idx") // 按题目类型过滤优化
   @@index([question], map: "question_content_search_idx") // 题目内容搜索优化
+  @@index([focusAreas], map: "focus_areas_filter_idx") // 按能力标签过滤优化
   @@map("practice_questions")
 }
 

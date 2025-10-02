@@ -22,6 +22,18 @@ export interface LanguageConfig {
   displayName: string    // Display name in English
 }
 
+// 自定义练习模板结构
+export interface PracticeTemplate {
+  id: string
+  name: string
+  createdAt: string
+  difficulty: DifficultyLevel
+  language: ListeningLanguage
+  duration: number
+  autoGenerateTopic: boolean
+  topic: string
+}
+
 // 考察点标签类型
 export type FocusArea = 
   | "main-idea" 
@@ -34,6 +46,145 @@ export type FocusArea =
   | "comparison" 
   | "number-information" 
   | "time-reference"
+
+// 显式维护的能力标签运行时数组，避免对联合类型执行 Object.values
+export const FOCUS_AREA_LIST: FocusArea[] = [
+  'main-idea',
+  'detail-comprehension',
+  'inference',
+  'vocabulary',
+  'cause-effect',
+  'sequence',
+  'speaker-attitude',
+  'comparison',
+  'number-information',
+  'time-reference',
+]
+
+// 能力标签映射，包含中英文标签和描述信息
+export interface FocusAreaLabel {
+  code: FocusArea
+  nameEn: string
+  nameZh: string
+  description?: string
+  category: 'comprehension' | 'analysis' | 'detail' | 'inference'
+}
+
+export const FOCUS_AREA_LABELS: Record<FocusArea, FocusAreaLabel> = {
+  'main-idea': {
+    code: 'main-idea',
+    nameEn: 'Main Idea',
+    nameZh: '主旨理解',
+    description: 'Understanding the central theme or main point of the listening material',
+    category: 'comprehension'
+  },
+  'detail-comprehension': {
+    code: 'detail-comprehension',
+    nameEn: 'Detail Comprehension',
+    nameZh: '细节理解',
+    description: 'Identifying specific facts, details, and explicit information',
+    category: 'detail'
+  },
+  'inference': {
+    code: 'inference',
+    nameEn: 'Inference',
+    nameZh: '推断能力',
+    description: 'Drawing logical conclusions from implicit information',
+    category: 'inference'
+  },
+  'vocabulary': {
+    code: 'vocabulary',
+    nameEn: 'Vocabulary',
+    nameZh: '词汇理解',
+    description: 'Understanding word meanings and context-specific usage',
+    category: 'comprehension'
+  },
+  'cause-effect': {
+    code: 'cause-effect',
+    nameEn: 'Cause & Effect',
+    nameZh: '因果关系',
+    description: 'Identifying causal relationships and logical connections',
+    category: 'analysis'
+  },
+  'sequence': {
+    code: 'sequence',
+    nameEn: 'Sequence',
+    nameZh: '时序逻辑',
+    description: 'Understanding chronological order and sequence of events',
+    category: 'analysis'
+  },
+  'speaker-attitude': {
+    code: 'speaker-attitude',
+    nameEn: 'Speaker Attitude',
+    nameZh: '说话者态度',
+    description: 'Recognizing speaker\'s tone, opinion, and emotional stance',
+    category: 'inference'
+  },
+  'comparison': {
+    code: 'comparison',
+    nameEn: 'Comparison',
+    nameZh: '对比分析',
+    description: 'Understanding similarities, differences, and comparative relationships',
+    category: 'analysis'
+  },
+  'number-information': {
+    code: 'number-information',
+    nameEn: 'Number Information',
+    nameZh: '数字信息',
+    description: 'Processing numerical data, quantities, and statistical information',
+    category: 'detail'
+  },
+  'time-reference': {
+    code: 'time-reference',
+    nameEn: 'Time Reference',
+    nameZh: '时间信息',
+    description: 'Understanding temporal references, dates, and time-related information',
+    category: 'detail'
+  }
+}
+
+// 标签覆盖率信息
+export interface FocusCoverage {
+  requested: FocusArea[]
+  provided: FocusArea[]
+  coverage: number // 0-1
+  unmatchedTags: FocusArea[]
+  partialMatches?: Array<{
+    tag: FocusArea
+    confidence: number
+    reason?: string
+  }>
+}
+
+// 专项统计数据
+export interface FocusAreaStats {
+  [key: string]: {
+    attempts: number
+    incorrect: number
+    accuracy: number
+    lastAttempt?: string
+    trend: 'improving' | 'declining' | 'stable'
+  }
+}
+
+// 专项练习配置
+export interface SpecializedPracticeConfig {
+  isEnabled: boolean
+  selectedFocusAreas: FocusArea[]
+  recommendedFocusAreas: FocusArea[]
+  savedPresets: SpecializedPreset[]
+}
+
+// 专项模板预设
+export interface SpecializedPreset {
+  id: string
+  name: string
+  focusAreas: FocusArea[]
+  difficulty: DifficultyLevel
+  language: ListeningLanguage
+  duration: number
+  createdAt: string
+}
 
 export interface Question {
   type: QuestionType
@@ -70,6 +221,13 @@ export interface Exercise {
   answers: Record<number, string>
   results: GradingResult[]
   createdAt: string // ISO 8601 格式
+  // 练习总时长（秒），用于成就系统与历史统计；如果缺失将使用回退逻辑估算
+  totalDurationSec?: number
+  // 专项练习模式字段
+  focusAreas?: FocusArea[]
+  focusCoverage?: FocusCoverage
+  specializedMode?: boolean
+  perFocusAccuracy?: Record<string, number>
 }
 
 export interface ErrorTag {
@@ -184,6 +342,34 @@ export interface AIAnalysisRequest {
   attemptedAt: string
 }
 
+// AI生成响应扩展
+export interface AIGenerationResponse {
+  success: boolean
+  focusCoverage?: FocusCoverage
+  attempts?: number
+  degradationReason?: string
+}
+
+// 题目生成响应
+export interface QuestionGenerationResponse extends AIGenerationResponse {
+  questions: Question[]
+  focusMatch?: Array<{
+    questionIndex: number
+    matchedTags: FocusArea[]
+    confidence: 'high' | 'medium' | 'low'
+  }>
+}
+
+// 主题生成响应
+export interface TopicGenerationResponse extends AIGenerationResponse {
+  topics: string[]
+}
+
+// 转录生成响应
+export interface TranscriptGenerationResponse extends AIGenerationResponse {
+  transcript: string
+}
+
 // Wrong Answer Item interface for database-backed wrong answers
 export interface WrongAnswerItem {
   answerId: string
@@ -203,6 +389,7 @@ export interface WrongAnswerItem {
     correctAnswer: string
     explanation?: string
     transcript: string
+    focus_areas?: FocusArea[]
   }
   answer: {
     userAnswer: string
@@ -212,4 +399,96 @@ export interface WrongAnswerItem {
     aiAnalysisGeneratedAt?: string
     needsAnalysis: boolean
   }
+}
+
+// =============== Achievement System Types ===============
+
+// User progress metrics for achievement calculation
+export interface UserProgressMetrics {
+  totalSessions: number              // 总练习次数
+  totalCorrectAnswers: number        // 总正确答案数
+  totalQuestions: number             // 总题目数
+  averageAccuracy: number            // 平均准确率(%)，范围 0-100
+  totalListeningMinutes: number      // 累计听力时长(分钟)
+  currentStreakDays: number          // 当前连续练习天数
+  longestStreakDays: number          // 最长连续练习天数
+  lastPracticedAt: string | null     // 最后练习时间(ISO 8601)
+  weeklyTrend: Array<{               // 最近7天练习趋势
+    date: string                     // YYYY-MM-DD 格式
+    sessions: number                 // 当日练习次数
+  }>
+}
+
+// User goal settings
+export interface UserGoalSettings {
+  dailyMinutesTarget: number         // 每日目标听力时长(分钟)
+  weeklySessionsTarget: number       // 每周目标练习次数
+  lastUpdatedAt: string              // 目标最后更新时间(ISO 8601)
+}
+
+// Achievement badge definition
+export interface AchievementBadge {
+  id: string                         // 徽章唯一标识
+  titleKey: string                   // 标题国际化键
+  descriptionKey: string             // 描述国际化键
+  earnedAt?: string                  // 获得时间(ISO 8601, 可选表示未获得)
+  conditions: AchievementCondition   // 获得条件
+}
+
+// Achievement condition types
+export type AchievementCondition = 
+  | { type: 'sessions'; threshold: number }           // 练习次数条件
+  | { type: 'accuracy'; threshold: number; minSessions: number }  // 准确率条件(需要最少练习次数)
+  | { type: 'streak'; threshold: number }             // 连续天数条件
+  | { type: 'minutes'; threshold: number }            // 累计时长条件
+
+// Achievement notification data
+export interface AchievementNotification {
+  achievement: AchievementBadge
+  isNew: boolean                     // 是否为新获得的成就
+  timestamp: string                  // 通知时间戳
+}
+
+// Enhanced practice session data for achievement tracking
+export interface PracticeSessionData {
+  sessionId: string
+  difficulty: DifficultyLevel
+  language: ListeningLanguage
+  topic: string
+  accuracy: number                   // 0-100
+  duration: number                   // 练习时长(秒)
+  questionsCount: number             // 题目总数
+  correctAnswersCount: number        // 正确答案数
+  completedAt: string                // 完成时间(ISO 8601)
+}
+
+// Goal progress data
+export interface GoalProgress {
+  daily: {
+    target: number                   // 目标值
+    current: number                  // 当前进度
+    isCompleted: boolean             // 是否已完成
+    lastCompletedAt?: string         // 最后完成时间
+  }
+  weekly: {
+    target: number
+    current: number
+    isCompleted: boolean
+    lastCompletedAt?: string
+  }
+}
+
+// Dashboard summary data
+export interface DashboardSummary {
+  progressMetrics: UserProgressMetrics
+  goalProgress: GoalProgress
+  recentAchievements: AchievementBadge[]  // 最近获得的成就
+  availableAchievements: AchievementBadge[]  // 所有可获得的成就
+}
+
+// =============== Practice Notes ===============
+export interface PracticeNotesEntry {
+  exerciseId: string
+  note: string
+  updatedAt: string
 }

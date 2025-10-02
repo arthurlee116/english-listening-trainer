@@ -118,6 +118,50 @@
       "en": "Speed",
       "zh": "速度"
     },
+    "playbackRateLabel": {
+      "en": "Playback Speed",
+      "zh": "播放速度"
+    },
+    "playbackRateAriaLabel": {
+      "en": "Playback speed",
+      "zh": "播放速度"
+    },
+    "playbackRatePlaceholder": {
+      "en": "Select speed",
+      "zh": "选择倍速"
+    },
+    "rate075": {
+      "en": "0.75×",
+      "zh": "0.75×"
+    },
+    "rate100": {
+      "en": "1.0×",
+      "zh": "1.0×"
+    },
+    "rate125": {
+      "en": "1.25×",
+      "zh": "1.25×"
+    },
+    "rate150": {
+      "en": "1.5×",
+      "zh": "1.5×"
+    },
+    "playbackRateChangedTitle": {
+      "en": "Playback Speed Updated",
+      "zh": "播放速度已更新"
+    },
+    "playbackRateChangedDesc": {
+      "en": "Speed set to {rate}×",
+      "zh": "已设置为 {rate}×"
+    },
+    "unsupportedPlaybackRateTitle": {
+      "en": "Unsupported Speed",
+      "zh": "不支持的倍速"
+    },
+    "unsupportedPlaybackRateDesc": {
+      "en": "Unsupported speed, reset to 1.0×",
+      "zh": "不支持该倍速，已恢复到 1.0×"
+    },
     "currentTime": {
       "en": "Current Time",
       "zh": "当前时间"
@@ -207,6 +251,136 @@
       "zh": "调整设置"
     }
   },
+  "achievementPanel": {
+    "title": {
+      "en": "Goals & Achievements",
+      "zh": "目标与成就"
+    },
+    "goalProgress": {
+      "en": "Goal Progress",
+      "zh": "目标进度"
+    },
+    "dailyGoalProgress": {
+      "en": "Daily Listening Goal",
+      "zh": "每日听力目标"
+    },
+    "weeklyGoalProgress": {
+      "en": "Weekly Practice Goal",
+      "zh": "每周练习目标"
+    },
+    "statisticsOverview": {
+      "en": "Statistics Overview",
+      "zh": "统计概览"
+    },
+    "totalSessions": {
+      "en": "Total Sessions",
+      "zh": "总练习次数"
+    },
+    "averageAccuracy": {
+      "en": "Average Accuracy",
+      "zh": "平均准确率"
+    },
+    "currentStreak": {
+      "en": "Current Streak",
+      "zh": "当前连续"
+    },
+    "totalListeningTime": {
+      "en": "Total Listening Time",
+      "zh": "累计听力时长"
+    },
+    "achievementBadges": {
+      "en": "Achievement Badges",
+      "zh": "成就徽章"
+    },
+    "earnedAchievements": {
+      "en": "Earned Achievements",
+      "zh": "已获得成就"
+    },
+    "availableAchievements": {
+      "en": "Available Achievements",
+      "zh": "可获得成就"
+    },
+    "weeklyTrend": {
+      "en": "Weekly Trend",
+      "zh": "本周趋势"
+    },
+    "practiceChart": {
+      "en": "Recent Practice Chart",
+      "zh": "近期练习图表"
+    },
+    "goalSettings": {
+      "en": "Goal Settings",
+      "zh": "目标设置"
+    },
+    "dailyMinutesTarget": {
+      "en": "Daily Minutes Target",
+      "zh": "每日时长目标"
+    },
+    "weeklySessionsTarget": {
+      "en": "Weekly Sessions Target",
+      "zh": "每周练习目标"
+    },
+    "saveGoalSettings": {
+      "en": "Save Goal Settings",
+      "zh": "保存目标设置"
+    },
+    "goalCompleted": {
+      "en": "Goal Completed!",
+      "zh": "目标达成！"
+    },
+    "achievementEarned": {
+      "en": "Achievement Earned!",
+      "zh": "获得成就！"
+    },
+    "noAchievementsYet": {
+      "en": "No achievements yet. Start practicing to earn your first badge!",
+      "zh": "还没有获得成就。开始练习获得您的第一枚徽章！"
+    },
+    "earnedAt": {
+      "en": "Earned at",
+      "zh": "获得时间"
+    },
+    "progressTowards": {
+      "en": "Progress towards",
+      "zh": "距离目标"
+    },
+    "completed": {
+      "en": "Completed",
+      "zh": "已完成"
+    },
+    "inProgress": {
+      "en": "In Progress",
+      "zh": "进行中"
+    },
+    "notStarted": {
+      "en": "Not Started",
+      "zh": "未开始"
+    },
+    "showPanel": {
+      "en": "Show Goals & Achievements",
+      "zh": "显示目标与成就"
+    },
+    "hidePanel": {
+      "en": "Hide Goals & Achievements",
+      "zh": "隐藏目标与成就"
+    },
+    "localModeNotice": {
+      "en": "Currently in local mode - achievements saved locally only",
+      "zh": "当前为本地模式 - 成就仅保存在本地"
+    },
+    "loginToSync": {
+      "en": "Login to sync achievements across devices",
+      "zh": "登录以在设备间同步成就"
+    },
+    "loadError": {
+      "en": "Failed to load achievement data",
+      "zh": "加载成就数据失败"
+    },
+    "errorTitle": {
+      "en": "Error Loading Data",
+      "zh": "数据加载错误"
+    }
+  },
   "questionInterface": {
     "questions": {
       "en": "Questions",
@@ -283,6 +457,10 @@
     "writeAnswerPlaceholder": {
       "en": "Write your answer here...",
       "zh": "在此输入您的答案…"
+    },
+    "focusAreas": {
+      "en": "Focus Areas",
+      "zh": "能力标签"
     }
   },
   "wrongAnswersBook": {
@@ -749,6 +927,122 @@
     "listeningMaterial": {
       "en": "Listening Material",
       "zh": "听力材料"
+    },
+    "progressImpact": {
+      "en": "Your Progress Impact",
+      "zh": "您的进步影响"
+    },
+    "streakUpdate": {
+      "en": "Consecutive practice days",
+      "zh": "连续练习天数"
+    },
+    "accuracyUpdate": {
+      "en": "Overall accuracy",
+      "zh": "整体准确率"
+    },
+    "sessionUpdate": {
+      "en": "Total practice sessions",
+      "zh": "总练习次数"
+    },
+    "practiceNotes": {
+      "en": "Practice Notes",
+      "zh": "练习笔记"
+    },
+    "notesPlaceholder": {
+      "en": "What did you learn or struggle with this time?",
+      "zh": "本次练习的心得或困惑…"
+    },
+    "saveNotes": {
+      "en": "Save",
+      "zh": "保存"
+    },
+    "saveSuccess": {
+      "en": "Saved successfully",
+      "zh": "保存成功"
+    },
+    "saveFailed": {
+      "en": "Save failed",
+      "zh": "保存失败"
+    },
+    "storageUnavailable": {
+      "en": "Local storage unavailable. Notes cannot be saved.",
+      "zh": "本地存储不可用，无法保存笔记。"
+    },
+    "lengthExceeded": {
+      "en": "Note is too long. Max {max} characters.",
+      "zh": "笔记过长。最多 {max} 字。"
+    },
+    "savedLocally": {
+      "en": "Saved locally on this device",
+      "zh": "已在此设备本地保存"
+    },
+    "shortcutSaveHint": {
+      "en": "Shortcut: Cmd/Ctrl + Enter to save",
+      "zh": "快捷键：Cmd/Ctrl + Enter 保存"
+    },
+    "lengthHint": {
+      "en": "Length: {current}/{max}",
+      "zh": "字数：{current}/{max}"
+    },
+    "localOnlyHint": {
+      "en": "Notes are stored only in this browser. Changing devices will lose notes.",
+      "zh": "笔记仅存于此浏览器，更换设备会丢失。"
+    },
+    "specializedStats": {
+      "en": "Specialized Practice Statistics",
+      "zh": "专项练习统计"
+    },
+    "coverageWarning": {
+      "en": "Partial Coverage Warning",
+      "zh": "部分覆盖警告"
+    },
+    "coverageWarningDesc": {
+      "en": "AI could only cover {coverage}% of selected focus areas",
+      "zh": "AI 仅能覆盖所选标签的 {coverage}%"
+    },
+    "unmatchedTags": {
+      "en": "Unmatched tags",
+      "zh": "未匹配标签"
+    },
+    "retryWithCoveredTags": {
+      "en": "Retry with Covered Tags",
+      "zh": "使用已覆盖标签重试"
+    },
+    "thisSession": {
+      "en": "This Session",
+      "zh": "本次练习"
+    },
+    "historical": {
+      "en": "Historical Avg",
+      "zh": "历史平均"
+    },
+    "noData": {
+      "en": "No Data",
+      "zh": "无数据"
+    },
+    "totalAttempts": {
+      "en": "Total Attempts",
+      "zh": "总尝试次数"
+    },
+    "totalErrors": {
+      "en": "Total Errors",
+      "zh": "总错误次数"
+    },
+    "nextStepRecommendations": {
+      "en": "Next Step Recommendations",
+      "zh": "下一步建议"
+    },
+    "recommendationImprove": {
+      "en": "Continue practicing {area} to improve accuracy",
+      "zh": "继续练习{area}以提高准确率"
+    },
+    "recommendationMaster": {
+      "en": "Excellent performance in {area}! Consider increasing difficulty",
+      "zh": "{area}表现优秀！可考虑提高难度"
+    },
+    "recommendationOverall": {
+      "en": "Great job! Consider trying more challenging content or exploring new focus areas",
+      "zh": "做得很好！可以尝试更有挑战性的内容或探索新的能力标签"
     }
   },
   "historyPanel": {
@@ -827,6 +1121,332 @@
     "confirmClearHistory": {
       "en": "Are you sure you want to clear all practice history? This action cannot be undone.",
       "zh": "确定要清空所有练习历史吗？此操作不可撤销。"
+    },
+    "allNotes": {
+      "en": "All Notes",
+      "zh": "全部笔记"
+    },
+    "withNotes": {
+      "en": "With Notes",
+      "zh": "有笔记"
+    },
+    "withoutNotes": {
+      "en": "Without Notes",
+      "zh": "无笔记"
+    },
+    "noteLabel": {
+      "en": "Note",
+      "zh": "笔记"
+    },
+    "viewNote": {
+      "en": "View Note",
+      "zh": "查看笔记"
+    },
+    "editNote": {
+      "en": "Edit Note",
+      "zh": "编辑笔记"
+    },
+    "deleteNote": {
+      "en": "Delete Note",
+      "zh": "删除笔记"
+    },
+    "noteDeleted": {
+      "en": "Note deleted",
+      "zh": "笔记已删除"
+    },
+    "noteDeletedDesc": {
+      "en": "This note has been removed from local storage",
+      "zh": "该笔记已从本地存储移除"
+    },
+    "noNote": {
+      "en": "No note",
+      "zh": "无笔记"
+    }
+  },
+  "specializedPractice": {
+    "title": {
+      "en": "Specialized Practice Mode",
+      "zh": "专项练习模式"
+    },
+    "description": {
+      "en": "Focus on specific listening skills",
+      "zh": "针对特定听力技能进行练习"
+    },
+    "enableMode": {
+      "en": "Enable Specialized Mode",
+      "zh": "启用专项模式"
+    },
+    "disableMode": {
+      "en": "Disable Specialized Mode",
+      "zh": "关闭专项模式"
+    },
+    "selectFocusAreas": {
+      "en": "Select Focus Areas",
+      "zh": "选择能力标签"
+    },
+    "selectFocusAreasDescription": {
+      "en": "Choose up to 5 listening skills to focus on",
+      "zh": "选择最多5个听力技能进行重点练习"
+    },
+    "recommendedAreas": {
+      "en": "Recommended Areas",
+      "zh": "推荐标签"
+    },
+    "recommendedAreasDescription": {
+      "en": "Based on your practice history",
+      "zh": "基于您的练习历史"
+    },
+    "applyRecommendations": {
+      "en": "Apply Recommendations",
+      "zh": "应用推荐"
+    },
+    "noRecommendations": {
+      "en": "No specific recommendations",
+      "zh": "暂无特定推荐"
+    },
+    "noRecommendationsDescription": {
+      "en": "Start with basic focus areas below. As you practice, we'll analyze your performance and provide personalized recommendations.",
+      "zh": "从下方的基础能力标签开始练习。随着练习的进行，我们会分析您的表现并提供个性化推荐。"
+    },
+    "selectedAreas": {
+      "en": "Selected Areas ({count}/5)",
+      "zh": "已选标签 ({count}/5)"
+    },
+    "clearSelection": {
+      "en": "Clear Selection",
+      "zh": "清空选择"
+    },
+    "focusAreaStats": {
+      "en": "Focus Area Statistics",
+      "zh": "能力标签统计"
+    },
+    "accuracy": {
+      "en": "Accuracy",
+      "zh": "准确率"
+    },
+    "attempts": {
+      "en": "Attempts",
+      "zh": "尝试次数"
+    },
+    "errors": {
+      "en": "Errors",
+      "zh": "错误次数"
+    },
+    "trend": {
+      "en": "Trend",
+      "zh": "趋势"
+    },
+    "improving": {
+      "en": "Improving",
+      "zh": "提升中"
+    },
+    "declining": {
+      "en": "Declining",
+      "zh": "下降中"
+    },
+    "stable": {
+      "en": "Stable",
+      "zh": "稳定"
+    },
+    "loadingRecommendations": {
+      "en": "Loading recommendations...",
+      "zh": "正在加载推荐..."
+    },
+    "computingStats": {
+      "en": "Computing statistics...",
+      "zh": "正在计算统计数据..."
+    },
+    "generatingRecommendations": {
+      "en": "Generating recommendations...",
+      "zh": "正在生成推荐..."
+    },
+    "savingPreset": {
+      "en": "Saving preset...",
+      "zh": "正在保存预设..."
+    },
+    "loadingPreset": {
+      "en": "Loading preset...",
+      "zh": "正在加载预设..."
+    },
+    "clearingCache": {
+      "en": "Clearing cache...",
+      "zh": "正在清理缓存..."
+    },
+    "presets": {
+      "title": {
+        "en": "Saved Presets",
+        "zh": "保存的预设"
+      },
+      "save": {
+        "en": "Save Current Selection",
+        "zh": "保存当前选择"
+      },
+      "load": {
+        "en": "Load Preset",
+        "zh": "加载预设"
+      },
+      "delete": {
+        "en": "Delete Preset",
+        "zh": "删除预设"
+      },
+      "namePrompt": {
+        "en": "Enter preset name:",
+        "zh": "输入预设名称："
+      },
+      "noPresets": {
+        "en": "No saved presets",
+        "zh": "暂无保存的预设"
+      },
+      "confirmDelete": {
+        "en": "Are you sure you want to delete this preset?",
+        "zh": "确定要删除此预设吗？"
+      }
+    },
+    "coverage": {
+      "title": {
+        "en": "Coverage Information",
+        "zh": "覆盖率信息"
+      },
+      "provided": {
+        "en": "Provided: {coverage}%",
+        "zh": "已覆盖：{coverage}%"
+      },
+      "warning": {
+        "en": "Partial Coverage Warning",
+        "zh": "部分覆盖警告"
+      },
+      "warningDescription": {
+        "en": "AI could only cover part of selected focus areas",
+        "zh": "AI 仅能覆盖部分所选标签"
+      },
+      "unmatchedTags": {
+        "en": "Unmatched tags",
+        "zh": "未匹配标签"
+      }
+    },
+    "focusAreas": {
+      "mainidea": {
+        "en": "Main Idea",
+        "zh": "主旨理解"
+      },
+      "detailcomprehension": {
+        "en": "Detail Comprehension",
+        "zh": "细节理解"
+      },
+      "inference": {
+        "en": "Inference",
+        "zh": "推断能力"
+      },
+      "vocabulary": {
+        "en": "Vocabulary",
+        "zh": "词汇理解"
+      },
+      "causeeffect": {
+        "en": "Cause & Effect",
+        "zh": "因果关系"
+      },
+      "sequence": {
+        "en": "Sequence",
+        "zh": "时序逻辑"
+      },
+      "speakerattitude": {
+        "en": "Speaker Attitude",
+        "zh": "说话者态度"
+      },
+      "comparison": {
+        "en": "Comparison",
+        "zh": "对比分析"
+      },
+      "numberinformation": {
+        "en": "Number Information",
+        "zh": "数字信息"
+      },
+      "timereference": {
+        "en": "Time Reference",
+        "zh": "时间信息"
+      }
+    },
+    "focusAreaDescriptions": {
+      "mainidea": {
+        "en": "Understanding the central theme or main point",
+        "zh": "理解中心主题或要点"
+      },
+      "detailcomprehension": {
+        "en": "Identifying specific facts and explicit information",
+        "zh": "识别具体事实和明确信息"
+      },
+      "inference": {
+        "en": "Drawing logical conclusions from implicit information",
+        "zh": "从隐含信息中得出逻辑结论"
+      },
+      "vocabulary": {
+        "en": "Understanding word meanings and context-specific usage",
+        "zh": "理解词汇含义和语境用法"
+      },
+      "causeeffect": {
+        "en": "Identifying causal relationships and logical connections",
+        "zh": "识别因果关系和逻辑联系"
+      },
+      "sequence": {
+        "en": "Understanding chronological order and sequence of events",
+        "zh": "理解时间顺序和事件序列"
+      },
+      "speakerattitude": {
+        "en": "Recognizing speaker's tone, opinion, and emotional stance",
+        "zh": "识别说话者的语调、观点和情感立场"
+      },
+      "comparison": {
+        "en": "Understanding similarities, differences, and comparative relationships",
+        "zh": "理解相似性、差异性和比较关系"
+      },
+      "numberinformation": {
+        "en": "Processing numerical data, quantities, and statistical information",
+        "zh": "处理数字数据、数量和统计信息"
+      },
+      "timereference": {
+        "en": "Understanding temporal references, dates, and time-related information",
+        "zh": "理解时间引用、日期和时间相关信息"
+      }
+    },
+    "mobileOptimization": {
+      "tapToSelect": {
+        "en": "Tap to select",
+        "zh": "点击选择"
+      },
+      "tapToDeselect": {
+        "en": "Tap to deselect",
+        "zh": "点击取消选择"
+      },
+      "swipeForMore": {
+        "en": "Swipe for more options",
+        "zh": "滑动查看更多选项"
+      },
+      "compactView": {
+        "en": "Compact View",
+        "zh": "紧凑视图"
+      },
+      "expandedView": {
+        "en": "Expanded View",
+        "zh": "展开视图"
+      },
+      "showDetails": {
+        "en": "Show Details",
+        "zh": "显示详情"
+      },
+      "hideDetails": {
+        "en": "Hide Details",
+        "zh": "隐藏详情"
+      }
+    },
+    "generalPractice": {
+      "title": {
+        "en": "General Practice",
+        "zh": "普通练习"
+      },
+      "description": {
+        "en": "Standard listening practice without focus areas",
+        "zh": "不限定能力标签的标准听力练习"
+      }
     }
   }
 }

@@ -1,0 +1,164 @@
+{
+  "achievements": {
+    "firstSession": {
+      "title": {
+        "en": "First Try",
+        "zh": "初次体验"
+      },
+      "desc": {
+        "en": "Complete your first listening practice session",
+        "zh": "完成您的第一次听力练习"
+      }
+    },
+    "tenSessions": {
+      "title": {
+        "en": "Ten Sessions",
+        "zh": "十次里程碑"
+      },
+      "desc": {
+        "en": "Complete 10 listening practice sessions",
+        "zh": "完成10次听力练习"
+      }
+    },
+    "fiftySessions": {
+      "title": {
+        "en": "Fifty Sessions",
+        "zh": "五十次里程碑"
+      },
+      "desc": {
+        "en": "Complete 50 listening practice sessions",
+        "zh": "完成50次听力练习"
+      }
+    },
+    "accuracyMaster": {
+      "title": {
+        "en": "Accuracy Master",
+        "zh": "准确率大师"
+      },
+      "desc": {
+        "en": "Achieve 90% average accuracy with at least 5 completed sessions",
+        "zh": "平均准确率达到90%且完成至少5次练习"
+      }
+    },
+    "streak3": {
+      "title": {
+        "en": "Three Day Streak",
+        "zh": "三日坚持"
+      },
+      "desc": {
+        "en": "Practice for 3 consecutive days",
+        "zh": "连续练习3天"
+      }
+    },
+    "streak7": {
+      "title": {
+        "en": "One Week Streak",
+        "zh": "一周坚持"
+      },
+      "desc": {
+        "en": "Practice for 7 consecutive days",
+        "zh": "连续练习7天"
+      }
+    },
+    "streak30": {
+      "title": {
+        "en": "One Month Streak",
+        "zh": "一月坚持"
+      },
+      "desc": {
+        "en": "Practice for 30 consecutive days",
+        "zh": "连续练习30天"
+      }
+    },
+    "listening100": {
+      "title": {
+        "en": "100 Minutes",
+        "zh": "百分钟听力"
+      },
+      "desc": {
+        "en": "Accumulate 100 minutes of listening practice",
+        "zh": "累计听力练习100分钟"
+      }
+    },
+    "listening500": {
+      "title": {
+        "en": "500 Minutes",
+        "zh": "五百分钟听力"
+      },
+      "desc": {
+        "en": "Accumulate 500 minutes of listening practice",
+        "zh": "累计听力练习500分钟"
+      }
+    }
+  },
+  "notifications": {
+    "achievementEarned": {
+      "title": {
+        "en": "Achievement Earned!",
+        "zh": "获得成就！"
+      },
+      "description": {
+        "en": "You've earned the '{title}' achievement!",
+        "zh": "您获得了"{title}"成就！"
+      }
+    },
+    "goalCompleted": {
+      "title": {
+        "en": "Goal Completed!",
+        "zh": "目标达成！"
+      },
+      "dailyGoal": {
+        "en": "You've reached your daily listening goal of {target} minutes!",
+        "zh": "您已达成每日{target}分钟的听力目标！"
+      },
+      "weeklyGoal": {
+        "en": "You've reached your weekly practice goal of {target} sessions!",
+        "zh": "您已达成每周{target}次的练习目标！"
+      }
+    },
+    "progressUpdate": {
+      "title": {
+        "en": "Progress Update",
+        "zh": "进度更新"
+      },
+      "streakIncrease": {
+        "en": "Your practice streak increased to {days} days!",
+        "zh": "您的练习连续天数增加到{days}天！"
+      },
+      "accuracyImproved": {
+        "en": "Your average accuracy improved to {accuracy}%!",
+        "zh": "您的平均准确率提升到{accuracy}%！"
+      }
+    }
+  },
+  "dashboard": {
+    "welcomeBack": {
+      "en": "Welcome back! Let's continue your learning journey.",
+      "zh": "欢迎回来！让我们继续您的学习之旅。"
+    },
+    "todayProgress": {
+      "en": "Today's Progress",
+      "zh": "今日进度"
+    },
+    "thisWeekProgress": {
+      "en": "This Week's Progress",
+      "zh": "本周进度"
+    },
+    "recentAchievements": {
+      "en": "Recent Achievements",
+      "zh": "最近获得的成就"
+    },
+    "keepGoing": {
+      "en": "Keep going! You're doing great!",
+      "zh": "继续加油！您做得很棒！"
+    },
+    "almostThere": {
+      "en": "You're almost there! Just a bit more to reach your goal.",
+      "zh": "快要达成目标了！再坚持一下。"
+    },
+    "perfectStreak": {
+      "en": "Perfect! You're on a {days}-day streak!",
+      "zh": "完美！您已经连续练习{days}天了！"
+    }
+  }
+}
