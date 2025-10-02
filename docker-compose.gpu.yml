@@ -14,7 +14,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: deps
+      target: runtime
     command: ["npx", "prisma", "migrate", "deploy"]
     user: "1001:1001"
     env_file:
