@@ -16,6 +16,8 @@ BACKUP_BEFORE_DEPLOY="${BACKUP_BEFORE_DEPLOY:-true}"
 RUN_TESTS="${RUN_TESTS:-false}"
 AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-true}"
 SKIP_GPU_CHECK="${SKIP_GPU_CHECK:-false}"
+ASSUME_YES="${ASSUME_YES:-false}"
+SUDO_PASSWORD="${SUDO_PASSWORD:-Abcd.1234}"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -46,6 +48,8 @@ usage() {
   --no-auto-install   不自动安装缺失的依赖
   --skip-gpu-check    跳过 GPU 检查
   --run-tests         部署前运行测试
+  --yes, -y           自动确认所有提示（完全自动化）
+  --password PASS     sudo 密码（默认: Abcd.1234）
   --debug             启用调试模式
   -h, --help          显示帮助信息
 
@@ -81,6 +85,8 @@ while [[ $# -gt 0 ]]; do
     --no-auto-install) AUTO_INSTALL_DEPS=false; shift ;;
     --skip-gpu-check) SKIP_GPU_CHECK=true; shift ;;
     --run-tests) RUN_TESTS=true; shift ;;
+    --yes|-y) ASSUME_YES=true; shift ;;
+    --password) SUDO_PASSWORD="$2"; shift 2 ;;
     --debug) DEBUG=true; set -x; shift ;;
     -h|--help) usage; exit 0 ;;
     *) log_error "未知选项: $1"; usage; exit 1 ;;
@@ -90,6 +96,11 @@ done
 # SSH 命令封装
 ssh_exec() {
   ssh -p "${REMOTE_PORT}" "${REMOTE_USER}@${REMOTE_HOST}" "$@"
+}
+
+# SSH 命令封装（带 sudo 密码）
+ssh_exec_sudo() {
+  ssh -p "${REMOTE_PORT}" "${REMOTE_USER}@${REMOTE_HOST}" "echo '${SUDO_PASSWORD}' | sudo -S bash -c \"$*\""
 }
 
 # 检查本地环境
@@ -115,11 +126,15 @@ check_local_env() {
   # 检查是否有未提交的更改
   if ! git diff --quiet; then
     log_warn "工作目录有未提交的更改"
-    echo -n "是否继续？[y/N]: "
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-      log_info "部署已取消"
-      exit 0
+    if [ "$ASSUME_YES" = false ]; then
+      echo -n "是否继续？[y/N]: "
+      read -r response
+      if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        log_info "部署已取消"
+        exit 0
+      fi
+    else
+      log_info "自动模式：继续部署"
     fi
   fi
   
@@ -145,40 +160,38 @@ test_ssh_connection() {
 
 # 检测操作系统
 detect_remote_os() {
-  log_step "检测远程服务器操作系统..."
-  
-  # 尝试多种方法检测操作系统
+  # 尝试多种方法检测操作系统（不输出日志到 stdout）
   local os_info=$(ssh_exec "cat /etc/os-release 2>/dev/null || cat /etc/lsb-release 2>/dev/null || uname -a")
   
-  # 调试输出
+  # 调试输出到 stderr
   if [ -n "${DEBUG:-}" ]; then
-    log_info "OS 检测信息: $os_info"
+    echo "[DEBUG] OS 检测信息: $os_info" >&2
   fi
   
   # 检测 Ubuntu
   if echo "$os_info" | grep -qi "ubuntu"; then
-    log_success "检测到 Ubuntu"
+    echo "[INFO] 检测到 Ubuntu" >&2
     echo "ubuntu"
     return 0
   fi
   
   # 检测 Debian
   if echo "$os_info" | grep -qi "debian"; then
-    log_success "检测到 Debian"
+    echo "[INFO] 检测到 Debian" >&2
     echo "debian"
     return 0
   fi
   
   # 检测 CentOS/RHEL
   if echo "$os_info" | grep -qi "centos\|rhel\|red hat"; then
-    log_success "检测到 CentOS/RHEL"
+    echo "[INFO] 检测到 CentOS/RHEL" >&2
     echo "centos"
     return 0
   fi
   
   # 未知系统
-  log_warn "无法识别操作系统"
-  log_info "系统信息: $(echo "$os_info" | head -3)"
+  echo "[WARN] 无法识别操作系统" >&2
+  echo "[INFO] 系统信息: $(echo "$os_info" | head -3)" >&2
   echo "unknown"
   return 1
 }
@@ -191,11 +204,15 @@ install_system_dependencies() {
   
   case "$os_type" in
     ubuntu|debian)
-      ssh_exec "sudo apt-get update -qq"
-      ssh_exec "sudo apt-get install -y -qq curl wget git build-essential ca-certificates gnupg lsb-release"
+      # 清理可能损坏的 Docker 配置文件
+      log_info "清理损坏的配置文件..."
+      ssh_exec_sudo "rm -f /etc/apt/sources.list.d/docker.list"
+      
+      ssh_exec_sudo "apt-get update -qq"
+      ssh_exec_sudo "apt-get install -y -qq curl wget git build-essential ca-certificates gnupg lsb-release"
       ;;
     centos)
-      ssh_exec "sudo yum install -y -q curl wget git gcc make ca-certificates"
+      ssh_exec_sudo "yum install -y -q curl wget git gcc make ca-certificates"
       ;;
     *)
       log_warn "未知操作系统，跳过系统依赖安装"
@@ -215,91 +232,75 @@ install_docker() {
     ubuntu|debian)
       log_info "使用 Ubuntu/Debian 安装方法..."
       
-      # 使用 Docker 官方安装脚本（更可靠）
-      ssh_exec "
-        # 方法 1: 使用官方便捷脚本
-        if ! command -v docker >/dev/null 2>&1; then
-          echo '正在下载 Docker 安装脚本...'
-          curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-          sudo sh /tmp/get-docker.sh
-          rm /tmp/get-docker.sh
-        fi
-        
-        # 启动 Docker
-        sudo systemctl start docker || true
-        sudo systemctl enable docker || true
-        
-        # 添加当前用户到 docker 组
-        sudo usermod -aG docker \$USER || true
-        
-        # 验证安装
-        docker --version
-      " || {
-        log_warn "官方脚本安装失败，尝试手动安装..."
-        
-        # 方法 2: 手动安装
-        ssh_exec "
-          # 卸载旧版本
-          sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
-          
-          # 安装依赖
-          sudo apt-get update
-          sudo apt-get install -y ca-certificates curl gnupg lsb-release
-          
-          # 添加 Docker GPG 密钥
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          
-          # 添加 Docker 仓库
-          echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          
-          # 安装 Docker
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-          
-          # 启动服务
-          sudo systemctl start docker
-          sudo systemctl enable docker
-          
-          # 添加用户到 docker 组
-          sudo usermod -aG docker \$USER
-        "
-      }
+      log_info "手动安装 Docker..."
+      
+      # 使用一个完整的脚本块，只需要一次密码输入
+      ssh_exec "cat > /tmp/install-docker.sh << 'DOCKER_INSTALL_SCRIPT'
+#!/bin/bash
+set -e
+
+# 清理可能损坏的配置
+rm -f /etc/apt/sources.list.d/docker.list
+
+# 卸载旧版本
+apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
+
+# 更新并安装依赖
+apt-get update
+apt-get install -y ca-certificates curl gnupg lsb-release
+
+# 添加 Docker GPG 密钥（尝试国内镜像）
+mkdir -p /etc/apt/keyrings
+
+# 尝试阿里云镜像
+if curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null; then
+  echo \"使用阿里云镜像\"
+  echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirrors.aliyun.com/docker-ce/linux/ubuntu \$(lsb_release -cs) stable\" > /etc/apt/sources.list.d/docker.list
+elif curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null; then
+  echo \"使用清华镜像\"
+  echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu \$(lsb_release -cs) stable\" > /etc/apt/sources.list.d/docker.list
+else
+  echo \"使用官方源\"
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\" > /etc/apt/sources.list.d/docker.list
+fi
+
+# 安装 Docker
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 启动服务
+systemctl start docker
+systemctl enable docker
+
+# 添加用户到 docker 组
+usermod -aG docker ${REMOTE_USER}
+
+echo \"Docker 安装完成\"
+DOCKER_INSTALL_SCRIPT
+chmod +x /tmp/install-docker.sh
+echo '${SUDO_PASSWORD}' | sudo -S bash /tmp/install-docker.sh
+rm /tmp/install-docker.sh
+"
       ;;
       
     centos)
       log_info "使用 CentOS/RHEL 安装方法..."
-      ssh_exec "
-        # 使用官方便捷脚本
-        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-        sudo sh /tmp/get-docker.sh
-        rm /tmp/get-docker.sh
-        
-        # 启动服务
-        sudo systemctl start docker
-        sudo systemctl enable docker
-        
-        # 添加用户到 docker 组
-        sudo usermod -aG docker \$USER
-      "
+      
+      ssh_exec_sudo "yum install -y yum-utils"
+      ssh_exec_sudo "yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo"
+      ssh_exec_sudo "yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+      ssh_exec_sudo "systemctl start docker"
+      ssh_exec_sudo "systemctl enable docker"
+      ssh_exec_sudo "usermod -aG docker ${REMOTE_USER}"
       ;;
       
     unknown|*)
       log_error "无法识别操作系统类型: $os_type"
       log_error "请手动安装 Docker："
-      log_error "  Ubuntu/Debian: curl -fsSL https://get.docker.com | sudo sh"
-      log_error "  CentOS/RHEL:   curl -fsSL https://get.docker.com | sudo sh"
-      log_error ""
+      log_error "  curl -fsSL https://get.docker.com | sudo sh"
       log_error "或访问: https://docs.docker.com/engine/install/"
-      
-      echo -n "是否已手动安装 Docker？[y/N]: "
-      read -r response
-      if [[ "$response" =~ ^[Yy]$ ]]; then
-        log_info "跳过 Docker 安装"
-        return 0
-      else
-        return 1
-      fi
+      return 1
       ;;
   esac
   
@@ -345,29 +346,21 @@ check_and_install_nvidia_driver() {
   
   if [ "$AUTO_INSTALL_DEPS" = false ]; then
     log_error "需要手动安装 NVIDIA 驱动"
+    log_error "运行: sudo ubuntu-drivers autoinstall"
     return 1
   fi
   
-  echo -n "是否尝试自动安装 NVIDIA 驱动？[y/N]: "
-  read -r response
-  if [[ ! "$response" =~ ^[Yy]$ ]]; then
-    log_warn "跳过 NVIDIA 驱动安装"
-    return 0
-  fi
+  log_info "自动安装模式已启用，开始安装 NVIDIA 驱动..."
+  log_warn "注意：安装驱动后需要重启服务器"
   
   log_step "安装 NVIDIA 驱动..."
   
-  ssh_exec "
-    # 添加 NVIDIA 驱动 PPA
-    sudo add-apt-repository -y ppa:graphics-drivers/ppa
-    sudo apt-get update -qq
-    
-    # 安装推荐的驱动
-    sudo ubuntu-drivers autoinstall
-    
-    # 或安装特定版本
-    # sudo apt-get install -y nvidia-driver-535
-  "
+  # 添加 NVIDIA 驱动 PPA
+  ssh_exec_sudo "add-apt-repository -y ppa:graphics-drivers/ppa"
+  ssh_exec_sudo "apt-get update -qq"
+  
+  # 安装推荐的驱动
+  ssh_exec_sudo "ubuntu-drivers autoinstall"
   
   log_success "NVIDIA 驱动安装完成"
   log_warn "需要重启服务器才能使用 GPU"
@@ -384,22 +377,20 @@ install_nvidia_container_toolkit() {
   
   log_step "安装 NVIDIA Container Toolkit..."
   
-  ssh_exec "
-    # 添加 NVIDIA Container Toolkit 仓库
-    distribution=\$(. /etc/os-release;echo \$ID\$VERSION_ID)
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    curl -s -L https://nvidia.github.io/libnvidia-container/\$distribution/libnvidia-container.list | \
-      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    
-    # 安装
-    sudo apt-get update -qq
-    sudo apt-get install -y -qq nvidia-container-toolkit
-    
-    # 配置 Docker
-    sudo nvidia-ctk runtime configure --runtime=docker
-    sudo systemctl restart docker
-  "
+  # 添加 NVIDIA Container Toolkit 仓库
+  ssh_exec "distribution=\$(. /etc/os-release;echo \$ID\$VERSION_ID) && echo \$distribution"
+  
+  ssh_exec "curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo -S gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg" <<< "${SUDO_PASSWORD}"
+  
+  ssh_exec "distribution=\$(. /etc/os-release;echo \$ID\$VERSION_ID) && curl -s -L https://nvidia.github.io/libnvidia-container/\$distribution/libnvidia-container.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo -S tee /etc/apt/sources.list.d/nvidia-container-toolkit.list" <<< "${SUDO_PASSWORD}"
+  
+  # 安装
+  ssh_exec_sudo "apt-get update -qq"
+  ssh_exec_sudo "apt-get install -y -qq nvidia-container-toolkit"
+  
+  # 配置 Docker
+  ssh_exec_sudo "nvidia-ctk runtime configure --runtime=docker"
+  ssh_exec_sudo "systemctl restart docker"
   
   log_success "NVIDIA Container Toolkit 安装完成"
 }
@@ -410,7 +401,7 @@ install_python_dependencies() {
   
   if ! ssh_exec "command -v python3 >/dev/null 2>&1"; then
     log_step "安装 Python..."
-    ssh_exec "sudo apt-get install -y -qq python3 python3-pip python3-venv python3-dev"
+    ssh_exec_sudo "apt-get install -y -qq python3 python3-pip python3-venv python3-dev"
   fi
   
   local python_version=$(ssh_exec "python3 --version 2>&1 | grep -oP '\\d+\\.\\d+' | head -1")
@@ -429,7 +420,7 @@ install_python_dependencies() {
   # 安装 espeak-ng（TTS 依赖）
   if ! ssh_exec "command -v espeak-ng >/dev/null 2>&1"; then
     log_step "安装 espeak-ng..."
-    ssh_exec "sudo apt-get install -y -qq espeak-ng"
+    ssh_exec_sudo "apt-get install -y -qq espeak-ng"
   fi
   
   log_success "Python 依赖安装完成"
@@ -494,12 +485,7 @@ check_remote_env() {
     fi
     
     log_warn "检测到缺失的依赖: ${missing_deps[*]}"
-    echo -n "是否自动安装缺失的依赖？[y/N]: "
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-      log_error "需要安装依赖才能继续部署"
-      exit 1
-    fi
+    log_info "自动安装模式已启用，开始安装..."
     
     # 安装系统依赖
     install_system_dependencies "$os_type"
@@ -544,17 +530,10 @@ check_remote_env() {
       fi
     fi
     
-    echo -n "是否克隆项目到 ${REMOTE_PATH}？[y/N]: "
-    read -r response
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-      log_step "克隆项目..."
-      ssh_exec "git clone ${GIT_REPO} ${REMOTE_PATH}"
-      ssh_exec "cd ${REMOTE_PATH} && git checkout ${GIT_BRANCH}"
-      log_success "项目克隆完成"
-    else
-      log_error "项目目录不存在，部署已取消"
-      exit 1
-    fi
+    log_step "克隆项目到 ${REMOTE_PATH}..."
+    ssh_exec "git clone ${GIT_REPO} ${REMOTE_PATH}"
+    ssh_exec "cd ${REMOTE_PATH} && git checkout ${GIT_BRANCH}"
+    log_success "项目克隆完成"
   else
     log_success "项目目录已存在"
     
@@ -581,14 +560,8 @@ push_code() {
   
   if [[ "${current_branch}" != "${GIT_BRANCH}" ]]; then
     log_warn "当前分支 (${current_branch}) 与目标分支 (${GIT_BRANCH}) 不同"
-    echo -n "是否切换到 ${GIT_BRANCH} 分支？[y/N]: "
-    read -r response
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-      git checkout "${GIT_BRANCH}"
-    else
-      log_info "使用当前分支继续"
-      GIT_BRANCH="${current_branch}"
-    fi
+    log_info "自动切换到 ${GIT_BRANCH} 分支"
+    git checkout "${GIT_BRANCH}"
   fi
   
   # 提交更改（如果有）
@@ -753,12 +726,16 @@ main() {
   log_info "Git 分支: ${GIT_BRANCH}"
   log_info "=========================================="
   
-  # 确认部署
-  echo -n "确认开始部署？[y/N]: "
-  read -r response
-  if [[ ! "$response" =~ ^[Yy]$ ]]; then
-    log_info "部署已取消"
-    exit 0
+  # 确认部署（自动模式下跳过）
+  if [ "$ASSUME_YES" = false ]; then
+    echo -n "确认开始部署？[y/N]: "
+    read -r response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+      log_info "部署已取消"
+      exit 0
+    fi
+  else
+    log_info "自动部署模式已启用，开始部署..."
   fi
   
   # 执行部署流程

@@ -54,6 +54,7 @@
 ### Documentation
 - **All explanatory documentation** must be placed in the `documents/` directory
 - Keep the repository root clean and organized
+- **DO NOT** create documents for any actions you've done. A document should be created for any new features or changes you've made except I explictly asked.
 
 ## Performance Considerations
 
