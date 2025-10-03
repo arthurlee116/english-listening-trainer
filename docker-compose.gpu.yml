@@ -10,11 +10,12 @@ x-app-env: &app-env
 
 services:
   migrate:
-    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runtime
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    # Uncomment below for local development builds
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: runtime
     command: ["npx", "prisma", "migrate", "deploy"]
     user: "1001:1001"
     env_file:
@@ -41,11 +42,12 @@ services:
       - app-net
 
   app:
-    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runtime
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    # Uncomment below for local development builds
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: runtime
     restart: unless-stopped
     env_file:
       - .env.production
@@ -92,7 +94,7 @@ services:
       - app-net
 
   admin:
-    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
     profiles:
       - admin
     command: ["npm", "run", "admin"]
