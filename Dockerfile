@@ -113,7 +113,6 @@ COPY --from=deps --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=deps --chown=nextjs:nodejs /app/package-lock.json ./package-lock.json
 COPY --from=deps --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=deps --chown=nextjs:nodejs /app/kokoro-local ./kokoro-local
-COPY --from=deps --chown=nextjs:nodejs /app/kokoro-main-ref ./kokoro-main-ref
 COPY --from=deps --chown=nextjs:nodejs /app/admin-server.mjs ./admin-server.mjs
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
