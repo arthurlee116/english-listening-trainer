@@ -675,3 +675,339 @@ ssh -p 60022 ubuntu@49.234.30.246 'nvidia-smi'
 **如果成功**: TTS 应该完全工作
 
 **如果失败**: 需要修补 Kokoro 源码或寻找替代方案
+
+---
+
+## CI/CD Pipeline（2025-10-03）
+
+### 问题与解决方案
+
+#### 问题描述
+服务器上 Docker 镜像构建极其缓慢且经常失败：
+- **大型基础镜像**: NVIDIA CUDA 基础镜像超过 2GB
+- **网络限制**: 服务器必须通过代理访问外部资源
+- **频繁超时**: 网络不稳定导致构建失败
+- **资源占用**: 构建过程消耗 GPU 服务器资源
+- **部署时间**: 每次部署需要 30-60 分钟
+
+#### 解决方案
+实现 GitHub Actions CI/CD 流水线，在 GitHub 基础设施上构建镜像并推送到 GitHub Container Registry (GHCR)。
+
+### 工作原理
+
+```mermaid
+graph LR
+    A[代码推送到 main] --> B[GitHub Actions 触发]
+    B --> C[构建 Docker 镜像]
+    C --> D[推送到 GHCR]
+    D --> E[服务器拉取镜像]
+    E --> F[快速部署]
+```
+
+**流程说明：**
+1. **自动构建**: 代码推送到 `main` 分支时，GitHub Actions 自动构建 Docker 镜像
+2. **缓存优化**: 使用 BuildKit 缓存，避免重复下载 2GB+ 的 CUDA 基础镜像
+3. **镜像发布**: 构建完成的镜像推送到 GitHub Container Registry (GHCR)
+4. **快速部署**: 服务器只需拉取预构建的镜像，无需本地构建
+
+### 部署流程
+
+#### 首次设置
+
+```bash
+# 1. 创建 GitHub Personal Access Token (PAT)
+# 访问: GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)
+# 权限: read:packages
+
+# 2. 在服务器上登录 GHCR
+echo $GHCR_TOKEN | docker login ghcr.io -u arthurlee116 --password-stdin
+
+# 3. 验证登录
+docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+```
+
+#### 常规部署
+
+**方法 1: 使用部署脚本（推荐）**
+```bash
+# 部署最新版本
+./scripts/deploy-from-ghcr.sh
+
+# 部署特定版本
+./scripts/deploy-from-ghcr.sh main-abc1234
+```
+
+**方法 2: 手动部署**
+```bash
+# 1. 拉取最新镜像
+docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+
+# 2. 检查镜像是否有更新（可选）
+CURRENT_ID=$(docker inspect --format='{{.Image}}' \
+  $(docker compose -f docker-compose.gpu.yml ps -q app 2>/dev/null) 2>/dev/null || echo "none")
+NEW_ID=$(docker inspect --format='{{.Id}}' \
+  ghcr.io/arthurlee116/english-listening-trainer:latest)
+
+# 如果镜像相同，跳过部署
+if [ "$CURRENT_ID" = "$NEW_ID" ]; then
+  echo "Already running latest version"
+  exit 0
+fi
+
+# 3. 备份数据库
+./scripts/backup.sh --compress
+
+# 4. 停止当前容器
+docker compose -f docker-compose.gpu.yml down
+
+# 5. 启动新容器
+export IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:latest
+docker compose -f docker-compose.gpu.yml up -d
+
+# 6. 等待启动并验证
+sleep 30
+curl http://localhost:3000/api/health
+```
+
+### 部署脚本功能
+
+`scripts/deploy-from-ghcr.sh` 自动执行以下操作：
+
+1. **镜像拉取**: 从 GHCR 拉取指定版本的镜像
+2. **版本比较**: 比较当前运行的镜像与新镜像的 ID
+3. **智能跳过**: 如果镜像相同，跳过部署（避免不必要的重启）
+4. **数据备份**: 部署前自动备份数据库（使用 `--compress` 压缩）
+5. **容器管理**: 停止旧容器，启动新容器
+6. **健康检查**: 等待 30 秒后验证应用健康状态
+7. **TTS 测试**: 检查 TTS 端点可用性
+8. **错误处理**: 健康检查失败时提供回滚建议
+
+**脚本输出示例：**
+```
+🚀 Deploying from GHCR...
+📦 Image: ghcr.io/arthurlee116/english-listening-trainer:latest
+
+📥 Pulling image from GHCR...
+✅ Image pulled successfully
+
+🆕 New version detected
+   Current: a1b2c3d4e5f6
+   New:     f6e5d4c3b2a1
+
+💾 Backing up database...
+✅ Database backup completed
+
+🛑 Stopping current containers...
+✅ Containers stopped
+
+▶️  Starting containers with new image...
+✅ Containers started
+
+⏳ Waiting for application to start (30 seconds)...
+
+✅ Verifying deployment...
+✅ Deployment successful!
+🌐 Application: http://localhost:3000
+🏥 Health check: http://localhost:3000/api/health
+
+🔊 Testing TTS endpoint...
+✅ TTS endpoint is accessible
+
+🎉 Deployment complete!
+```
+
+### 优势
+
+| 特性 | 传统部署 | CI/CD 部署 |
+|------|---------|-----------|
+| **部署时间** | 30-60 分钟 | 2-5 分钟 |
+| **网络要求** | 高（需下载 CUDA 镜像）| 低（只拉取最终镜像）|
+| **可靠性** | 中（网络不稳定）| 高（GitHub 基础设施）|
+| **资源占用** | 高（占用 GPU 服务器）| 低（服务器只拉取镜像）|
+| **构建缓存** | 无 | 有（BuildKit 缓存）|
+| **版本管理** | 手动 | 自动（Git SHA 标签）|
+| **回滚能力** | 困难 | 简单（指定版本标签）|
+
+### 镜像标签策略
+
+- **`latest`**: 始终指向 `main` 分支的最新构建
+  - 用于生产环境的常规部署
+  - 自动更新，无需指定版本号
+
+- **`main-<sha>`**: 特定提交的构建（例如 `main-abc1234`）
+  - 用于回滚到特定版本
+  - 永久保留，可追溯历史版本
+  - SHA 取自 Git commit 的前 7 位
+
+**示例：**
+```bash
+# 部署最新版本
+./scripts/deploy-from-ghcr.sh latest
+
+# 部署特定提交
+./scripts/deploy-from-ghcr.sh main-a1b2c3d
+
+# 查看可用标签
+# 访问: https://github.com/arthurlee116/english-listening-trainer/pkgs/container/english-listening-trainer
+```
+
+### 回滚操作
+
+如果新版本出现问题，可以快速回滚到之前的版本：
+
+```bash
+# 方法 1: 使用部署脚本回滚
+./scripts/deploy-from-ghcr.sh main-<previous-sha>
+
+# 方法 2: 手动回滚
+# 1. 查看可用的镜像版本
+docker images ghcr.io/arthurlee116/english-listening-trainer
+
+# 2. 停止当前容器
+docker compose -f docker-compose.gpu.yml down
+
+# 3. 拉取旧版本
+docker pull ghcr.io/arthurlee116/english-listening-trainer:main-<previous-sha>
+
+# 4. 启动旧版本
+export IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:main-<previous-sha>
+docker compose -f docker-compose.gpu.yml up -d
+
+# 5. 验证
+curl http://localhost:3000/api/health
+```
+
+**紧急回滚（使用 latest 标签）：**
+```bash
+# 如果 latest 标签仍指向稳定版本
+docker compose -f docker-compose.gpu.yml down
+docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+docker compose -f docker-compose.gpu.yml up -d
+```
+
+### 监控与管理
+
+#### 查看构建状态
+访问 GitHub Actions 页面查看构建进度和日志：
+```
+https://github.com/arthurlee116/english-listening-trainer/actions
+```
+
+**可以看到：**
+- 构建触发时间和触发者
+- 构建进度（进行中/成功/失败）
+- 详细的构建日志
+- 构建时长和镜像大小
+
+#### 手动触发构建
+在 GitHub Actions 页面：
+1. 点击 "Build and Push Docker Image" workflow
+2. 点击 "Run workflow" 按钮
+3. 选择分支（默认 `main`）
+4. 点击 "Run workflow" 确认
+
+#### 查看镜像信息
+```bash
+# 在服务器上查看本地镜像
+docker images ghcr.io/arthurlee116/english-listening-trainer
+
+# 查看镜像详细信息
+docker inspect ghcr.io/arthurlee116/english-listening-trainer:latest
+
+# 查看镜像历史
+docker history ghcr.io/arthurlee116/english-listening-trainer:latest
+```
+
+#### 在 GitHub 上查看镜像
+访问 GitHub Packages 页面：
+```
+https://github.com/arthurlee116/english-listening-trainer/pkgs/container/english-listening-trainer
+```
+
+**可以看到：**
+- 所有可用的镜像标签
+- 镜像大小和推送时间
+- 镜像的 Git commit 关联
+- 下载统计
+
+### 故障排查
+
+#### 问题 1: 镜像拉取失败
+```bash
+# 错误: pull access denied
+# 解决: 重新登录 GHCR
+echo $GHCR_TOKEN | docker login ghcr.io -u arthurlee116 --password-stdin
+```
+
+#### 问题 2: 健康检查失败
+```bash
+# 查看容器日志
+docker compose -f docker-compose.gpu.yml logs -f app
+
+# 检查容器状态
+docker compose -f docker-compose.gpu.yml ps
+
+# 检查 GPU 可用性
+docker exec $(docker compose -f docker-compose.gpu.yml ps -q app) nvidia-smi
+```
+
+#### 问题 3: 数据库迁移失败
+```bash
+# 手动运行迁移
+docker compose -f docker-compose.gpu.yml run --rm migrate
+
+# 查看迁移日志
+docker compose -f docker-compose.gpu.yml logs migrate
+```
+
+#### 问题 4: TTS 不工作
+```bash
+# 检查 TTS 初始化
+docker compose -f docker-compose.gpu.yml logs app | grep -i "kokoro\|tts"
+
+# 测试 TTS 端点
+curl -X POST http://localhost:3000/api/tts \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello world","speed":1.0,"language":"en-US"}'
+```
+
+### 最佳实践
+
+1. **定期备份**: 部署前始终备份数据库
+   ```bash
+   ./scripts/backup.sh --compress
+   ```
+
+2. **验证部署**: 部署后检查健康端点和关键功能
+   ```bash
+   curl http://localhost:3000/api/health
+   curl http://localhost:3000/api/tts
+   ```
+
+3. **监控日志**: 部署后观察日志几分钟
+   ```bash
+   docker compose -f docker-compose.gpu.yml logs -f app
+   ```
+
+4. **保留旧镜像**: 不要立即删除旧镜像，以便快速回滚
+   ```bash
+   # 查看镜像占用空间
+   docker images ghcr.io/arthurlee116/english-listening-trainer
+   
+   # 只在确认新版本稳定后清理
+   docker image prune -a
+   ```
+
+5. **记录版本**: 记录每次部署的版本和时间
+   ```bash
+   echo "$(date): Deployed $(docker inspect --format='{{.Id}}' \
+     $(docker compose -f docker-compose.gpu.yml ps -q app))" \
+     >> deployment-history.log
+   ```
+
+### 相关文档
+
+- **完整部署指南**: `documents/DEPLOYMENT_GUIDE.md`
+- **自动化部署**: `documents/AUTO_DEPLOY_GUIDE.md`
+- **GHCR 详细指南**: `documents/GHCR_DEPLOYMENT_GUIDE.md`
+- **Docker 配置**: `documents/DOCKER_CONFIGURATION_REVIEW.md`
