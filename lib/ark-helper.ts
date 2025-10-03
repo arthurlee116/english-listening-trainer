@@ -10,7 +10,10 @@ export interface ArkMessage {
 
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY
 
-if (!CEREBRAS_API_KEY) {
+// 在构建时允许使用占位符，运行时才检查真实值
+const isBuildTime = process.env.CEREBRAS_API_KEY === 'placeholder_for_build'
+
+if (!CEREBRAS_API_KEY && !isBuildTime) {
   throw new Error("CEREBRAS_API_KEY 环境变量未设置")
 }
 
@@ -49,8 +52,10 @@ function initializeClient() {
   }
 }
 
-// 初始化客户端
-initializeClient()
+// 初始化客户端（构建时跳过）
+if (!isBuildTime) {
+  initializeClient()
+}
 
 // 代理健康检查和自动回退
 let proxyHealthy = true
@@ -117,6 +122,11 @@ export async function callArkAPI(
   schemaName: string,
   maxRetries = 3,
 ): Promise<unknown> {
+  // 构建时不应该调用此函数
+  if (isBuildTime) {
+    throw new Error("callArkAPI should not be called during build time")
+  }
+  
   let currentClient = client
   let triedFallback = false
 
