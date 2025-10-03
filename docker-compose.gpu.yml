@@ -52,6 +52,11 @@ services:
     environment:
       <<: *app-env
       DATABASE_URL: ${DATABASE_URL:-file:/app/data/app.db}
+      http_proxy: ${http_proxy:-http://81.71.93.183:10811}
+      https_proxy: ${https_proxy:-http://81.71.93.183:10811}
+      HTTP_PROXY: ${HTTP_PROXY:-http://81.71.93.183:10811}
+      HTTPS_PROXY: ${HTTPS_PROXY:-http://81.71.93.183:10811}
+      no_proxy: localhost,127.0.0.1
     ports:
       - "${PORT:-3000}:3000"
     volumes:
@@ -67,6 +72,9 @@ services:
       - type: bind
         source: ./backups
         target: /app/backups
+      - type: bind
+        source: ./kokoro-local/.cache
+        target: /app/kokoro-local/.cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
