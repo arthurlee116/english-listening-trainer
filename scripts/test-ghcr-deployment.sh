@@ -17,8 +17,21 @@ log_warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error() { echo -e "${RED}[✗]${NC} $1"; }
 
 # 配置
-GHCR_IMAGE="ghcr.io/arthurlee116/english-listening-trainer:latest"
 GITHUB_USERNAME="arthurlee116"
+GHCR_REPO="ghcr.io/arthurlee116/english-listening-trainer"
+
+# 检测当前分支
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+LATEST_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+
+# 根据分支确定镜像标签
+if [ "$CURRENT_BRANCH" = "main" ]; then
+    GHCR_IMAGE="${GHCR_REPO}:latest"
+else
+    # Feature 分支使用 branch-sha 格式
+    BRANCH_TAG=$(echo "$CURRENT_BRANCH" | sed 's/\//-/g')
+    GHCR_IMAGE="${GHCR_REPO}:${BRANCH_TAG}-${LATEST_COMMIT}"
+fi
 
 echo "=========================================="
 echo "  GHCR 部署测试脚本"
