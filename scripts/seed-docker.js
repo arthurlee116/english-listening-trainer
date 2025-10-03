@@ -52,9 +52,7 @@ async function main() {
           email: adminEmail,
           password: hashedPassword,
           name: adminName,
-          isAdmin: true,
-          nativeLanguage: 'zh',
-          targetCEFRLevel: 'B2'
+          isAdmin: true
         }
       })
       
