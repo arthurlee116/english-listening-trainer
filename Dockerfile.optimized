@@ -1,0 +1,133 @@
+# 优化的 Dockerfile - 更好的缓存策略
+# 将不常变的层（Python 依赖）放在前面
+
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
+
+ARG BUILDKIT_INLINE_CACHE=1
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    NODE_MAJOR=18 \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8
+
+# 安装系统依赖（很少变化）
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg locales \
+    build-essential dumb-init git nodejs pkg-config \
+    python3 python3-dev python3-distutils python3-venv python3-pip \
+    unzip wget ffmpeg libsndfile1 libsndfile1-dev sox \
+    libgl1 libglib2.0-0 zlib1g-dev espeak-ng \
+ && locale-gen en_US.UTF-8 \
+ && mkdir -p /etc/apt/keyrings \
+ && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+ && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends nodejs \
+ && npm install -g npm@10 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid 1001 nodejs \
+ && useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nextjs
+
+ENV PYTHONUNBUFFERED=1
+
+###############################################################################
+# Stage: python-deps
+# 安装 Python 依赖（单独的层，可以缓存）
+###############################################################################
+FROM base AS python-deps
+
+ENV KOKORO_VENV=/app/kokoro-local/venv
+
+WORKDIR /app
+
+# 只复制 Python 依赖文件
+COPY kokoro-local/requirements.txt /app/kokoro-local/requirements.txt
+
+# 安装 Python 依赖（这层会被缓存）
+RUN python3 -m venv ${KOKORO_VENV} \
+ && ${KOKORO_VENV}/bin/pip install --upgrade pip \
+ && ${KOKORO_VENV}/bin/pip install --no-cache-dir \
+      --extra-index-url https://download.pytorch.org/whl/cu121 \
+      torch==2.3.0+cu121 torchaudio==2.3.0+cu121 torchvision==0.18.0+cu121 \
+ && ${KOKORO_VENV}/bin/pip install --no-cache-dir -r /app/kokoro-local/requirements.txt \
+ && find ${KOKORO_VENV} -type f -name "*.pyc" -delete
+
+###############################################################################
+# Stage: node-deps
+# 安装 Node 依赖（单独的层，可以缓存）
+###############################################################################
+FROM base AS node-deps
+
+WORKDIR /app
+
+# 只复制 package 文件
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# 生成 Prisma client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+###############################################################################
+# Stage: builder
+# 构建应用（代码变化时只重建这层）
+###############################################################################
+FROM node-deps AS builder
+
+WORKDIR /app
+
+# 复制所有代码
+COPY . .
+
+# 构建
+RUN npm run build
+
+###############################################################################
+# Stage: runtime
+# 最终运行时镜像
+###############################################################################
+FROM base AS runtime
+
+ENV NODE_ENV=production \
+    APP_HOME=/app \
+    KOKORO_VENV=/app/kokoro-local/venv \
+    PYTHONPATH=/app/kokoro-main-ref:/app/kokoro-main-ref/kokoro.js \
+    PYTORCH_ENABLE_MPS_FALLBACK=1 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    PATH=/app/kokoro-local/venv/bin:$PATH
+
+WORKDIR ${APP_HOME}
+
+# 创建目录
+RUN mkdir -p ${APP_HOME}/data ${APP_HOME}/public/audio ${APP_HOME}/logs ${APP_HOME}/backups \
+ && chown -R nextjs:nodejs ${APP_HOME}
+
+# 从 python-deps 复制 Python 环境（缓存的）
+COPY --from=python-deps --chown=nextjs:nodejs /app/kokoro-local/venv ./kokoro-local/venv
+
+# 从 builder 复制构建产物
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/kokoro-local ./kokoro-local
+COPY --from=builder --chown=nextjs:nodejs /app/kokoro-main-ref ./kokoro-main-ref
+COPY --from=builder --chown=nextjs:nodejs /app/admin-server.mjs ./admin-server.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["node", "server.js"]
