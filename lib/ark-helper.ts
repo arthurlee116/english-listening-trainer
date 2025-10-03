@@ -24,7 +24,7 @@ const DEFAULT_REMOTE_PROXY = 'http://81.71.93.183:10811'
 const resolvedProxyUrl = process.env.CEREBRAS_PROXY_URL
   ?? (process.env.NODE_ENV === 'production' ? DEFAULT_REMOTE_PROXY : DEFAULT_LOCAL_PROXY)
 
-let proxyAgent: HttpsProxyAgent | undefined
+let proxyAgent: HttpsProxyAgent<string> | undefined
 let client: Cerebras
 
 // 初始化代理和客户端
@@ -126,7 +126,7 @@ export async function callArkAPI(
   if (isBuildTime) {
     throw new Error("callArkAPI should not be called during build time")
   }
-  
+
   let currentClient = client
   let triedFallback = false
 
