@@ -7,9 +7,6 @@
 ###############################################################################
 FROM nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04 AS base
 
-# Enable BuildKit inline cache for faster rebuilds
-ARG BUILDKIT_INLINE_CACHE=1
-
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_MAJOR=18 \
     LANG=en_US.UTF-8 \
