@@ -50,6 +50,7 @@
 ### Long Code
 - When generating long code files, generate it sepretely
 - Use multipue tool call to generate a long code file since a single long out put will exceed output limit.
+- **写长文件时一定分段输出，否则会遇到输出长度限制**
 
 ### Documentation
 - **All explanatory documentation** must be placed in the `documents/` directory

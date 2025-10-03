@@ -27,17 +27,20 @@ jobs:
       
       - name: Build and push test image
         run: |
-          echo "Building test image..."
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test-$(date +%s) -f- . <<EOF
+          TAG="test-$(date +%s)"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+          
+          echo "Building test image: ${IMAGE}"
+          docker build -t "${IMAGE}" -f- . <<EOF
           FROM alpine:latest
           RUN echo "Test image"
           LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
           EOF
           
           echo "Pushing test image..."
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test-$(date +%s)
+          docker push "${IMAGE}"
           
-          echo "Listing images..."
+          echo "Push successful!"
           docker images | grep ${{ env.IMAGE_NAME }}
       
       - name: Verify push

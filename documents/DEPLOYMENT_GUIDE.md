@@ -149,6 +149,72 @@ sudo systemctl restart docker
 
 ### 步骤 7: 使用 Docker GPU 部署
 
+#### 方案 A: 使用预构建镜像（推荐）
+
+使用 GitHub Container Registry (GHCR) 的预构建镜像，快速部署，无需本地构建。
+
+**首次设置：**
+
+```bash
+# 1. 创建 GitHub Personal Access Token (PAT)
+# 访问: GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)
+# 权限: read:packages
+
+# 2. 登录 GHCR（首次需要）
+echo $GHCR_TOKEN | docker login ghcr.io -u arthurlee116 --password-stdin
+
+# 3. 验证登录
+docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+```
+
+**部署步骤：**
+
+```bash
+# 使用自动化部署脚本（推荐）
+./scripts/deploy-from-ghcr.sh
+
+# 脚本会自动执行：
+# - 拉取最新镜像
+# - 比较版本（如果相同则跳过）
+# - 备份数据库
+# - 停止旧容器
+# - 启动新容器
+# - 健康检查验证
+
+# 或手动执行以下步骤：
+
+# 1. 拉取最新镜像
+docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+
+# 2. 备份数据库（可选但推荐）
+./scripts/backup.sh --compress
+
+# 3. 运行数据库迁移
+export IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:latest
+docker compose -f docker-compose.gpu.yml run --rm migrate
+
+# 4. 启动应用
+docker compose -f docker-compose.gpu.yml up -d app
+
+# 5. 查看日志
+docker compose -f docker-compose.gpu.yml logs -f app
+```
+
+**部署特定版本：**
+
+```bash
+# 部署特定 Git commit 版本（用于回滚）
+./scripts/deploy-from-ghcr.sh main-abc1234
+
+# 或手动指定版本
+export IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:main-abc1234
+docker compose -f docker-compose.gpu.yml up -d
+```
+
+#### 方案 B: 本地构建（开发环境）
+
+适用于需要修改代码或测试本地更改的场景。
+
 ```bash
 # 使用 GPU 部署脚本（推荐）
 ./scripts/deploy-gpu.sh
@@ -167,6 +233,25 @@ docker compose -f docker-compose.gpu.yml up -d app
 # 4. 查看日志
 docker compose -f docker-compose.gpu.yml logs -f app
 ```
+
+#### 方案对比
+
+| 特性 | 方案 A: 预构建镜像 | 方案 B: 本地构建 |
+|------|------------------|----------------|
+| **部署速度** | ⚡ 2-5 分钟 | 🐌 30-60 分钟 |
+| **网络要求** | 低（只拉取最终镜像）| 高（需下载 CUDA 基础镜像）|
+| **可靠性** | ✅ 高（GitHub 基础设施）| ⚠️ 中（网络不稳定可能失败）|
+| **磁盘空间** | 节省（无需构建缓存）| 占用大（需要构建层缓存）|
+| **适用场景** | 生产部署、快速更新 | 开发调试、本地修改 |
+| **版本管理** | ✅ 自动（Git SHA 标签）| ⚠️ 手动管理 |
+| **回滚能力** | ✅ 简单（指定版本标签）| ⚠️ 困难（需要重新构建）|
+| **构建缓存** | ✅ GitHub 自动管理 | ⚠️ 本地手动管理 |
+
+**推荐使用场景：**
+- **生产环境**: 使用方案 A（预构建镜像）
+- **开发环境**: 使用方案 B（本地构建）
+- **紧急修复**: 使用方案 A 快速回滚
+- **功能测试**: 使用方案 B 测试本地更改
 
 ### 步骤 8: 验证部署
 
