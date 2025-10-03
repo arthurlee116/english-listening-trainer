@@ -1,0 +1,47 @@
+name: Test GHCR Push
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and push test image
+        run: |
+          echo "Building test image..."
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test-$(date +%s) -f- . <<EOF
+          FROM alpine:latest
+          RUN echo "Test image"
+          LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          EOF
+          
+          echo "Pushing test image..."
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test-$(date +%s)
+          
+          echo "Listing images..."
+          docker images | grep ${{ env.IMAGE_NAME }}
+      
+      - name: Verify push
+        run: |
+          echo "Checking if package exists..."
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/users/${{ github.actor }}/packages/container/$(echo ${{ env.IMAGE_NAME }} | cut -d'/' -f2)/versions || echo "Package not found yet"
