@@ -22,7 +22,7 @@ const nextConfig = {
     ENABLE_HEALTH_CHECK: process.env.ENABLE_HEALTH_CHECK,
   },
   
-  // 增加API路由超时限制
+  // 增加API路由超时限制和音频文件CORS配置
   async headers() {
     return [
       {
@@ -40,6 +40,46 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        // 为所有音频文件添加正确的 headers
+        source: '/:path*.wav',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'audio/wav',
+          },
+          {
+            key: 'Accept-Ranges',
+            value: 'bytes',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+        ],
+      },
+      {
+        // 为 public 目录下的所有文件添加 CORS
+        source: '/tts_audio_:id*.wav',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'audio/wav',
+          },
+          {
+            key: 'Accept-Ranges',
+            value: 'bytes',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
           },
         ],
       },

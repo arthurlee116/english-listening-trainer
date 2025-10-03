@@ -36,9 +36,16 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ GPU音频生成成功:', audioResult.audioUrl)
     
+    // 提取文件名并构建 API 路由 URL
+    const filename = audioResult.audioUrl.replace('/', '')
+    const apiAudioUrl = `/api/audio/${filename}`
+    
+    console.log('📡 音频 API URL:', apiAudioUrl)
+    
     return NextResponse.json({ 
       success: true, 
-      audioUrl: audioResult.audioUrl,
+      audioUrl: apiAudioUrl, // 使用 API 路由而不是直接的静态文件路径
+      staticUrl: audioResult.audioUrl, // 保留原始 URL 作为备用
       duration: audioResult.duration,
       byteLength: audioResult.byteLength,
       language: language,
