@@ -42,10 +42,10 @@ log_success "Docker Compose 已安装"
 
 # Step 3: 检查 NVIDIA Docker Runtime
 log_info "Step 2: 检查 GPU 支持..."
-if docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi &> /dev/null; then
+if timeout 10 docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi &> /dev/null; then
     log_success "NVIDIA Docker Runtime 正常"
 else
-    log_warn "NVIDIA Docker Runtime 可能未正确配置"
+    log_warn "NVIDIA Docker Runtime 检查超时或失败（可以忽略，继续部署）"
 fi
 
 # Step 4: 检查是否已登录 GHCR
