@@ -8,7 +8,7 @@
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    NODE_MAJOR=18 \
+    NODE_MAJOR=20 \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
@@ -69,6 +69,17 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY . .
+
+# Set build-time environment variables (placeholders for Next.js build)
+# These will be replaced at runtime with actual values
+ARG CEREBRAS_API_KEY=placeholder_for_build
+ARG JWT_SECRET=placeholder_for_build
+ARG DATABASE_URL=file:./data/app.db
+
+ENV CEREBRAS_API_KEY=$CEREBRAS_API_KEY \
+    JWT_SECRET=$JWT_SECRET \
+    DATABASE_URL=$DATABASE_URL \
+    NEXT_TELEMETRY_DISABLED=1
 
 # Build Next.js in standalone mode (includes Prisma client)
 RUN npm run build
