@@ -5,7 +5,7 @@
 # Stage: base
 # Install Node.js 18, Python 3.10 toolchain, and system deps shared by all stages
 ###############################################################################
-FROM nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04 AS base
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_MAJOR=18 \
