@@ -147,6 +147,14 @@
     "assessment": {
       "en": "Assessment",
       "zh": "评估"
+    },
+    "achievements": {
+      "en": "Achievements",
+      "zh": "成就"
+    },
+    "goalsAndAchievements": {
+      "en": "Goals & Achievements",
+      "zh": "目标与成就"
     }
   },
   "labels": {
@@ -273,6 +281,70 @@
     "mainNavigation": {
       "en": "Main Navigation",
       "zh": "主导航"
+    },
+    "totalSessions": {
+      "en": "Total Sessions",
+      "zh": "总练习次数"
+    },
+    "averageAccuracy": {
+      "en": "Average Accuracy",
+      "zh": "平均准确率"
+    },
+    "streakDays": {
+      "en": "Streak Days",
+      "zh": "连续天数"
+    },
+    "currentStreak": {
+      "en": "Current Streak",
+      "zh": "当前连续"
+    },
+    "longestStreak": {
+      "en": "Longest Streak",
+      "zh": "最长连续"
+    },
+    "totalListeningTime": {
+      "en": "Total Listening Time",
+      "zh": "累计听力时长"
+    },
+    "dailyGoal": {
+      "en": "Daily Goal",
+      "zh": "每日目标"
+    },
+    "weeklyGoal": {
+      "en": "Weekly Goal",
+      "zh": "每周目标"
+    },
+    "minutes": {
+      "en": "minutes",
+      "zh": "分钟"
+    },
+    "sessions": {
+      "en": "sessions",
+      "zh": "次练习"
+    },
+    "days": {
+      "en": "days",
+      "zh": "天"
+    },
+    "goalProgress": {
+      "en": "Goal Progress",
+      "zh": "目标进度"
+    },
+    "statisticsOverview": {
+      "en": "Statistics Overview",
+      "zh": "统计概览"
+    },
+    "achievementsBadges": {
+      "en": "Achievement Badges",
+      "zh": "成就徽章"
+    },
+    "weeklyTrend": {
+      "en": "Weekly Trend",
+      "zh": "周趋势"
+    },
+    "goalSettings": {
+      "en": "Goal Settings",
+      "zh": "目标设置"
     }
   },
   "messages": {
@@ -568,10 +640,7 @@
       "en": "Stack Trace",
       "zh": "堆栈跟踪"
     },
-    "networkError": {
-      "en": "Network connection issue",
-      "zh": "网络连接出现问题"
-    },
+
     "permissionError": {
       "en": "Insufficient permissions or authentication failed",
       "zh": "权限不足或身份验证失败"
@@ -591,6 +660,276 @@
     "memoryError": {
       "en": "Insufficient memory, application cannot run normally",
       "zh": "内存不足，应用无法正常运行"
+    },
+    "specializedModeUnavailable": {
+      "en": "Specialized Mode Temporarily Unavailable",
+      "zh": "专项模式暂时不可用"
+    },
+    "specializedModeUnavailableDesc": {
+      "en": "The AI service doesn't currently support focus area targeting. We'll provide regular practice but remember your preferences for future recommendations.",
+      "zh": "AI服务当前不支持能力标签定向。我们将为您提供普通练习，但会记录您的偏好用于后续推荐。"
+    },
+    "partialCoverageWarning": {
+      "en": "Partial Focus Area Coverage",
+      "zh": "能力标签部分覆盖"
+    },
+    "partialCoverageWarningDesc": {
+      "en": "Only {coverage}% of your selected focus areas are covered in this exercise. You can continue or adjust your selection.",
+      "zh": "本次练习仅覆盖了您选择的 {coverage}% 能力标签。您可以继续练习或调整选择。"
+    },
+    "focusDataLoadFailed": {
+      "en": "Failed to Load Focus Area Data",
+      "zh": "加载能力标签数据失败"
+    },
+    "usingDefaultRecommendations": {
+      "en": "Using default recommendations. Please try again later.",
+      "zh": "使用默认推荐。请稍后重试。"
+    },
+    "noWeakAreasFound": {
+      "en": "No Obvious Weak Areas",
+      "zh": "未发现明显薄弱项"
+    },
+    "noWeakAreasFoundDesc": {
+      "en": "Your performance is consistently good across all focus areas. We recommend practicing fundamental skills to maintain your level.",
+      "zh": "您在各个能力标签上的表现都很稳定。建议练习基础技能以保持水平。"
+    },
+    "welcomeToSpecializedMode": {
+      "en": "Welcome to Specialized Practice Mode",
+      "zh": "欢迎使用专项练习模式"
+    },
+    "welcomeToSpecializedModeDesc": {
+      "en": "Start with basic focus areas like Main Idea and Detail Comprehension. As you practice, we'll analyze your performance and provide personalized recommendations.",
+      "zh": "建议从主旨理解和细节理解等基础能力标签开始。随着练习的进行，我们会分析您的表现并提供个性化推荐。"
+    },
+    "languageChanged": {
+      "en": "Language Changed",
+      "zh": "语言已切换"
+    },
+    "languageChangedDesc": {
+      "en": "Specialized mode selections have been reset for the new language. Please reselect your focus areas.",
+      "zh": "专项模式选择已为新语言重置。请重新选择您的能力标签。"
+    },
+    "storageError": {
+      "en": "Storage Error",
+      "zh": "存储错误"
+    },
+    "storageErrorDesc": {
+      "en": "Unable to save data locally. Your settings may not be preserved.",
+      "zh": "无法在本地保存数据。您的设置可能不会被保留。"
+    },
+    "networkRetrying": {
+      "en": "Network Issue - Retrying",
+      "zh": "网络问题 - 重试中"
+    },
+    "networkRetryingDesc": {
+      "en": "Connection failed, attempting retry {attempt}...",
+      "zh": "连接失败，正在尝试第 {attempt} 次重试..."
+    },
+    "networkError": {
+      "en": "Network Error",
+      "zh": "网络错误"
+    },
+    "networkErrorDesc": {
+      "en": "Unable to connect to the server. Please check your internet connection and try again.",
+      "zh": "无法连接到服务器。请检查您的网络连接并重试。"
+    },
+    "statisticsComputed": {
+      "en": "Statistics Computed",
+      "zh": "统计数据已计算"
+    },
+    "statisticsComputedDesc": {
+      "en": "Analyzed {wrongAnswers} wrong answers and {sessions} practice sessions",
+      "zh": "已分析 {wrongAnswers} 道错题和 {sessions} 次练习记录"
+    },
+    "presetSaveSuccess": {
+      "en": "Preset Saved",
+      "zh": "预设已保存"
+    },
+    "presetSaveSuccessDesc": {
+      "en": "Preset '{name}' has been saved successfully",
+      "zh": "预设 '{name}' 已成功保存"
+    },
+    "presetSaveFailed": {
+      "en": "Failed to Save Preset",
+      "zh": "保存预设失败"
+    },
+    "presetLoadSuccess": {
+      "en": "Preset Loaded",
+      "zh": "预设已加载"
+    },
+    "presetLoadSuccessDesc": {
+      "en": "Preset '{name}' has been loaded successfully",
+      "zh": "预设 '{name}' 已成功加载"
+    },
+    "cacheCleared": {
+      "en": "Cache Cleared",
+      "zh": "缓存已清理"
+    },
+    "cacheClearedDesc": {
+      "en": "Focus area statistics cache has been cleared and will be recalculated",
+      "zh": "能力标签统计缓存已清理，将重新计算"
+    },
+    "cacheClearFailed": {
+      "en": "Failed to Clear Cache",
+      "zh": "清理缓存失败"
+    },
+    "storageUnavailable": {
+      "en": "Local storage is unavailable",
+      "zh": "本地存储不可用"
+    },
+    "mobileOptimized": {
+      "en": "Mobile Optimized",
+      "zh": "移动端优化"
+    },
+    "responsiveDesign": {
+      "en": "Responsive Design",
+      "zh": "响应式设计"
+    },
+    "touchFriendly": {
+      "en": "Touch Friendly",
+      "zh": "触控友好"
+    },
+    "selectMultiple": {
+      "en": "Select multiple items (up to {max})",
+      "zh": "选择多个项目（最多{max}个）"
+    },
+    "selectionLimit": {
+      "en": "Selection limit reached ({current}/{max})",
+      "zh": "已达选择上限（{current}/{max}）"
+    },
+    "tapToToggle": {
+      "en": "Tap to toggle selection",
+      "zh": "点击切换选择"
+    },
+    "longPressForDetails": {
+      "en": "Long press for details",
+      "zh": "长按查看详情"
+    },
+    "swipeGesture": {
+      "en": "Swipe gesture supported",
+      "zh": "支持滑动手势"
+    },
+    "optimizedForMobile": {
+      "en": "Optimized for mobile devices",
+      "zh": "针对移动设备优化"
+    },
+    "focusAreaSelected": {
+      "en": "Focus area selected",
+      "zh": "已选择能力标签"
+    },
+    "focusAreaDeselected": {
+      "en": "Focus area deselected",
+      "zh": "已取消选择能力标签"
+    },
+    "specializedModeActive": {
+      "en": "Specialized mode is active",
+      "zh": "专项模式已激活"
+    },
+    "specializedModeInactive": {
+      "en": "Specialized mode is inactive",
+      "zh": "专项模式未激活"
+    }
+  },
+  "shortcuts": {
+    "title": {
+      "en": "Keyboard Shortcuts",
+      "zh": "快捷键"
+    },
+    "description": {
+      "en": "Use these keyboard shortcuts to navigate the application more efficiently",
+      "zh": "使用这些快捷键更高效地操作应用"
+    },
+    "playPause": {
+      "en": "Play/Pause Audio",
+      "zh": "播放/暂停音频"
+    },
+    "openHistory": {
+      "en": "Open History Panel",
+      "zh": "打开历史面板"
+    },
+    "openWrongAnswers": {
+      "en": "Open Wrong Answers Book",
+      "zh": "打开错题本"
+    },
+    "toggleSpecializedMode": {
+      "en": "Toggle Specialized Mode",
+      "zh": "切换专项模式"
+    },
+    "closeDialog": {
+      "en": "Close Dialog/Return",
+      "zh": "关闭对话框/返回"
+    },
+    "showHelp": {
+      "en": "Show Shortcuts Help",
+      "zh": "显示快捷键帮助"
+    },
+    "returnHome": {
+      "en": "Return to Home",
+      "zh": "返回主页"
+    },
+    "enableShortcuts": {
+      "en": "Enable Shortcuts",
+      "zh": "启用快捷键"
+    },
+    "disableShortcuts": {
+      "en": "Disable Shortcuts",
+      "zh": "禁用快捷键"
+    },
+    "shortcutsEnabled": {
+      "en": "Shortcuts Enabled",
+      "zh": "快捷键已启用"
+    },
+    "shortcutsDisabled": {
+      "en": "Shortcuts Disabled",
+      "zh": "快捷键已禁用"
+    },
+    "onboardingTitle": {
+      "en": "Keyboard Shortcuts Available!",
+      "zh": "快捷键功能已启用！"
+    },
+    "onboardingDescription": {
+      "en": "You can now use keyboard shortcuts to navigate the application. Press Shift+? to view all available shortcuts.",
+      "zh": "您现在可以使用快捷键来操作应用。按 Shift+? 查看所有可用快捷键。"
+    },
+    "onboardingGotIt": {
+      "en": "Got it!",
+      "zh": "知道了！"
+    },
+    "shortcutKey": {
+      "en": "Shortcut",
+      "zh": "快捷键"
+    },
+    "action": {
+      "en": "Action",
+      "zh": "操作"
+    },
+    "availability": {
+      "en": "Available in",
+      "zh": "可用于"
+    },
+    "allSteps": {
+      "en": "All steps",
+      "zh": "所有步骤"
+    },
+    "setupStep": {
+      "en": "Setup step",
+      "zh": "设置步骤"
+    },
+    "listeningStep": {
+      "en": "Listening step",
+      "zh": "听力步骤"
+    },
+    "questionsStep": {
+      "en": "Questions step",
+      "zh": "答题步骤"
+    },
+    "resultsStep": {
+      "en": "Results step",
+      "zh": "结果步骤"
+    },
+    "requiresAudio": {
+      "en": "(requires audio)",
+      "zh": "（需要音频）"
     }
   },
   "placeholders": {

@@ -124,10 +124,14 @@ export function getLegacyData(): Exercise[] {
  * Converts legacy Exercise data to the format expected by the import API
  */
 export function formatLegacyDataForImport(exercises: Exercise[]): ImportLegacyRequest {
+  console.log('DEBUG: Starting data formatting. Sample legacy exercise:', JSON.stringify(exercises[0], null, 2)); // Log first exercise for inspection
+  
   const sessions: LegacySession[] = exercises.map(exercise => {
     // Calculate score from results
     const correctCount = exercise.results.filter(result => result.is_correct).length
     const score = Math.round((correctCount / exercise.results.length) * 100)
+    
+    console.log(`DEBUG: Formatting exercise ${exercise.id}: score=${score}, questions=${exercise.questions.length}, results=${exercise.results.length}`); // Log per exercise metrics
 
     // Convert questions and answers
     const questions: LegacyQuestion[] = exercise.questions.map((question, index) => {
@@ -164,7 +168,9 @@ export function formatLegacyDataForImport(exercises: Exercise[]): ImportLegacyRe
     }
   })
 
-  return { sessions }
+  const formattedData = { sessions }
+  console.log('DEBUG: Formatted import data sample (first session):', JSON.stringify(formattedData.sessions[0], null, 2)); // Log formatted output
+  return formattedData
 }
 
 /**
@@ -241,6 +247,8 @@ function analyzeHttpError(status: number, result: ImportResponse): MigrationErro
  * Uploads legacy data to the import API with enhanced error handling
  */
 export async function uploadLegacyData(importData: ImportLegacyRequest): Promise<ImportResponse> {
+  console.log('DEBUG: Uploading legacy data. Request body size:', JSON.stringify(importData).length, 'bytes'); // Log request size
+  
   try {
     const response = await fetch('/api/practice/import-legacy', {
       method: 'POST',
@@ -251,10 +259,14 @@ export async function uploadLegacyData(importData: ImportLegacyRequest): Promise
       body: JSON.stringify(importData)
     })
 
+    console.log('DEBUG: API response status:', response.status, 'ok:', response.ok); // Log HTTP status
+
     let result: ImportResponse
     try {
       result = await response.json() as ImportResponse
+      console.log('DEBUG: Full API response:', JSON.stringify(result, null, 2)); // Log complete response
     } catch (parseError) {
+      console.error('DEBUG: JSON parse error on response:', parseError);
       throw createMigrationError(
         'Invalid server response format',
         MigrationErrorType.SERVER_ERROR,
@@ -265,12 +277,13 @@ export async function uploadLegacyData(importData: ImportLegacyRequest): Promise
     }
 
     if (!response.ok) {
+      console.error('DEBUG: Non-OK response details - status:', response.status, 'result:', result); // Extra error logging
       throw analyzeHttpError(response.status, result)
     }
 
     return result
   } catch (error) {
-    console.error('Error uploading legacy data:', error)
+    console.error('DEBUG: Upload error caught:', error);
     
     // If it's already a MigrationError, re-throw it
     if (error && typeof error === 'object' && 'type' in error) {
@@ -354,7 +367,7 @@ export async function migrateLegacyDataWithRetry(
         }
       }
 
-      console.log(`Found ${legacyExercises.length} legacy exercises to migrate`)
+      console.log(`DEBUG: Found ${legacyExercises.length} legacy exercises. Sample data keys:`, Object.keys(legacyExercises[0] || {})); // Log data structure
 
       // Format data for import
       const importData = formatLegacyDataForImport(legacyExercises)
@@ -381,7 +394,7 @@ export async function migrateLegacyDataWithRetry(
         )
       }
     } catch (error) {
-      console.error(`Migration attempt ${attempt} failed:`, error)
+      console.error(`DEBUG: Migration attempt ${attempt} failed with error:`, error);
       
       // Convert to MigrationError if needed
       if (error && typeof error === 'object' && 'type' in error) {

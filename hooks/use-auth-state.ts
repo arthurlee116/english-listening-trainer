@@ -19,7 +19,7 @@ export interface AuthMetadata {
 
 const USER_STORAGE_KEY = 'elt.auth.user'
 const METADATA_STORAGE_KEY = 'elt.auth.metadata'
-const AUTH_CHECK_TIMEOUT_MS = 8000
+const AUTH_CHECK_TIMEOUT_MS = 5000 // 减少超时时间到5秒
 
 function readCachedUser(): AuthUserInfo | null {
   if (typeof window === 'undefined') {
@@ -89,8 +89,8 @@ export function useAuthState() {
 
   const [user, setUser] = useState<AuthUserInfo | null>(initialUser)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(initialUser))
-  const [isLoading, setIsLoading] = useState<boolean>(() => !initialUser)
-  const [showAuthDialog, setShowAuthDialog] = useState<boolean>(() => !initialUser)
+  const [isLoading, setIsLoading] = useState<boolean>(true) // 总是从加载状态开始
+  const [showAuthDialog, setShowAuthDialog] = useState<boolean>(false) // 等待认证检查完成
   const [authRefreshing, setAuthRefreshing] = useState<boolean>(false)
   const [cacheStale, setCacheStale] = useState<boolean>(false)
 
@@ -98,6 +98,8 @@ export function useAuthState() {
     const { initial = false } = options
     const controller = new AbortController()
     let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    console.log(`🔍 开始认证检查 (initial: ${initial})...`)
 
     try {
       if (!initial) {
@@ -118,6 +120,7 @@ export function useAuthState() {
         signal: controller.signal,
       })
 
+      console.log('📡 发送认证请求...')
       const response = await Promise.race([
         fetchPromise,
         timeoutPromise,
@@ -131,6 +134,8 @@ export function useAuthState() {
         clearTimeout(timeoutId)
         timeoutId = null
       }
+
+      console.log(`📡 认证请求响应: ${response.status} ${response.statusText}`)
 
       if (response.ok) {
         if (typeof response.json !== 'function') {
@@ -165,6 +170,7 @@ export function useAuthState() {
 
         writeCache(serverUser, metadata)
 
+        console.log('✅ 用户已认证，更新状态...')
         setUser(serverUser)
         setIsAuthenticated(true)
         setShowAuthDialog(false)
@@ -172,20 +178,25 @@ export function useAuthState() {
           setCacheStale(false)
         }
       } else {
+        // 认证失败，清理状态
+        console.log('❌ 用户未认证，显示登录对话框...')
         document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         clearCache()
         setUser(null)
         setIsAuthenticated(false)
         setShowAuthDialog(true)
         setCacheStale(false)
+        console.log('Auth check failed: user not authenticated')
       }
     } catch (error) {
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request timed out')) {
-        console.warn('Auth check aborted due to timeout')
+        console.warn('⏰ 认证检查超时，显示登录对话框', error.message)
       } else {
-        console.error('Auth check failed:', error)
+        console.error('❌ 认证检查失败:', error)
         setCacheStale(false) // 重置状态，避免无限错误
       }
+      // 认证检查出错，清理状态并显示登录对话框
+      clearCache()
       setUser(null)
       setIsAuthenticated(false)
       setShowAuthDialog(true)
@@ -193,6 +204,7 @@ export function useAuthState() {
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
+      console.log('🏁 认证检查完成，设置 isLoading = false')
       setIsLoading(false)
       setAuthRefreshing(false)
     }

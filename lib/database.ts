@@ -54,8 +54,8 @@ function initPrisma(): PrismaClient {
   void client.$connect()
     .then(async () => {
       try {
-        await client.$executeRawUnsafe('PRAGMA journal_mode=WAL;')
-        await client.$executeRawUnsafe('PRAGMA busy_timeout = 5000;')
+        await client.$queryRawUnsafe('PRAGMA journal_mode=WAL;')
+        await client.$queryRawUnsafe('PRAGMA busy_timeout = 5000;')
       } catch (pragmaError) {
         console.warn('Failed to apply SQLite pragmas:', pragmaError)
       }
@@ -73,6 +73,74 @@ export function getPrismaClient(): PrismaClient {
     globalForPrisma.__eltPrisma = initPrisma()
   }
   return globalForPrisma.__eltPrisma
+}
+
+const IDENTIFIER_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/
+const schemaColumnCache = new Map<string, boolean>()
+
+export async function tableHasColumn(
+  client: PrismaClient,
+  table: string,
+  column: string
+): Promise<boolean> {
+  const cacheKey = `${table}.${column}`
+  if (schemaColumnCache.has(cacheKey)) {
+    return schemaColumnCache.get(cacheKey) as boolean
+  }
+
+  if (!IDENTIFIER_REGEX.test(table) || !IDENTIFIER_REGEX.test(column)) {
+    throw new Error('Invalid table or column name')
+  }
+
+  try {
+    const rows = await client.$queryRawUnsafe<Array<{ name?: string }>>(
+      `PRAGMA table_info('${table}')`
+    )
+    const exists = rows.some(row => row?.name === column)
+    schemaColumnCache.set(cacheKey, exists)
+    return exists
+  } catch (error) {
+    console.error('Failed to check table column existence:', { table, column, error })
+    schemaColumnCache.set(cacheKey, false)
+    return false
+  }
+}
+
+export async function ensureTableColumn(
+  client: PrismaClient,
+  table: string,
+  column: string,
+  definition: string
+): Promise<boolean> {
+  if (await tableHasColumn(client, table, column)) {
+    return true
+  }
+
+  const trimmedDefinition = definition.trim()
+  if (!trimmedDefinition) {
+    throw new Error('Column definition is required when ensuring table column')
+  }
+
+  const quotedTable = `"${table}"`
+  const quotedColumn = `"${column}"`
+
+  try {
+    await client.$executeRawUnsafe(
+      `ALTER TABLE ${quotedTable} ADD COLUMN ${quotedColumn} ${trimmedDefinition}`
+    )
+    schemaColumnCache.set(`${table}.${column}`, true)
+    return true
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    if (message.includes('duplicate column name') || message.includes('already exists')) {
+      schemaColumnCache.set(`${table}.${column}`, true)
+      return true
+    }
+
+    console.error('Failed to add missing table column:', { table, column, error })
+    return false
+  }
 }
 
 /**

@@ -248,8 +248,8 @@ export class KokoroTTSGPUService extends EventEmitter {
           const errorOutput = data.toString()
           console.log('🐍 Kokoro GPU stderr:', errorOutput.trim())
           
-          // 检查初始化完成
-          if (errorOutput.includes('Kokoro TTS service is ready')) {
+          // 检查初始化完成（匹配任何包含 "service is ready" 的消息）
+          if (errorOutput.includes('service is ready')) {
             this.initialized = true
             this.emit('ready')
             resolve(undefined)
@@ -271,12 +271,12 @@ export class KokoroTTSGPUService extends EventEmitter {
         })
       }
 
-      // 超时设置
+      // 超时设置 - Tesla P40 首次加载需要更长时间
       const timeout = setTimeout(() => {
         if (!this.initialized) {
           reject(new Error('Kokoro GPU initialization timeout'))
         }
-      }, 180000) // 3分钟超时，给GPU初始化更多时间
+      }, 600000) // 10分钟超时，给GPU首次加载足够时间
 
       this.once('ready', () => {
         clearTimeout(timeout)

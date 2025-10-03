@@ -14,8 +14,19 @@ const config: Config = {
   theme: {
   	extend: {
   		colors: {
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
+  			background: {
+  				DEFAULT: 'hsl(var(--background))',
+  				subtle: 'hsl(var(--background-subtle))',
+  				panel: 'hsl(var(--background-panel))',
+  				app: 'hsl(var(--background))', // For main app background
+  				content: 'hsl(var(--background-subtle))' // For content areas
+  			},
+  			foreground: {
+  				DEFAULT: 'hsl(var(--foreground))',
+  				secondary: 'hsl(var(--foreground-secondary))',
+  				tertiary: 'hsl(var(--foreground-tertiary))',
+  				muted: 'hsl(var(--foreground-muted))'
+  			},
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -26,10 +37,13 @@ const config: Config = {
   			},
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
+  				light: 'hsl(var(--primary-light))',
+  				border: 'hsl(var(--primary-border))',
   				foreground: 'hsl(var(--primary-foreground))'
   			},
   			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',
+  				border: 'hsl(var(--secondary-border))',
   				foreground: 'hsl(var(--secondary-foreground))'
   			},
   			muted: {
@@ -42,11 +56,39 @@ const config: Config = {
   			},
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
+  				light: 'hsl(var(--destructive-light))',
+  				border: 'hsl(var(--destructive-border))',
   				foreground: 'hsl(var(--destructive-foreground))'
   			},
-  			border: 'hsl(var(--border))',
+  			border: {
+  				DEFAULT: 'hsl(var(--border))',
+  				subtle: 'hsl(var(--border-subtle))',
+  				emphasis: 'hsl(var(--border-emphasis))'
+  			},
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
+  			brand: {
+  				lightBackground: 'hsl(var(--background-panel))',
+  				lightPrimary: 'hsl(var(--primary))',
+  				lightSecondary: 'hsl(var(--secondary))',
+  				lightBorder: 'hsl(var(--border))',
+  				lightText: 'hsl(var(--foreground))',
+  				lightTextSecondary: 'hsl(var(--foreground-secondary))',
+  				lightTextTertiary: 'hsl(var(--foreground-tertiary))',
+  				lightTextMuted: 'hsl(var(--foreground-muted))'
+  			},
+  			button: {
+  				light: {
+  					primary: 'hsl(var(--primary))',
+  					secondary: 'hsl(var(--button-secondary-bg))',
+  					destructive: 'hsl(var(--button-destructive-bg))',
+  					outline: 'hsl(var(--background))'
+  				}
+  			},
+  			glass: {
+  				light: 'rgba(255, 255, 255, 0.85)',
+  				dark: 'rgba(31, 41, 55, 0.7)'
+  			},
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -91,6 +133,21 @@ const config: Config = {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
+  		},
+  		// Theme-specific utilities
+  		utilities: {
+  			'.theme-light-bg': {
+  				'background-color': 'hsl(var(--background))'
+  			},
+  			'.theme-light-panel': {
+  				'background-color': 'hsl(var(--background-panel))'
+  			},
+  			'.theme-light-text': {
+  				'color': 'hsl(var(--foreground))'
+  			},
+  			'.theme-light-border': {
+  				'border-color': 'hsl(var(--border))'
+  			}
   		}
   	}
   },

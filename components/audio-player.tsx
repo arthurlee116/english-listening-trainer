@@ -1,12 +1,24 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, SkipBack, SkipForward, Volume2, AlertCircle, RefreshCw, Loader2 } from "lucide-react"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
+import { PLAYBACK_SPEED_OPTIONS, PLAYBACK_RATE_STORAGE_KEY, DEFAULT_PLAYBACK_RATE, parsePlaybackRate } from "@/lib/constants"
+import { useToast } from "@/hooks/use-toast"
+
+// 音频播放器控制接口
+export interface AudioPlayerControls {
+  togglePlayPause: () => void
+  play: () => void
+  pause: () => void
+  isPlaying: boolean
+  hasAudio: boolean
+}
 
 interface AudioPlayerProps {
   audioUrl: string
@@ -29,7 +41,8 @@ function useAudioPlayer(initialDuration?: number) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(initialDuration ?? 0)
   const [volume, setVolume] = useState(1)
-  const [, setIsLoading] = useState(false)
+  const [playbackRate, setPlaybackRate] = useState(DEFAULT_PLAYBACK_RATE)
+  const [_isLoading, setIsLoading] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -82,6 +95,22 @@ function useAudioPlayer(initialDuration?: number) {
     }
   }, [initialDuration])
 
+  // 初始化读取本地存储的倍速设置
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem(PLAYBACK_RATE_STORAGE_KEY) : null
+      const rate = parsePlaybackRate(saved ?? DEFAULT_PLAYBACK_RATE)
+      setPlaybackRate(rate)
+      const audio = audioRef.current
+      if (audio) {
+        audio.playbackRate = rate
+      }
+    } catch (err) {
+      console.warn('Failed to read playback rate from storage', err)
+      setPlaybackRate(DEFAULT_PLAYBACK_RATE)
+    }
+  }, [])
+
   return {
     isPlaying,
     setIsPlaying,
@@ -91,6 +120,8 @@ function useAudioPlayer(initialDuration?: number) {
     setDuration,
     volume,
     setVolume,
+    playbackRate,
+    setPlaybackRate,
     setIsLoading,
     audioRef,
     isScrubbingRef,
@@ -103,7 +134,7 @@ function useAudioPlayer(initialDuration?: number) {
   }
 }
 
-const AudioPlayerComponent = ({ 
+const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(({ 
   audioUrl, 
   audioError, 
   transcript,
@@ -116,8 +147,10 @@ const AudioPlayerComponent = ({
   loading = false, 
   loadingMessage = "",
   initialDuration
-}: AudioPlayerProps) => {
+}, ref) => {
   const { t } = useBilingualText()
+  const [internalAudioError, setInternalAudioError] = useState(false)
+  const { toast } = useToast()
   const {
     isPlaying,
     setIsPlaying,
@@ -127,6 +160,8 @@ const AudioPlayerComponent = ({
     setDuration,
     volume,
     setVolume,
+    playbackRate,
+    setPlaybackRate,
     setIsLoading,
     audioRef,
     isScrubbingRef,
@@ -145,9 +180,14 @@ const AudioPlayerComponent = ({
     setIsLoading(true)
 
     // 当 audioUrl 变化时，重置播放状态和时间
-    setIsPlaying(false)
-    setCurrentTime(0)
-    setDuration(initialDuration ?? 0)
+  setIsPlaying(false)
+  const savedPosition = localStorage.getItem('audio-position')
+  const initialTime = savedPosition ? parseFloat(savedPosition) : 0
+  if (!isNaN(initialTime) && audio) {
+    audio.currentTime = initialTime
+  }
+  setCurrentTime(initialTime)
+  setDuration(initialDuration ?? 0)
 
     // 简化的事件处理函数
     const updateTime = () => {
@@ -163,20 +203,22 @@ const AudioPlayerComponent = ({
       }
     }
 
-    const handleError = () => {
-      console.error('Audio loading error')
-      setIsLoading(false)
-    }
+  const handleError = () => {
+    console.error('Audio loading error')
+    setInternalAudioError(true)
+    setIsLoading(false)
+  }
 
     const handlePlay = () => {
       setIsPlaying(true)
       startProgressLoop()
     }
 
-    const handlePause = () => {
-      setIsPlaying(false)
-      stopProgressLoop()
-    }
+  const handlePause = () => {
+    setIsPlaying(false)
+    stopProgressLoop()
+    localStorage.setItem('audio-position', Math.floor(currentTime).toString())
+  }
 
     const handleEnded = () => {
       setIsPlaying(false)
@@ -193,19 +235,33 @@ const AudioPlayerComponent = ({
     audio.addEventListener("ended", handleEnded)
     audio.addEventListener("error", handleError)
 
+    // 确保在音频可播放时应用当前倍速
+    const applyRate = () => {
+      try {
+        audio.playbackRate = playbackRate
+    } catch {
+        console.warn('Unsupported playbackRate, reverting to 1.0x')
+        audio.playbackRate = DEFAULT_PLAYBACK_RATE
+      }
+    }
+    audio.addEventListener("canplay", applyRate)
+    audio.addEventListener("loadedmetadata", applyRate)
+
     // 清理函数
     return () => {
       audio.removeEventListener("timeupdate", updateTime)
       audio.removeEventListener("loadedmetadata", updateDuration)
       audio.removeEventListener("durationchange", updateDuration)
       audio.removeEventListener("canplay", updateDuration)
+      audio.removeEventListener("canplay", applyRate)
+      audio.removeEventListener("loadedmetadata", applyRate)
       audio.removeEventListener("play", handlePlay)
       audio.removeEventListener("pause", handlePause)
       audio.removeEventListener("ended", handleEnded)
       audio.removeEventListener("error", handleError)
       cleanup()
     }
-  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup, setIsLoading, setIsPlaying, setCurrentTime, setDuration, initialDuration])
+  }, [audioUrl, startProgressLoop, stopProgressLoop, cleanup, setIsLoading, setIsPlaying, setCurrentTime, setDuration, initialDuration, playbackRate])
 
   // 监听 initialDuration 变化，立即更新显示
   useEffect(() => {
@@ -227,6 +283,32 @@ const AudioPlayerComponent = ({
       })
     }
   }, [audioRef, setIsPlaying])
+
+  const play = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio || !audio.paused) return
+    
+    audio.play().catch((err) => {
+      console.error("Failed to play audio:", err)
+      setIsPlaying(false)
+    })
+  }, [audioRef, setIsPlaying])
+
+  const pause = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio || audio.paused) return
+    
+    audio.pause()
+  }, [audioRef])
+
+  // 暴露控制接口给父组件
+  useImperativeHandle(ref, () => ({
+    togglePlayPause,
+    play,
+    pause,
+    isPlaying,
+    hasAudio: Boolean(audioUrl && !audioError)
+  }), [togglePlayPause, play, pause, isPlaying, audioUrl, audioError])
 
   const handleSeek = useCallback((value: number[]) => {
     const audio = audioRef.current
@@ -296,6 +378,50 @@ const AudioPlayerComponent = ({
     }
   }, [onRegenerate, loading])
 
+  // 当倍速变化或音频地址变化时，应用到 audio 元素
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    try {
+      audio.playbackRate = playbackRate
+    } catch (err) {
+      console.warn('Unsupported playbackRate, reverting to 1.0x', err)
+      audio.playbackRate = DEFAULT_PLAYBACK_RATE
+      setPlaybackRate(DEFAULT_PLAYBACK_RATE)
+      toast({
+        title: t("components.audioPlayer.unsupportedPlaybackRateTitle"),
+        description: t("components.audioPlayer.unsupportedPlaybackRateDesc"),
+        variant: "destructive",
+      })
+    }
+  }, [playbackRate, audioUrl, audioRef, setPlaybackRate, toast, t])
+
+  // 监听 storage 变化以跨页面同步设置
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === PLAYBACK_RATE_STORAGE_KEY) {
+        const rate = parsePlaybackRate(e.newValue ?? DEFAULT_PLAYBACK_RATE)
+        setPlaybackRate(rate)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [setPlaybackRate])
+
+  const handleRateChange = useCallback((value: string) => {
+    const next = parsePlaybackRate(value)
+    setPlaybackRate(next)
+    try {
+      window.localStorage.setItem(PLAYBACK_RATE_STORAGE_KEY, String(next))
+    } catch {
+      // Ignore errors when setting playback rate
+    }
+    toast({
+      title: t("components.audioPlayer.playbackRateChangedTitle"),
+      description: t("components.audioPlayer.playbackRateChangedDesc").replace('{rate}', String(next)),
+    })
+  }, [setPlaybackRate, toast, t])
+
   return (
     <div className="space-y-6">
       <Card className="glass-effect p-8">
@@ -303,7 +429,7 @@ const AudioPlayerComponent = ({
           <BilingualText translationKey="components.audioPlayer.title" />
         </h2>
 
-        {audioError ? (
+        {audioError || internalAudioError ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
             <h3 className="font-medium text-red-800 mb-2">
@@ -437,13 +563,14 @@ const AudioPlayerComponent = ({
                 <SkipBack className="w-4 h-4" />
               </Button>
 
-              <Button
-                size="lg"
-                onClick={togglePlayPause}
-                disabled={!audioUrl}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
-                title={isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
-              >
+          <Button
+            size="lg"
+            onClick={togglePlayPause}
+            disabled={!audioUrl}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
+            aria-label={isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
+            title={isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
+          >
                 {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
               </Button>
 
@@ -464,9 +591,28 @@ const AudioPlayerComponent = ({
               <Volume2 className="w-4 h-4 text-gray-500" />
               <Slider value={[volume * 100]} onValueChange={handleVolumeChange} className="flex-1" max={100} step={1} />
             </div>
+
+            {/* Playback Speed */}
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-sm text-gray-600">
+                <BilingualText translationKey="components.audioPlayer.playbackRateLabel" />
+              </span>
+              <Select value={String(playbackRate)} onValueChange={handleRateChange} disabled={!audioUrl}>
+                <SelectTrigger aria-label={t("components.audioPlayer.playbackRateAriaLabel")} className="w-28">
+                  <SelectValue placeholder={t("components.audioPlayer.playbackRatePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLAYBACK_SPEED_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      <BilingualText translationKey={opt.labelKey} />
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </>
         ) : (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <div className="bg-gray-50 border border-light rounded-lg p-8 text-center">
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <Volume2 className="w-6 h-6 text-gray-400" />
             </div>
@@ -528,7 +674,7 @@ const AudioPlayerComponent = ({
       </Card>
     </div>
   )
-}
+})
 
 AudioPlayerComponent.displayName = "AudioPlayer"
 

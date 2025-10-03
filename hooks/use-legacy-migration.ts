@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import * as legacyMigration from '@/lib/legacy-migration-service'
 import type {
   MigrationStatus as BaseMigrationStatus,
@@ -16,7 +16,7 @@ function getExport<T>(key: string, options: { silent?: boolean } = {}): T | unde
   }
 }
 
-interface MigrationStatus extends BaseMigrationStatus {
+interface MigrationStatus extends Omit<BaseMigrationStatus, 'retryCount'> {
   errorType?: MigrationErrorType
   retryable?: boolean
   retryCount?: number
@@ -29,13 +29,28 @@ function sanitizeStatus(status: MigrationStatus): MigrationStatus {
     nextStatus.canRetry = nextStatus.canRetry ?? false
     nextStatus.retryCount = nextStatus.retryCount ?? 0
   } else {
-    if (!nextStatus.canRetry) delete nextStatus.canRetry
-    if (!nextStatus.retryable) delete nextStatus.retryable
-    if (!nextStatus.retryCount) delete nextStatus.retryCount
+    if (nextStatus.canRetry === false) {
+      const { canRetry: _, ...rest } = nextStatus
+      Object.assign(nextStatus, rest)
+    }
+    if (nextStatus.retryable === false) {
+      const { retryable: _, ...rest } = nextStatus
+      Object.assign(nextStatus, rest)
+    }
+    if (nextStatus.retryCount === 0) {
+      const { retryCount: _, ...rest } = nextStatus
+      Object.assign(nextStatus, rest)
+    }
   }
 
-  if (!nextStatus.imported) delete nextStatus.imported
-  if (!nextStatus.errorType) delete nextStatus.errorType
+  if (!nextStatus.imported) {
+    const { imported: _, ...rest } = nextStatus
+    Object.assign(nextStatus, rest)
+  }
+  if (!nextStatus.errorType) {
+    const { errorType: _, ...rest } = nextStatus
+    Object.assign(nextStatus, rest)
+  }
 
   return nextStatus
 }
@@ -60,6 +75,43 @@ type MigrationResult = {
 const supportsEnhancedMigration = typeof getExport<(attempts?: number, delayMs?: number) => Promise<MigrationResult>>('migrateLegacyDataWithRetry', { silent: true }) === 'function'
 
 async function executeMigration(): Promise<MigrationResult> {
+  // 首先检查用户是否已登录
+  try {
+    const authResponse = await fetch('/api/auth/me', {
+      credentials: 'include'
+    })
+    
+    if (!authResponse.ok) {
+      return {
+        success: false,
+        message: 'Please log in before migrating data',
+        error: 'Authentication required',
+        errorType: MIGRATION_ERROR.AUTHENTICATION_ERROR,
+        retryable: false
+      }
+    }
+    
+    const authData = await authResponse.json()
+    if (!authData.user) {
+      return {
+        success: false,
+        message: 'Please log in before migrating data', 
+        error: 'Authentication required',
+        errorType: MIGRATION_ERROR.AUTHENTICATION_ERROR,
+        retryable: false
+      }
+    }
+  } catch (authError) {
+    console.error('Authentication check failed:', authError)
+    return {
+      success: false,
+      message: 'Unable to verify login status',
+      error: 'Authentication check failed',
+      errorType: MIGRATION_ERROR.NETWORK_ERROR,
+      retryable: true
+    }
+  }
+
   const singleRun = getExport<() => Promise<MigrationResult>>('migrateLegacyData', {
     silent: supportsEnhancedMigration
   })
@@ -76,6 +128,11 @@ async function executeMigration(): Promise<MigrationResult> {
 }
 
 function checkHasLegacyData(): boolean {
+  // 只在客户端检查localStorage
+  if (typeof window === 'undefined') {
+    return false
+  }
+  
   const detector = getExport<() => boolean>('hasLegacyData')
   if (typeof detector === 'function') {
     return detector()
@@ -91,7 +148,8 @@ export function useLegacyMigration() {
     isChecking: false,
     isComplete: false,
     hasError: false,
-    message: ''
+    message: '',
+    canRetry: false
   }))
   const hasAttemptedInitialMigration = useRef(false)
 
@@ -158,8 +216,13 @@ export function useLegacyMigration() {
     return await performMigration(true)
   }, [performMigration, migrationStatus.canRetry])
 
-  // Automatically check and migrate on mount
+  // 只在客户端挂载后执行迁移检查
   useEffect(() => {
+    // 确保在客户端环境
+    if (typeof window === 'undefined') {
+      return
+    }
+
     const checkAndMigrate = async () => {
       // Only check if we haven't completed migration yet
       if (migrationStatus.isComplete) return
@@ -167,7 +230,20 @@ export function useLegacyMigration() {
       // Check if there's legacy data to migrate
       if (checkHasLegacyData()) {
         console.log('Legacy data detected, starting migration...')
-        await performMigration(false)
+        try {
+          await performMigration(false)
+        } catch (error) {
+          console.error('Migration failed during useEffect:', error)
+          // Update status to reflect the error
+          updateStatus(prev => ({
+            ...prev,
+            isChecking: false,
+            isComplete: true,
+            hasError: true,
+            message: error instanceof Error ? error.message : 'Migration failed',
+            canRetry: true
+          }))
+        }
       } else {
         updateStatus(prev => ({
           ...prev,
@@ -185,7 +261,13 @@ export function useLegacyMigration() {
     }
 
     hasAttemptedInitialMigration.current = true
-    checkAndMigrate()
+    
+    // 延迟执行，确保组件已完成初始渲染，并确保用户已登录
+    const timer = setTimeout(() => {
+      checkAndMigrate()
+    }, 2000) // 增加到2秒，给登录更多时间
+    
+    return () => clearTimeout(timer)
   }, [performMigration, migrationStatus.isComplete, updateStatus])
 
   // Helper function to get user-friendly error messages

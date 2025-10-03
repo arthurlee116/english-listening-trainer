@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BilingualText } from "@/components/ui/bilingual-text"
+import { useThemeClasses, combineThemeClasses } from "@/hooks/use-theme-classes"
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -45,6 +46,7 @@ export function AIAnalysisCard({
 }: AIAnalysisCardProps) {
   const { t } = useBilingualText()
   const [isExpanded, setIsExpanded] = useState(false)
+  const { textClass, iconClass, borderClass } = useThemeClasses()
 
   const getStateIcon = () => {
     switch (state) {
@@ -53,9 +55,9 @@ export function AIAnalysisCard({
       case AnalysisState.LOADING:
         return <Loader2 className="w-4 h-4 animate-spin" />
       case AnalysisState.SUCCESS:
-        return <CheckCircle className="w-4 h-4 text-green-600" />
+        return <CheckCircle className={combineThemeClasses("w-4 h-4 text-green-600", iconClass('success'))} />
       case AnalysisState.ERROR:
-        return <AlertCircle className="w-4 h-4 text-red-600" />
+        return <AlertCircle className={combineThemeClasses("w-4 h-4 text-red-600", iconClass('error'))} />
     }
   }
 
@@ -75,7 +77,7 @@ export function AIAnalysisCard({
   const getStateColor = () => {
     switch (state) {
       case AnalysisState.NOT_GENERATED:
-        return "border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-600"
+        return "border-emphasis-light bg-gray-50 dark:bg-gray-800 dark:border-gray-600"
       case AnalysisState.LOADING:
         return "border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-600"
       case AnalysisState.SUCCESS:
@@ -94,7 +96,7 @@ export function AIAnalysisCard({
       case 'low':
         return "bg-red-100 text-red-800 border-red-300"
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300"
+        return "bg-gray-100 text-gray-800 border-emphasis-light"
     }
   }
 
@@ -156,22 +158,28 @@ export function AIAnalysisCard({
         </div>
 
         {/* State Message */}
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className={combineThemeClasses(
+          "text-sm text-gray-600 dark:text-gray-400",
+          textClass('secondary')
+        )}>
           {getStateText()}
         </p>
 
         {/* Analysis Content */}
         {isExpanded && analysis && state === AnalysisState.SUCCESS && (
-          <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="space-y-4 pt-2 border-t separator-light dark:border-gray-700">
             {/* Main Analysis */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-blue-600" />
+                <MessageSquare className={combineThemeClasses("w-4 h-4 text-blue-600", iconClass('info'))} />
                 <h6 className="font-medium">
                   <BilingualText translationKey="components.aiAnalysisCard.detailedAnalysis" />
                 </h6>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              <p className={combineThemeClasses(
+                "text-sm text-gray-700 dark:text-gray-300 leading-relaxed",
+                textClass('primary')
+              )}>
                 {analysis.analysis}
               </p>
             </div>
@@ -179,12 +187,15 @@ export function AIAnalysisCard({
             {/* Key Reason */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-orange-600" />
+                <Target className={combineThemeClasses("w-4 h-4 text-orange-600", iconClass('warning'))} />
                 <h6 className="font-medium">
                   <BilingualText translationKey="components.aiAnalysisCard.keyReason" />
                 </h6>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
+              <p className={combineThemeClasses(
+                "text-sm text-gray-700 dark:text-gray-300",
+                textClass('primary')
+              )}>
                 {analysis.key_reason}
               </p>
             </div>
@@ -193,7 +204,7 @@ export function AIAnalysisCard({
             {analysis.ability_tags && analysis.ability_tags.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Brain className="w-4 h-4 text-purple-600" />
+                  <Brain className={combineThemeClasses("w-4 h-4 text-purple-600", iconClass('primary'))} />
                   <h6 className="font-medium">
                     <BilingualText translationKey="components.aiAnalysisCard.abilityTags" />
                   </h6>
@@ -212,7 +223,7 @@ export function AIAnalysisCard({
             {analysis.signal_words && analysis.signal_words.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="w-4 h-4 text-yellow-600" />
+                  <Lightbulb className={combineThemeClasses("w-4 h-4 text-yellow-600", iconClass('warning'))} />
                   <h6 className="font-medium">
                     <BilingualText translationKey="components.aiAnalysisCard.signalWords" />
                   </h6>
@@ -231,12 +242,15 @@ export function AIAnalysisCard({
             {analysis.strategy && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-4 h-4 text-green-600" />
+                  <Target className={combineThemeClasses("w-4 h-4 text-green-600", iconClass('success'))} />
                   <h6 className="font-medium">
                     <BilingualText translationKey="components.aiAnalysisCard.strategy" />
                   </h6>
                 </div>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
+                <p className={combineThemeClasses(
+                  "text-sm text-gray-700 dark:text-gray-300",
+                  textClass('primary')
+                )}>
                   {analysis.strategy}
                 </p>
               </div>
@@ -246,7 +260,7 @@ export function AIAnalysisCard({
             {analysis.related_sentences && analysis.related_sentences.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Quote className="w-4 h-4 text-indigo-600" />
+                  <Quote className={combineThemeClasses("w-4 h-4 text-indigo-600", iconClass('info'))} />
                   <h6 className="font-medium">
                     <BilingualText translationKey="components.aiAnalysisCard.relatedSentences" />
                   </h6>
@@ -254,10 +268,16 @@ export function AIAnalysisCard({
                 <div className="space-y-2">
                   {analysis.related_sentences.map((sentence, index) => (
                     <div key={index} className="bg-white dark:bg-gray-900 p-3 rounded border">
-                      <blockquote className="text-sm italic text-gray-600 dark:text-gray-400 mb-1">
+                      <blockquote className={combineThemeClasses(
+                        "text-sm italic text-gray-600 dark:text-gray-400 mb-1",
+                        textClass('secondary')
+                      )}>
                         "{sentence.quote}"
                       </blockquote>
-                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                      <p className={combineThemeClasses(
+                        "text-xs text-gray-500 dark:text-gray-500",
+                        textClass('muted')
+                      )}>
                         {sentence.comment}
                       </p>
                     </div>
@@ -270,8 +290,14 @@ export function AIAnalysisCard({
 
         {/* Error Message */}
         {isExpanded && state === AnalysisState.ERROR && (
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-red-600 dark:text-red-400">
+          <div className={combineThemeClasses(
+            "pt-2 border-t dark:border-gray-700",
+            borderClass('default')
+          )}>
+            <p className={combineThemeClasses(
+              "text-sm text-red-600 dark:text-red-400",
+              iconClass('error')
+            )}>
               <BilingualText translationKey="components.aiAnalysisCard.errorMessage" />
             </p>
           </div>

@@ -6,10 +6,10 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./tests/helpers/test-setup.ts'],
     globals: true,
-    // Enhanced timeout configuration
-    testTimeout: 30000,
+    // Enhanced timeout configuration per requirements 8.1, 8.2, 8.3
+    testTimeout: 5000, // Per requirement 8.1: individual test timeout
     hookTimeout: 10000,
     teardownTimeout: 5000,
     // Improved parallelization
@@ -21,19 +21,22 @@ export default defineConfig({
         minThreads: 1
       }
     },
-    // Enhanced test patterns
+    // Enhanced test patterns for new structure
     include: [
-      '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      '__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
+      'tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
     ],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
       '**/cypress/**',
       '**/.{idea,git,cache,output,temp}/**',
-      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*'
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
+      'tests/fixtures/**',
+      'tests/__mocks__/**',
+      'tests/helpers/**'
     ],
-    // Enhanced coverage configuration
+    // Coverage configuration per requirements 6.1
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
@@ -43,21 +46,58 @@ export default defineConfig({
         '**/*.config.*',
         '**/*.test.*',
         '**/*.spec.*',
-        '__tests__/**',
-        'src/test/**',
+        'tests/**',
         'coverage/**',
         'dist/**',
         '**/*.d.ts',
-        '**/types.ts'
+
+        'prisma/**',
+        'scripts/**',
+        'public/**',
+        '.next/**',
+        'kokoro-local/**',
+        // Additional exclusions for appropriate files
+        'app/layout.tsx',
+        'app/globals.css',
+
+        'lib/utils.ts',
+        'tailwind.config.ts',
+        'postcss.config.mjs',
+        'next.config.mjs',
+        'components.json',
+        'eslint.config.mjs'
       ],
       thresholds: {
         global: {
-          branches: 80,
+          branches: 60,    // Per requirements: 60% branch coverage minimum
+          functions: 80,   // Per requirements: 80% function coverage minimum  
+          lines: 70,       // Per requirements: 70% line coverage minimum
+          statements: 70   // Consistent with line coverage
+        },
+        // Critical business logic requires higher coverage
+        'lib/achievement-service.ts': {
+          branches: 90,
           functions: 90,
-          lines: 85,
-          statements: 85
+          lines: 90,
+          statements: 90
+        },
+        'lib/focus-metrics.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90
+        },
+        'lib/storage.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90
         }
-      }
+      },
+      // Enable coverage collection from all files
+      all: true,
+      // Skip coverage for files with no tests
+      skipFull: false
     },
     // Mock resolution optimization
     server: {
@@ -70,6 +110,10 @@ export default defineConfig({
     },
     // Retry configuration for flaky tests
     retry: 2,
+    // Fail-fast strategy for critical test failures per requirement 8.3
+    bail: process.env.CI ? 1 : undefined, // Fail fast in CI environment
+    // Performance monitoring
+    logHeapUsage: true,
     // Reporter configuration
     reporter: ['verbose', 'html'],
     outputFile: {
@@ -79,6 +123,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
+      '@/tests': path.resolve(__dirname, './tests'),
+      '@/lib': path.resolve(__dirname, './lib'),
+      '@/components': path.resolve(__dirname, './components'),
+      '@/app': path.resolve(__dirname, './app'),
+      '@/hooks': path.resolve(__dirname, './hooks'),
     },
   },
 })

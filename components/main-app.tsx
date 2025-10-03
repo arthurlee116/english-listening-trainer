@@ -30,6 +30,7 @@ import { BilingualText } from "@/components/ui/bilingual-text"
 import { useLegacyMigration } from "@/hooks/use-legacy-migration"
 import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
+import { useThemeClasses, combineThemeClasses } from "@/hooks/use-theme-classes"
 
 interface AssessmentResultData {
   difficultyLevel: number;
@@ -86,6 +87,7 @@ export const MainApp = () => {
   const { toast } = useToast()
   const { t } = useBilingualText()
   const { shouldShowNotification } = useLegacyMigration()
+  const { textClass, iconClass, borderClass } = useThemeClasses()
 
   const handleUserAuthenticated = useCallback((userData: AuthUserInfo, token: string) => {
     setAuthenticatedUser(userData, token)
@@ -140,7 +142,8 @@ export const MainApp = () => {
     setLoadingMessage(t("common.messages.processing"))
 
     try {
-      const topics = await generateTopics(difficulty, wordCount, language)
+      const response = await generateTopics(difficulty, wordCount, language)
+      const topics = response?.topics || []
       setSuggestedTopics(topics)
       toast({
         title: t("common.messages.topicGenerationSuccess"),
@@ -168,8 +171,8 @@ export const MainApp = () => {
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       try {
-        const generatedTranscript = await generateTranscript(difficulty, wordCount, topic, language)
-        setTranscript(generatedTranscript)
+        const response = await generateTranscript(difficulty, wordCount, topic, language)
+        setTranscript(response?.transcript || "")
         setCanRegenerate(true)
       } catch (error) {
         console.error(`Transcript generation attempt ${attempt} failed:`, error)
@@ -241,7 +244,8 @@ export const MainApp = () => {
     setLoadingMessage(t("common.messages.processing"))
 
     try {
-      const generatedQuestions = await generateQuestions(difficulty, transcript, language, duration)
+      const response = await generateQuestions(difficulty, transcript, language, duration)
+      const generatedQuestions = response?.questions || []
       setQuestions(generatedQuestions)
       setStep("questions")
       toast({
@@ -342,11 +346,14 @@ export const MainApp = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <Loader2 className={combineThemeClasses("w-8 h-8 animate-spin mx-auto mb-4", iconClass('loading'))} />
           <h2 className="text-lg font-semibold mb-2">
             <BilingualText translationKey="messages.loadingApp" />
           </h2>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className={combineThemeClasses(
+            "text-gray-600 dark:text-gray-300",
+            textClass('secondary')
+          )}>
             <BilingualText translationKey="messages.verifyingLogin" />
           </p>
         </div>
@@ -363,7 +370,10 @@ export const MainApp = () => {
         />
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className={combineThemeClasses(
+              "text-gray-600 dark:text-gray-300",
+              textClass('secondary')
+            )}>
               <BilingualText en="Please log in to use the application" zh="请先登录以使用应用" />
             </p>
           </div>
@@ -375,11 +385,17 @@ export const MainApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800" role="banner">
+      <header className={combineThemeClasses(
+        "sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b dark:border-gray-800",
+        borderClass('default')
+      )} role="banner">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h1 className={combineThemeClasses(
+                "text-xl font-bold text-gray-900 dark:text-white",
+                textClass('primary')
+              )}>
                 <BilingualText translationKey="pages.home.title" />
               </h1>
             </div>
@@ -387,8 +403,11 @@ export const MainApp = () => {
             <div className="flex items-center space-x-4">
               {/* User Menu */}
               <div className="flex items-center space-x-2" role="region" aria-label={t("labels.userMenu")}>
-                <User className="w-4 h-4" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <User className={combineThemeClasses("w-4 h-4", iconClass('nav'))} />
+                <span className={combineThemeClasses(
+                  "text-sm text-gray-700 dark:text-gray-300",
+                  textClass('secondary')
+                )}>
                   {user?.name || user?.email}
                 </span>
                 {user?.isAdmin && (
@@ -405,7 +424,7 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("setup")}
                 >
-                  <Sparkles className="w-4 h-4 mr-1" />
+                  <Sparkles className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
                   <BilingualText translationKey="buttons.practice" />
                 </Button>
                 <Button
@@ -413,7 +432,7 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("history")}
                 >
-                  <History className="w-4 h-4 mr-1" />
+                  <History className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
                   <BilingualText translationKey="buttons.history" />
                 </Button>
                 <Button
@@ -421,7 +440,7 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("wrong-answers")}
                 >
-                  <Book className="w-4 h-4 mr-1" />
+                  <Book className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
                   <BilingualText translationKey="buttons.wrongAnswersBook" />
                 </Button>
                 <Button
@@ -429,14 +448,14 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("assessment")}
                 >
-                  <MessageSquare className="w-4 h-4 mr-1" />
+                  <MessageSquare className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
                   <BilingualText translationKey="buttons.assessment" />
                 </Button>
               </nav>
 
               <ThemeToggle />
               <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}>
-                <LogOut className="w-4 h-4 mr-1" />
+                <LogOut className="w-4 h-4 mr-1 icon-nav-light" />
                 <BilingualText translationKey="buttons.logout" />
               </Button>
             </div>
@@ -507,7 +526,7 @@ export const MainApp = () => {
                         Difficulty Level
                       </Label>
                       <Select value={difficulty} onValueChange={(value: DifficultyLevel) => setDifficulty(value)}>
-                        <SelectTrigger className="glass-effect">
+                        <SelectTrigger id="difficulty" className="glass-effect">
                           <SelectValue placeholder="选择难度级别" />
                         </SelectTrigger>
                         <SelectContent>
@@ -572,9 +591,9 @@ export const MainApp = () => {
                             size="sm"
                           >
                             {loading ? (
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              <Loader2 className={combineThemeClasses("w-3 h-3 mr-1 animate-spin", iconClass('loading'))} />
                             ) : (
-                              <Sparkles className="w-3 h-3 mr-1" />
+                              <Sparkles className={combineThemeClasses("w-3 h-3 mr-1", iconClass('secondary'))} />
                             )}
                             生成话题
                           </Button>
@@ -582,7 +601,10 @@ export const MainApp = () => {
 
                         {suggestedTopics.length > 0 && (
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <p className={combineThemeClasses(
+                              "text-sm text-gray-600 dark:text-gray-400 mb-2",
+                              textClass('tertiary')
+                            )}>
                               点击选择一个话题：
                             </p>
                             <div className="grid grid-cols-1 gap-2">
@@ -625,12 +647,12 @@ export const MainApp = () => {
                     >
                       {loading ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <Loader2 className={combineThemeClasses("w-4 h-4 mr-2 animate-spin", iconClass('loading'))} />
                           {loadingMessage}
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <Sparkles className="w-4 h-4 mr-2 icon-button-primary-light" />
                           Generate Listening Exercise
                         </>
                       )}

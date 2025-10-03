@@ -10,11 +10,12 @@ x-app-env: &app-env
 
 services:
   migrate:
-    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    # Uncomment below for local development builds
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: runtime
     command: ["npx", "prisma", "migrate", "deploy"]
     user: "1001:1001"
     env_file:
@@ -34,7 +35,6 @@ services:
       - type: bind
         source: ./backups
         target: /app/backups
-        propagation: rprivate
     restart: "no"
     profiles:
       - migrate
@@ -42,17 +42,23 @@ services:
       - app-net
 
   app:
-    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runtime
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    # Uncomment below for local development builds
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: runtime
     restart: unless-stopped
     env_file:
       - .env.production
     environment:
       <<: *app-env
       DATABASE_URL: ${DATABASE_URL:-file:/app/data/app.db}
+      http_proxy: ${http_proxy:-http://81.71.93.183:10811}
+      https_proxy: ${https_proxy:-http://81.71.93.183:10811}
+      HTTP_PROXY: ${HTTP_PROXY:-http://81.71.93.183:10811}
+      HTTPS_PROXY: ${HTTPS_PROXY:-http://81.71.93.183:10811}
+      no_proxy: localhost,127.0.0.1
     ports:
       - "${PORT:-3000}:3000"
     volumes:
@@ -68,7 +74,9 @@ services:
       - type: bind
         source: ./backups
         target: /app/backups
-        propagation: rprivate
+      - type: bind
+        source: ./kokoro-local/.cache
+        target: /app/kokoro-local/.cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
@@ -82,18 +90,11 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    device_requests:
-      - driver: nvidia
-        count: -1
-        capabilities:
-          - gpu
-          - utility
-    runtime: nvidia
     networks:
       - app-net
 
   admin:
-    image: ${IMAGE_TAG:-english-listening-trainer:gpu}
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
     profiles:
       - admin
     command: ["npm", "run", "admin"]

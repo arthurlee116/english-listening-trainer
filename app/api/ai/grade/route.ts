@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
-import type { ListeningLanguage, Question } from '@/lib/types'
+import type { ListeningLanguage, Question, FocusArea, FocusCoverage } from '@/lib/types'
+import { 
+  validateFocusAreas, 
+  calculateFocusCoverage
+} from '@/lib/focus-area-utils'
 
 interface GradingResult {
   type: 'single' | 'short'
@@ -32,11 +36,14 @@ const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcript, questions, answers, language = 'en-US' } = await request.json()
+    const { transcript, questions, answers, language = 'en-US', focusAreas } = await request.json()
 
     if (!transcript || !questions || !answers) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
+
+    // 验证和处理 focusAreas 参数
+    const validatedFocusAreas = validateFocusAreas(focusAreas)
 
     const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
 
@@ -123,7 +130,20 @@ Difficulty Tags: accent-difficulty(口音理解), speed-issue(语速问题), com
     const result = await callArkAPI(messages, schema, 'grading_response') as GradingResponse
 
     if (result && Array.isArray(result.results)) {
-      return NextResponse.json({ success: true, results: result.results })
+      // 计算专项练习的覆盖率（基于题目的 focus_areas）
+      let focusCoverage: FocusCoverage | undefined
+      
+      if (validatedFocusAreas.length > 0) {
+        const allQuestionAreas = questions.flatMap((q: Question) => q.focus_areas || [])
+        const providedAreas = Array.from(new Set(allQuestionAreas)) as FocusArea[]
+        focusCoverage = calculateFocusCoverage(validatedFocusAreas, providedAreas)
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        results: result.results,
+        focusCoverage
+      })
     }
 
     return NextResponse.json({ error: 'AI响应格式异常' }, { status: 500 })

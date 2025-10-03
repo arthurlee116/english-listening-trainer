@@ -162,3 +162,4 @@ build/
 .kiro/settings/mcp.json
 mcp.jsonnext/
 my-v0-project@0.1.0
+kokoro-models/Kokoro-82M/kokoro-v1_0.pth

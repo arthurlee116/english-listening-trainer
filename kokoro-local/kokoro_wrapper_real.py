@@ -175,15 +175,101 @@ class KokoroTTSReal:
             print("🔄 Initializing Kokoro model...", file=sys.stderr)
             sys.stderr.flush()
             
-            # 创建模型实例
-            self.model = KModel(
-                repo_id='hexgrad/Kokoro-82M',
-                disable_complex=False
-            )
+            # 检查本地 .pth 文件
+            local_pth_paths = [
+                Path('/app/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/kokoro-v1_0.pth'),
+                Path.home() / '.cache' / 'huggingface' / 'hub' / 'models--hexgrad--Kokoro-82M' / 'snapshots' / 'main' / 'kokoro-v1_0.pth',
+            ]
+            
+            local_pth = None
+            for pth_path in local_pth_paths:
+                if pth_path.exists():
+                    local_pth = pth_path
+                    print(f"✅ Found local model: {pth_path}", file=sys.stderr)
+                    print(f"📊 Model size: {pth_path.stat().st_size / 1024 / 1024:.1f} MB", file=sys.stderr)
+                    break
+            
+            if local_pth:
+                print("📥 Loading model from local .pth file...", file=sys.stderr)
+                sys.stderr.flush()
+                
+                # 设置离线模式环境变量（强制 HuggingFace 使用本地缓存）
+                os.environ['HF_HUB_OFFLINE'] = '1'
+                os.environ['TRANSFORMERS_OFFLINE'] = '1'
+                os.environ['HF_DATASETS_OFFLINE'] = '1'
+                
+                try:
+                    # 尝试从本地缓存加载（使用 repo_id 但强制离线）
+                    print("📥 Attempting offline load from cache...", file=sys.stderr)
+                    sys.stderr.flush()
+                    
+                    self.model = KModel(
+                        repo_id='hexgrad/Kokoro-82M',
+                        disable_complex=False
+                    )
+                    
+                    print("✅ Model loaded from local cache", file=sys.stderr)
+                    sys.stderr.flush()
+                    
+                except Exception as e:
+                    print(f"⚠️ Offline load failed: {e}", file=sys.stderr)
+                    print("📥 Trying direct weight loading...", file=sys.stderr)
+                    sys.stderr.flush()
+                    
+                    # 回退：直接加载权重文件
+                    # 注意：这可能不完全兼容，但值得一试
+                    state_dict = torch.load(str(local_pth), map_location='cpu')
+                    
+                    # 创建一个空模型并加载权重
+                    # 这里假设 KModel 可以无参数初始化
+                    try:
+                        self.model = KModel()
+                        self.model.load_state_dict(state_dict)
+                        print("✅ Weights loaded directly", file=sys.stderr)
+                        sys.stderr.flush()
+                    except Exception as e2:
+                        print(f"❌ Direct loading also failed: {e2}", file=sys.stderr)
+                        raise Exception(f"Cannot load model: {e}, {e2}")
+                        
+            else:
+                print("📥 Model not found locally, will download from HuggingFace...", file=sys.stderr)
+                print("   (This may take 3-5 minutes on first run)", file=sys.stderr)
+                sys.stderr.flush()
+                
+                # 从 HuggingFace 下载
+                self.model = KModel(
+                    repo_id='hexgrad/Kokoro-82M',
+                    disable_complex=False
+                )
+            
+            print("✅ Model weights loaded", file=sys.stderr)
+            sys.stderr.flush()
             
             # 移动到指定设备
             if self.device != 'cpu':
+                print(f"🚀 Moving model to {self.device}...", file=sys.stderr)
+                sys.stderr.flush()
                 self.model = self.model.to(self.device)
+                print(f"✅ Model moved to {self.device}", file=sys.stderr)
+                sys.stderr.flush()
+                
+                # GPU预热：运行一次小的推理
+                if self.device == 'cuda':
+                    print("🔥 Warming up GPU with test inference...", file=sys.stderr)
+                    sys.stderr.flush()
+                    try:
+                        test_pipeline = KPipeline(
+                            lang_code='en-us',
+                            model=self.model,
+                            device=self.device
+                        )
+                        # 运行一个很短的测试
+                        list(test_pipeline("Hello", voice='af_bella', speed=1.0))
+                        print("✅ GPU warmup complete", file=sys.stderr)
+                        sys.stderr.flush()
+                    except Exception as warmup_error:
+                        print(f"⚠️ GPU warmup failed (non-critical): {warmup_error}", file=sys.stderr)
+                        sys.stderr.flush()
                 
             print(f"✅ Model initialized on {self.device}", file=sys.stderr)
             sys.stderr.flush()

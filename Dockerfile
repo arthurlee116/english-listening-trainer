@@ -43,6 +43,7 @@ RUN apt-get update \
     libgl1 \
     libglib2.0-0 \
     zlib1g-dev \
+    espeak-ng \
  && npm install -g npm@10 \
  && rm -rf /var/lib/apt/lists/*
 

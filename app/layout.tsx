@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ErrorBoundary } from '@/components/error-boundary'
-import '../lib/kokoro-init'
 import React from 'react'
 
 export const metadata: Metadata = {
@@ -23,7 +22,7 @@ const RootLayout = ({
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange
+          disableTransitionOnChange={false}
         >
           <ErrorBoundary>
             {children}

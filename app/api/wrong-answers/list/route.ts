@@ -107,34 +107,51 @@ export async function GET(request: NextRequest) {
     }, 'get wrong answers list')
 
     // Format the response according to the design specification
-    const formattedWrongAnswers = wrongAnswers.map(answer => ({
-      answerId: answer.id,
-      questionId: answer.question.id,
-      sessionId: answer.question.session.id,
-      session: {
-        topic: answer.question.session.topic,
-        difficulty: answer.question.session.difficulty,
-        language: answer.question.session.language,
-        createdAt: answer.question.session.createdAt.toISOString()
-      },
-      question: {
-        index: answer.question.index,
-        type: answer.question.type,
-        question: answer.question.question,
-        options: answer.question.options ? JSON.parse(answer.question.options) : undefined,
-        correctAnswer: answer.question.correctAnswer,
-        explanation: answer.question.explanation,
-        transcript: answer.question.session.transcript
-      },
-      answer: {
-        userAnswer: answer.userAnswer,
-        isCorrect: answer.isCorrect,
-        attemptedAt: answer.attemptedAt.toISOString(),
-        aiAnalysis: answer.aiAnalysis ? JSON.parse(answer.aiAnalysis) : undefined,
-        aiAnalysisGeneratedAt: answer.aiAnalysisGeneratedAt?.toISOString(),
-        needsAnalysis: answer.needsAnalysis
+    const formattedWrongAnswers = wrongAnswers.map(answer => {
+      // 安全解析 focus_areas 字段
+      let focusAreas: string[] = []
+      try {
+        if (answer.question.focusAreas) {
+          focusAreas = JSON.parse(answer.question.focusAreas)
+        }
+      } catch (error) {
+        console.warn('Failed to parse focus_areas for question', { 
+          questionId: answer.question.id, 
+          focusAreas: answer.question.focusAreas,
+          error 
+        })
       }
-    }))
+
+      return {
+        answerId: answer.id,
+        questionId: answer.question.id,
+        sessionId: answer.question.session.id,
+        session: {
+          topic: answer.question.session.topic,
+          difficulty: answer.question.session.difficulty,
+          language: answer.question.session.language,
+          createdAt: answer.question.session.createdAt.toISOString()
+        },
+        question: {
+          index: answer.question.index,
+          type: answer.question.type,
+          question: answer.question.question,
+          options: answer.question.options ? JSON.parse(answer.question.options) : undefined,
+          correctAnswer: answer.question.correctAnswer,
+          explanation: answer.question.explanation,
+          transcript: answer.question.session.transcript,
+          focus_areas: focusAreas // 添加能力标签信息
+        },
+        answer: {
+          userAnswer: answer.userAnswer,
+          isCorrect: answer.isCorrect,
+          attemptedAt: answer.attemptedAt.toISOString(),
+          aiAnalysis: answer.aiAnalysis ? JSON.parse(answer.aiAnalysis) : undefined,
+          aiAnalysisGeneratedAt: answer.aiAnalysisGeneratedAt?.toISOString(),
+          needsAnalysis: answer.needsAnalysis
+        }
+      }
+    })
 
     return NextResponse.json({
       wrongAnswers: formattedWrongAnswers,
