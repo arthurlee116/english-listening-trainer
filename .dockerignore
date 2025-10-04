@@ -1,5 +1,5 @@
-# Docker 构建忽略文件
-# 排除不需要的文件以优化构建速度和镜像大小
+# Optimized Docker build ignore file
+# Excludes unnecessary files to optimize build speed and image size
 
 # Node.js
 node_modules
@@ -11,47 +11,48 @@ yarn-error.log*
 .next
 out
 
-# 构建输出
+# Build outputs
 build
 dist
 
-# 环境配置文件
+# Environment configuration files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# 数据库文件
+# Database files
 data/
 *.db
 *.db-shm
 *.db-wal
 
-# 日志文件
+# Log files
 logs/
 *.log
 
-# 音频文件 (运行时生成)
+# Audio files (generated at runtime)
 public/audio/*.wav
 public/tts_audio_*.wav
 
-# 测试相关
+# Test related
 coverage/
+test-results/
 __tests__/
 *.test.js
 *.test.ts
 *.spec.js
 *.spec.ts
 
-# 开发工具
+# Development tools
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 操作系统
+# Operating system
 .DS_Store
 Thumbs.db
 
@@ -59,22 +60,22 @@ Thumbs.db
 .git
 .gitignore
 
-# 文档
+# Documentation
 README.md
 docs/
 *.md
 
-# 备份文件
+# Backup files
 backups/
 *.backup
 *_backup*
 
-# 临时文件
+# Temporary files
 tmp/
 temp/
 .tmp
 
-# Python 缓存
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
@@ -82,10 +83,31 @@ __pycache__/
 .Python
 pip-log.txt
 
-# Kokoro TTS 虚拟环境 (会在容器中重新创建)
+# Kokoro TTS virtual environment (will be recreated in container)
 kokoro-local/venv/
+kokoro-local/.cache/
 
-# 其他
+# Optimization: Exclude large development directories
+components/ui/  # Only copy needed UI components
+public/images/  # Only copy essential images
+
+# CI/CD and deployment files
+.github/
+*.yml  # Exclude GitHub Actions files
+
+# Optimization: Exclude source maps and development artifacts
+*.map
+source-map
+
+# Other
 .dockerignore
 Dockerfile*
 docker-compose*.yml
+
+# Optimization: Explicitly include only essential kokoro files (exclude others)
+# This ensures better caching by excluding large unnecessary files from kokoro-local
+!
+kokoro-local/
+!kokoro-local/requirements.txt
+!kokoro-local/*.py
+!kokoro-local/voices/
