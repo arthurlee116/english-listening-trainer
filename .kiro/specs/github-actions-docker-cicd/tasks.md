@@ -110,7 +110,7 @@ This implementation plan breaks down the GitHub Actions Docker CI/CD pipeline in
   - Update deployment time estimates
   - _Requirements: 5.1, 5.2, 5.3, 5.5_
 
-- [-] 3. Update AUTO_DEPLOY_GUIDE.md documentation
+- [x] 3. Update AUTO_DEPLOY_GUIDE.md documentation
   - Add new "CI/CD 自动化部署" section at the end
   - Document GitHub Actions automatic build process
   - Create auto-deploy-from-ci.sh script example
@@ -148,7 +148,7 @@ This implementation plan breaks down the GitHub Actions Docker CI/CD pipeline in
   - Verify image metadata and labels
   - _Requirements: 4.1, 4.2, 4.3, 8.1, 8.2, 8.3_
 
-- [ ] 3.4 Test server deployment with GHCR image
+- [x] 3.4 Test server deployment with GHCR image
   - SSH to GPU server
   - Create and configure GHCR Personal Access Token
   - Authenticate Docker to GHCR
@@ -170,7 +170,7 @@ This implementation plan breaks down the GitHub Actions Docker CI/CD pipeline in
   - Show recent logs
   - _Requirements: 8.3, 8.5_
 
-- [ ] 4.1 Optimize Dockerfile for better caching
+- [x] 4.1 Optimize Dockerfile for better caching
   - Review current Dockerfile layer ordering
   - Ensure dependencies are copied before application code
   - Add cache mount hints for apt, npm, and pip
@@ -196,4 +196,11 @@ This implementation plan breaks down the GitHub Actions Docker CI/CD pipeline in
   - Configure log rotation for deployment logs
   - Set up alerts for deployment failures 
   - _Requirements: 8.3, 8.5_
+
+- [x] 4.5 Fix SpaCy model offline installation issue
+  - Add `python -m spacy download en_core_web_sm` to Dockerfile
+  - Pre-install SpaCy English model during Docker build
+  - Prevent runtime download attempts that fail in restricted environments
+  - Resolves SSL/network errors when Kokoro TTS initializes G2P pipeline
+  - _Requirements: 3.1, 9.3, 9.4_
 

@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Auto Deploy to Production",
+  "description": "Monitors git push to main branch, waits for GitHub Actions build completion, deploys to production server, and verifies deployment health",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      ".git/refs/heads/main"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A git push to main branch has been detected. Execute the following deployment workflow in the background:\n\n1. Monitor GitHub Actions workflow status for repository \"arthurlee116/english-listening-trainer\"\n- Wait for \"Build and Push Docker Image\" workflow to complete successfully\n- Check status every 30 seconds using GitHub API\n- If build fails, notify user and stop\n\n2. Once build succeeds, SSH into production server (ubuntu@81.71.93.183) and execute:\n```bash\ncd ~/english-listening-trainer\ngit pull origin main\ndocker image prune -f\ndocker compose -f docker-compose.gpu.yml pull\ndocker compose -f docker-compose.gpu.yml down\ndocker compose -f docker-compose.gpu.yml up -d\ndocker compose -f docker-compose.gpu.yml exec app npx prisma migrate deploy\ndocker compose -f docker-compose.gpu.yml exec app node scripts/seed-docker.js\n ```\n\n3. Wait 30 seconds for services to stabilize\n\n4. Verify deployment by checking health endpoint:\n   - URL: http://81.71.93.183:3000/api/health\n   - Expected: 200 OK response\n\n5. Notify user with deployment status:\n   - Success: \"✅ Production deployment completed successfully\"\n   - Failure: \"❌ Deployment failed: [error details]\"\n\nRun this entire process in the background without blocking other work."
+  }
+}

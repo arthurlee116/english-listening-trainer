@@ -12,7 +12,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
-RUN apt-get update \
+# Use cache mounts for apt packages to speed up builds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update \
  && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -62,12 +65,16 @@ FROM base AS deps
 
 WORKDIR /app
 
-COPY package.json package-lock.json* .
-RUN npm ci
+# Copy package files first for better caching
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
+# Copy Prisma schema and generate client (separate layer for better caching)
 COPY prisma ./prisma
 RUN npx prisma generate
 
+# Copy application code (this layer changes most frequently)
 COPY . .
 
 # Set build-time environment variables (placeholders for Next.js build)
@@ -75,6 +82,7 @@ COPY . .
 ARG CEREBRAS_API_KEY=placeholder_for_build
 ARG JWT_SECRET=placeholder_for_build
 ARG DATABASE_URL=file:./data/app.db
+ARG BUILDKIT_INLINE_CACHE=1
 
 ENV CEREBRAS_API_KEY=$CEREBRAS_API_KEY \
     JWT_SECRET=$JWT_SECRET \
@@ -120,16 +128,29 @@ COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
-# Install Kokoro Python environment with CUDA-enabled PyTorch
+# Prune dev dependencies and clean npm cache
 RUN npm prune --omit=dev \
- && npm cache clean --force \
- && python3 -m venv ${KOKORO_VENV} \
- && ${KOKORO_VENV}/bin/pip install --upgrade pip \
- && ${KOKORO_VENV}/bin/pip install --no-cache-dir \
+ && npm cache clean --force
+
+# Install Kokoro Python environment with CUDA-enabled PyTorch
+# Split into separate RUN commands for better layer caching
+RUN python3 -m venv ${KOKORO_VENV} \
+ && ${KOKORO_VENV}/bin/pip install --upgrade pip
+
+# Install PyTorch with CUDA support (large, rarely changes - separate layer)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    ${KOKORO_VENV}/bin/pip install --no-cache-dir \
       --extra-index-url https://download.pytorch.org/whl/cu121 \
-      torch==2.3.0+cu121 torchaudio==2.3.0+cu121 torchvision==0.18.0+cu121 \
- && ${KOKORO_VENV}/bin/pip install --no-cache-dir -r /app/kokoro-local/requirements.txt \
+      torch==2.3.0+cu121 torchaudio==2.3.0+cu121 torchvision==0.18.0+cu121
+
+# Install Kokoro requirements (separate layer for better caching)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    ${KOKORO_VENV}/bin/pip install --no-cache-dir -r /app/kokoro-local/requirements.txt \
  && find ${KOKORO_VENV} -type f -name "*.pyc" -delete
+
+# Pre-install SpaCy English model (required by Kokoro's misaki G2P)
+# This prevents runtime download attempts that fail in offline/restricted environments
+RUN ${KOKORO_VENV}/bin/python -m spacy download en_core_web_sm
 
 # Ensure venv bin is preferred when spawning python
 ENV PATH=${KOKORO_VENV}/bin:${PATH}
