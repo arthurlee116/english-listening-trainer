@@ -151,7 +151,7 @@ RUN mkdir -p ${APP_HOME}/data ${APP_HOME}/public/audio ${APP_HOME}/logs ${APP_HO
  && chown -R nextjs:nodejs ${APP_HOME}
 
 # Copy Python dependencies and Kokoro environment (installed in separate stage)
-COPY --from=python-deps /opt/kokoro-venv ${KOKORO_VENV}
+COPY --from=python-deps --chown=nextjs:nodejs /opt/kokoro-venv ${KOKORO_VENV}
 
 # Copy built Node.js application
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -173,10 +173,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 # Copy production node modules
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Final cleanup
+# Optimized cleanup to reduce disk usage
 RUN npm prune --omit=dev \
- && chown -R nextjs:nodejs ${KOKORO_VENV} \
- && chmod +x ${KOKORO_VENV}/bin/*
+ && find ${KOKORO_VENV} -name "*.pyc" -delete \
+ && find ${KOKORO_VENV} -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true \
+ && rm -rf ${KOKORO_VENV}/share \
+ && rm -rf ${KOKORO_VENV}/include \
+ && rm -rf ${KOKORO_VENV}/lib/python*/site-packages/*/tests \
+ && rm -rf ${KOKORO_VENV}/lib/python*/site-packages/*/test \
+ && echo "✅ Cleanup completed successfully"
 
 USER nextjs
 
