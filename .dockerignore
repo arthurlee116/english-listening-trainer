@@ -104,10 +104,5 @@ source-map
 Dockerfile*
 docker-compose*.yml
 
-# Optimization: Explicitly include only essential kokoro files (exclude others)
-# This ensures better caching by excluding large unnecessary files from kokoro-local
-!
-kokoro-local/
-!kokoro-local/requirements.txt
-!kokoro-local/*.py
-!kokoro-local/voices/
+# Other proper exclusions (Docker doesn't support ! patterns)
+# kokoro-local files are included by default with specific excludes below
