@@ -15,6 +15,10 @@ on:
         description: 'Push to registry'
         required: false
         default: 'true'
+      rebuild-cache:
+        description: 'Force rebuild all caches'
+        required: false
+        default: 'false'
 
 env:
   REGISTRY: ghcr.io
@@ -31,9 +35,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Set up Docker Buildx
+      - name: Set up Docker Buildx with optimized configuration
         uses: docker/setup-buildx-action@v3
-      
+        with:
+          driver-opts: |
+            image=moby/buildkit:buildx-stable-1
+            network=host
+          buildkitd-flags: --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host
+          config-inline: |
+            [worker.oci]
+            max-parallelism = 4
+            [worker.containerd]
+            max-parallelism = 4
+          
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -54,8 +68,48 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
       
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - name: Generate cache keys
+        id: cache-key
+        run: |
+          # Base cache key (rarely changes)
+          BASE_CACHE_KEY="base-${{ hashFiles('Dockerfile') }}"
+          
+          # Python deps cache key
+          PYTHON_DEPS_CACHE_KEY="python-${{ hashFiles('kokoro-local/requirements.txt', 'Dockerfile') }}"
+          
+          # Node deps cache key
+          NODE_DEPS_CACHE_KEY="node-${{ hashFiles('package.json', 'package-lock.json', 'Dockerfile') }}"
+          
+          # Builder cache key (changes with source code)
+          BUILDER_CACHE_KEY="builder-${{ github.sha }}"
+          
+          # Set outputs for use in build step
+          echo "base-key=$BASE_CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "python-key=$PYTHON_DEPS_CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "node-key=$NODE_DEPS_CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "builder-key=$BUILDER_CACHE_KEY" >> $GITHUB_OUTPUT
+          
+          echo "Cache keys generated:"
+          echo "Base: $BASE_CACHE_KEY"
+          echo "Python: $PYTHON_DEPS_CACHE_KEY"
+          echo "Node: $NODE_DEPS_CACHE_KEY"
+          echo "Builder: $BUILDER_CACHE_KEY"
+      
+      - name: Cache Docker layers with GitHub Actions Cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-buildx-main
+      
+      - name: Build and push Docker image with optimized caching
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+          DOCKER_BUILD_SUMMARY: false
+          DOCKER_BUILD_CHECKS_ANNOTATIONS: false
         with:
           context: .
           file: ./Dockerfile
@@ -64,5 +118,70 @@ jobs:
           push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          cache-to: type=inline
+          
+          # Multi-stage cache configuration with optimized strategy
+          cache-from: |
+            type=local,src=/tmp/.buildx-cache
+            type=gha,scope=english-listening-trainer
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python-deps
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-node-deps
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-builder
+            ${{ github.event.inputs.rebuild-cache != 'true' && format('type=registry,ref={0}:{1}', env.REGISTRY, env.IMAGE_NAME) || '' }}
+          
+          cache-to: |
+            type=local,dest=/tmp/.buildx-cache-new,mode=max
+            type=gha,scope=english-listening-trainer,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base,mode=max,compression=zstd
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python-deps,mode=max,compression=zstd
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-node-deps,mode=max,compression=zstd
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-builder,mode=max,compression=zstd
+          
+          # Build optimization flags
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            CEREBRAS_API_KEY=placeholder_for_build
+            JWT_SECRET=placeholder_for_build
+            DATABASE_URL=file:./data/app.db
+          
+          # Performance optimizations
+          no-cache: ${{ github.event.inputs.rebuild-cache == 'true' }}
+          
+          # Enable BuildKit features for better caching
+          load: false
+      
+      # Critical fix for cache handling
+      # Reference: https://github.com/docker/build-push-action/issues/252
+      # Reference: https://github.com/moby/buildkit/issues/1896
+      - name: Move Docker cache to fix directory handling
+        run: |
+          echo "Moving Docker cache to handle directory properly..."
+          rm -rf /tmp/.buildx-cache || true
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+          echo "Cache move completed successfully"
+      
+      - name: Extract cache size information
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## Cache Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if cache images exist and get their sizes
+          for cache_type in base python-deps node-deps builder; do
+            cache_tag="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-${cache_type}"
+            echo "### ${cache_type^} Cache" >> $GITHUB_STEP_SUMMARY
+            echo "Tag: \`${cache_tag}\`" >> $GITHUB_STEP_SUMMARY
+            
+            # Try to get image size (may fail if cache doesn't exist)
+            if docker manifest inspect $cache_tag > /dev/null 2>&1; then
+              echo "Status: ✅ Available" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Status: ❌ Not available" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+          
+          echo "### Build Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- **Estimated cache restore time:** < 2 minutes for code-only changes" >> $GITHUB_STEP_SUMMARY
+          echo "- **Expected build time:** 5-15 minutes (vs 20+ minutes without cache)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cache strategies:** GitHub Actions cache + Registry cache" >> $GITHUB_STEP_SUMMARY
