@@ -4,9 +4,16 @@
 
 ## 当前核心目标
 - [x] 切换 Docker 基础镜像与缓存分层（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：待指定。目标日期：待定。
-- [ ] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：阶段 1 已完成（4 阶段中）。
+- [ ] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：阶段 2 已完成（4 阶段中）。
 
 ## 最近里程碑
+- 2025-10-06 **完成阶段 2：CLI 自检脚本实现**
+  - 创建 `kokoro_local/selftest/` 模块（`__init__.py`, `__main__.py`）
+  - 创建配置文件 `configs/default.yaml`（CPU）和 `configs/gpu.yaml`（GPU）
+  - 实现 Markdown 输出格式（默认）与 JSON 输出格式
+  - 支持 `--skip-on-missing-model` 参数用于 CI 环境
+  - 集成 `KOKORO_LOCAL_MODEL_PATH` 环境变量
+  - 输出性能指标：合成时间、音频时长、实时因子、chunks 数量
 - 2025-10-06 **代码重构：使用 kokoro-env 辅助函数消除硬编码路径**
   - 重构 Node.js 层所有 TTS 服务使用 `lib/kokoro-env.ts` 辅助函数
   - 消除硬编码路径，提供单一数据源
@@ -30,8 +37,8 @@
 - [ ] 远程部署机 Docker 层缓存是否保留完好？（检查 `docker images --digests` 结果并记录于快照）
 
 ## 下一步计划
-- 本周：完成 TTS 重构阶段 2（CLI 自检脚本实现）。
-- 下周：完成 TTS 重构阶段 3（GitHub Actions 集成）与阶段 4（文档同步）。
+- 本周：完成 TTS 重构阶段 3（GitHub Actions 集成）。
+- 下周：完成 TTS 重构阶段 4（最终文档同步）。
 
 ## 参考文档
 - CI 缓存路线图：`documents/future-roadmap/ci-docker-cache-roadmap.md`
