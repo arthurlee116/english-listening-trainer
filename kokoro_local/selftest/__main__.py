@@ -53,8 +53,19 @@ def setup_environment(config: Dict[str, Any]) -> None:
 
 async def run_synthesis_test(config: Dict[str, Any], skip_on_missing: bool = False) -> Dict[str, Any]:
     """运行合成测试"""
-    from kokoro_wrapper import KokoroTTSWrapper
-    from text_chunker import split_text_intelligently, MAX_CHUNK_CHAR_SIZE
+    # 尝试导入依赖，如果缺少 torch/soundfile 等依赖则优雅处理
+    try:
+        from kokoro_wrapper import KokoroTTSWrapper
+        from text_chunker import split_text_intelligently, MAX_CHUNK_CHAR_SIZE
+    except ImportError as e:
+        if skip_on_missing:
+            return {
+                'status': 'skipped',
+                'reason': 'missing_dependencies',
+                'message': f'Required dependencies not installed: {str(e)}',
+                'timestamp': datetime.now().isoformat(),
+            }
+        raise
 
     # 准备输出目录
     output_dir = Path(config.get('output_dir', '/tmp/kokoro-selftest'))
