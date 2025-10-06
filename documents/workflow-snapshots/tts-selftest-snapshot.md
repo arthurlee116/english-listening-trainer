@@ -1,13 +1,14 @@
 # TTS 自检快照
 
-- **最近测试**：2025-10-06，阶段 1 + 2 完成（代码重构 + CLI 自检脚本实现），设备：本地开发环境（MacOS）
+- **最近测试**：2025-10-06，阶段 1 + 2 + 3 完成（代码重构 + CLI 自检脚本 + GitHub Actions 集成），设备：本地开发环境（MacOS）+ GitHub Actions runner（ubuntu-latest）
 - **结果摘要**：
-  - 状态：✅ 成功（阶段 1 + 辅助函数重构 + 阶段 2 CLI 实现完成）
+  - 状态：✅ 成功（阶段 1 + 辅助函数重构 + 阶段 2 CLI 实现 + 阶段 3 CI 集成完成）
   - Python 语法检查：通过（`python3 -m py_compile`）
   - text_chunker 模块导入：通过（MAX_CHUNK_CHAR_SIZE=100）
   - Node 层引用验证：通过（所有服务文件已使用 `kokoro-env.ts` 辅助函数）
   - 辅助函数重构：完成（消除所有硬编码路径）
   - CLI 自检脚本：实现完成（语法验证通过）
+  - GitHub Actions 集成：完成（YAML 语法验证通过）
   - lint 与 test：已运行（已存在错误与本次改动无关）
 - **关键日志/报告**：
   ```bash
@@ -37,8 +38,39 @@
   - 实时因子（Real-time Factor）
   - Chunks 数量
   - 模型路径、设备信息、输出文件大小等
+
+  # GitHub Actions 集成步骤
+  - name: Set up Python for Kokoro self-test
+    uses: actions/setup-python@v5
+    with:
+      python-version: '3.11'
+      cache: 'pip'
+      cache-dependency-path: kokoro_local/requirements.txt
+
+  - name: Install Kokoro self-test dependencies
+    run: pip install pyyaml
+
+  - name: Run Kokoro TTS self-test
+    run: |
+      python -m kokoro_local.selftest \
+        --config kokoro_local/configs/default.yaml \
+        --format json \
+        --skip-on-missing-model \
+        > kokoro-selftest-report.json || true
+
+  - name: Upload Kokoro self-test report
+    uses: actions/upload-artifact@v4
+    with:
+      name: kokoro-selftest-report
+      path: kokoro-selftest-report.json
+      retention-days: 30
+
+  - name: Add self-test results to summary
+    # 添加测试结果到 GitHub Actions Summary
   ```
 - **改动文件清单**：
+  - **阶段 3 修改**：
+    - `.github/workflows/build-and-push.yml`（新增 5 个步骤，约 71 行代码）
   - **阶段 2 新增**：
     - `kokoro_local/selftest/__init__.py` (6 行)
     - `kokoro_local/selftest/__main__.py` (300+ 行)
@@ -66,7 +98,16 @@
     - `kokoro_wrapper.KokoroTTSWrapper` 异步接口
   - Markdown 输出包含：性能指标、配置信息、输出文件路径
   - JSON 输出包含：所有元数据的结构化格式
+  - CI 集成已完成，待 PR 合并后在真实 GitHub Actions 环境中验证
+  - 使用 `|| true` 确保测试失败不阻塞 workflow
+  - 支持 jq 和 grep 两种方式提取 status（兼容不同 runner 环境）
+  - Summary 输出包含完整 JSON 报告
+  - Artifact 保留 30 天，便于历史回溯
+- **预期 CI 行为**：
+  - ✅ **有模型环境**：完整运行测试，输出性能指标
+  - ⚠️ **无模型环境**：优雅跳过（status: skipped），exit code 0
+  - ❌ **代码错误**：捕获异常，输出 error 状态，但不阻塞后续步骤
 - **下一步动作**：
-  - 阶段 3：集成到 GitHub Actions workflow
-  - 在真实环境（有模型文件 + 完整依赖）中运行完整验证
-  - 验证 `--skip-on-missing-model` 在 CI 中的行为
+  - 阶段 4：最终文档同步（CLAUDE.md 等）
+  - 在 PR 合并后验证 CI 自检实际运行结果
+  - 记录首次 CI 运行的 artifact 和 summary 输出
