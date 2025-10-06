@@ -69,9 +69,9 @@
 │                    Model & Data Layer                        │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  Local Model Files (Offline)                         │   │
-│  │  - kokoro-local/.cache/huggingface/...               │   │
+│  │  - kokoro_local/.cache/huggingface/...               │   │
 │  │  - kokoro-models/Kokoro-82M/                         │   │
-│  │  - kokoro-local/voices/*.pt                          │   │
+│  │  - kokoro_local/voices/*.pt                          │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -468,7 +468,7 @@ class SelftestResult:
     "error": "Model file not found",
     "details": {
         "searched_paths": [
-            "/app/kokoro-local/.cache/huggingface/...",
+            "/app/kokoro_local/.cache/huggingface/...",
             "kokoro-models/Kokoro-82M/"
         ],
         "suggestion": "Please download the model using: npm run setup-kokoro"
@@ -636,7 +636,7 @@ def test_long_text_performance():
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
 | `KOKORO_DEVICE` | `auto` | 设备选择: auto/cpu/cuda/mps |
-| `KOKORO_WRAPPER_PATH` | `kokoro-local/wrapper.py` | Wrapper 路径 |
+| `KOKORO_WRAPPER_PATH` | `kokoro_local/wrapper.py` | Wrapper 路径 |
 | `KOKORO_PYTHON` | `python3` | Python 解释器路径 |
 | `HF_HUB_OFFLINE` | `1` | 强制离线模式 |
 | `TRANSFORMERS_OFFLINE` | `1` | Transformers 离线模式 |
@@ -647,7 +647,7 @@ def test_long_text_performance():
 
 **优先级顺序**:
 
-1. `/app/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/`
+1. `/app/kokoro_local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/`
 2. `~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/`
 3. `kokoro-models/Kokoro-82M/`
 
@@ -663,7 +663,7 @@ def test_long_text_performance():
 ```dockerfile
 # 预先复制模型文件
 COPY kokoro-models/ /app/kokoro-models/
-COPY kokoro-local/.cache/ /app/kokoro-local/.cache/
+COPY kokoro_local/.cache/ /app/kokoro_local/.cache/
 
 # 验证模型文件存在
 RUN python3 -c "import os; \
@@ -896,17 +896,17 @@ class TTSMetrics:
 1. **恢复 Node.js 配置**:
    ```typescript
    // lib/kokoro-env.ts
-   const DEFAULT_WRAPPER_PATH = path.join(PROJECT_ROOT, 'kokoro-local', 'kokoro_wrapper_offline.py')
+   const DEFAULT_WRAPPER_PATH = path.join(PROJECT_ROOT, 'kokoro_local', 'kokoro_wrapper_offline.py')
    ```
 
 2. **从 legacy 目录恢复文件**:
    ```bash
-   cp kokoro_local/legacy/kokoro_wrapper_offline.py kokoro-local/
+   cp kokoro_local/legacy/kokoro_wrapper_offline.py kokoro_local/
    ```
 
 3. **回滚环境变量**:
    ```bash
-   export KOKORO_WRAPPER_PATH=kokoro-local/kokoro_wrapper_offline.py
+   export KOKORO_WRAPPER_PATH=kokoro_local/kokoro_wrapper_offline.py
    ```
 
 4. **重启服务**:
@@ -935,7 +935,7 @@ class TTSMetrics:
 ### A. File Structure After Refactoring
 
 ```
-kokoro-local/
+kokoro_local/
 ├── wrapper.py                    # 新的统一入口
 ├── text_chunker.py               # 分块模块
 ├── selftest/
@@ -960,7 +960,7 @@ configs/
 
 ### B. Dependencies
 
-**Python 依赖** (`kokoro-local/requirements.txt`):
+**Python 依赖** (`kokoro_local/requirements.txt`):
 ```
 torch>=2.0.0
 numpy>=1.24.0

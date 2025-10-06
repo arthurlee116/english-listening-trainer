@@ -10,7 +10,7 @@ hooks/                  # Custom React hooks
 prisma/                 # Database schema and migrations
 tests/                  # Test suites (unit, integration, e2e)
 scripts/                # Utility scripts
-kokoro-local/           # Local TTS engine and Python environment
+kokoro_local/           # Local TTS engine and Python environment
 public/                 # Static assets and generated audio files
 data/                   # SQLite database files
 documents/              # Project documentation

@@ -6,7 +6,7 @@
 - [route.ts](file://app/api/tts/route.ts)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)
 - [kokoro-service.ts](file://lib/kokoro-service.ts)
-- [kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py)
+- [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
 - [performance-optimizer.ts](file://lib/performance-optimizer.ts)
 - [audio-utils.ts](file://lib/audio-utils.ts)
 - [performance-middleware.ts](file://lib/performance-middleware.ts)
@@ -27,7 +27,7 @@
 本技术文档详细介绍了英语听力训练应用中的TTS（文本转语音）服务。该系统提供两种实现路径：标准合成端点和优化路径端点，分别满足不同场景下的语音生成需求。文档涵盖API请求参数、响应格式、缓存机制、进程通信及错误处理策略等关键内容。
 
 ## 项目结构
-TTS功能主要由API路由、Node.js服务层和Python后端三部分构成。API路由位于`app/api/tts/`目录下，包含`route.ts`和`route-optimized.ts`两个文件，分别对应GPU加速和CPU优化的TTS接口。服务逻辑分布在`lib/`目录中，其中`kokoro-service.ts`负责Node.js与Python进程的通信管理。Python后端实现位于`kokoro-local/`目录，通过`kokoro_wrapper.py`提供实际的语音合成功能。
+TTS功能主要由API路由、Node.js服务层和Python后端三部分构成。API路由位于`app/api/tts/`目录下，包含`route.ts`和`route-optimized.ts`两个文件，分别对应GPU加速和CPU优化的TTS接口。服务逻辑分布在`lib/`目录中，其中`kokoro-service.ts`负责Node.js与Python进程的通信管理。Python后端实现位于`kokoro_local/`目录，通过`kokoro_wrapper.py`提供实际的语音合成功能。
 
 ```mermaid
 graph TB
@@ -59,13 +59,13 @@ C --> F
 - [route.ts](file://app/api/tts/route.ts#L1-L85)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts#L1-L122)
 - [kokoro-service.ts](file://lib/kokoro-service.ts#L1-L583)
-- [kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py#L1-L587)
+- [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py#L1-L587)
 
 **章节来源**
 - [app/api/tts/route.ts](file://app/api/tts/route.ts#L1-L85)
 - [app/api/tts/route-optimized.ts](file://app/api/tts/route-optimized.ts#L1-L122)
 - [lib/kokoro-service.ts](file://lib/kokoro-service.ts#L1-L583)
-- [kokoro-local/kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py#L1-L587)
+- [kokoro_local/kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py#L1-L587)
 
 ## 核心组件
 TTS系统的核心组件包括两个API端点：标准合成端点(`/api/tts`)使用GPU加速进行实时语音生成，优化路径端点(`/api/tts/optimized`)则利用预计算缓存提升性能。两者均通过`kokoro-service.ts`中的`KokoroTTSService`类与Python后端通信，并采用电路断路器模式进行故障保护。
@@ -104,7 +104,7 @@ API-->>Client : JSON响应
 **图示来源**
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts#L1-L122)
 - [kokoro-service.ts](file://lib/kokoro-service.ts#L1-L583)
-- [kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py#L1-L587)
+- [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py#L1-L587)
 
 ## 详细组件分析
 

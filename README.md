@@ -39,7 +39,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
     ```bash
     npm run setup-kokoro
     ```
-    This will create a Python virtual environment in `kokoro-local/venv`, install dependencies, and download the required voice files. You can customise the installer via environment variables before running the command, for example:
+    This will create a Python virtual environment in `kokoro_local/venv`, install dependencies, and download the required voice files. You can customise the installer via environment variables before running the command, for example:
     ```bash
     KOKORO_TORCH_VARIANT=cuda KOKORO_CUDA_HOME=/usr/local/cuda-12.2 npm run setup-kokoro
     ```
@@ -77,7 +77,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 - `lib/`: Core application logic, services, and utilities.
 - `hooks/`: Custom React hooks.
 - `scripts/`: Utility scripts for tasks like database migration and setting up Kokoro.
-- `kokoro-local/`: The local Kokoro TTS engine and its related files.
+- `kokoro_local/`: The local Kokoro TTS engine and its related files.
 - `public/`: Static assets, including generated audio files.
 - `data/`: The SQLite database file.
 - `__tests__/`: Vitest suites covering the TTS API, auth helpers, hooks, and bilingual utilities.
@@ -91,7 +91,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 
 ## Troubleshooting
 
-- **Python Version Issues**: If TTS fails to initialize, verify your Python version (`python3 --version`). Kokoro requires Python 3.8-3.12. If needed, you can recreate the virtual environment: `cd kokoro-local && rm -rf venv && python3.12 -m venv venv`.
+- **Python Version Issues**: If TTS fails to initialize, verify your Python version (`python3 --version`). Kokoro requires Python 3.8-3.12. If needed, you can recreate the virtual environment: `cd kokoro_local && rm -rf venv && python3.12 -m venv venv`.
 - **TTS Initialization**: If the TTS engine fails to start, try re-running the setup script: `npm run setup-kokoro`.
 - **Database Issues**: If you encounter schema issues during development, you can delete the `data/app.db` file to reinitialize the database.
 - **Audio Clean-up**: Generated audio lives in `public/`. The clean-up service runs automatically, but you can invoke `audioCleanupService.performCleanup()` manually from a Node REPL if needed.

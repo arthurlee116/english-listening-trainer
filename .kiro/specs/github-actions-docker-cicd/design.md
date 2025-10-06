@@ -804,8 +804,8 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
 RUN apt-get update && apt-get install -y ...
 
 # 3. Python dependencies (occasionally changes)
-COPY kokoro-local/requirements.txt /app/kokoro-local/requirements.txt
-RUN pip install -r /app/kokoro-local/requirements.txt
+COPY kokoro_local/requirements.txt /app/kokoro_local/requirements.txt
+RUN pip install -r /app/kokoro_local/requirements.txt
 
 # 4. Node dependencies (occasionally changes)
 COPY package.json package-lock.json ./
@@ -1465,8 +1465,8 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
 RUN apt-get update && apt-get install -y ...
 
 # Python deps (occasionally change)
-COPY kokoro-local/requirements.txt /app/kokoro-local/requirements.txt
-RUN pip install -r /app/kokoro-local/requirements.txt
+COPY kokoro_local/requirements.txt /app/kokoro_local/requirements.txt
+RUN pip install -r /app/kokoro_local/requirements.txt
 
 # Node deps (occasionally change)
 COPY package.json package-lock.json ./
