@@ -4,6 +4,11 @@
  */
 
 import { ErrorHandler, ErrorCode, ErrorSeverity } from './error-handler'
+import {
+  resolveKokoroPythonExecutable,
+  resolveKokoroWorkingDirectory
+} from './kokoro-env'
+import path from 'path'
 
 export interface AIServiceConfig {
   cerebrasApiKey: string
@@ -122,12 +127,16 @@ class ConfigurationManager {
 
   private buildConfig(): AppConfig {
     const env = process.env.NODE_ENV || 'development'
-    
+
+    // 使用 kokoro-env 获取默认 TTS 路径
+    const defaultPythonPath = resolveKokoroPythonExecutable()
+    const defaultVenvPath = path.join(resolveKokoroWorkingDirectory(), 'venv')
+
     return {
       environment: env as 'development' | 'production' | 'test',
       port: parseInt(process.env.PORT || '3000'),
       host: process.env.HOST || 'localhost',
-      
+
       ai: {
         cerebrasApiKey: this.getRequiredEnv('CEREBRAS_API_KEY'),
         baseUrl: process.env.CEREBRAS_BASE_URL || 'https://api.cerebras.ai',
@@ -135,10 +144,10 @@ class ConfigurationManager {
         maxRetries: parseInt(process.env.AI_MAX_RETRIES || '3'),
         defaultModel: process.env.AI_DEFAULT_MODEL || 'llama3.1-8b'
       },
-      
+
       tts: {
-        pythonPath: process.env.TTS_PYTHON_PATH || 'kokoro-local/venv/bin/python',
-        venvPath: process.env.TTS_VENV_PATH || 'kokoro-local/venv',
+        pythonPath: process.env.TTS_PYTHON_PATH || defaultPythonPath,
+        venvPath: process.env.TTS_VENV_PATH || defaultVenvPath,
         timeout: parseInt(process.env.TTS_TIMEOUT || '30000'),
         maxConcurrentRequests: parseInt(process.env.TTS_MAX_CONCURRENT || '1'),
         maxRestartAttempts: parseInt(process.env.TTS_MAX_RESTARTS || '3'),

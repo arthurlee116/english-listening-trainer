@@ -55,7 +55,7 @@ export default defineConfig({
         'scripts/**',
         'public/**',
         '.next/**',
-        'kokoro-local/**',
+        'kokoro_local/**',
         // Additional exclusions for appropriate files
         'app/layout.tsx',
         'app/globals.css',

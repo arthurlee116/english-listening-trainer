@@ -4,10 +4,15 @@
  */
 
 import { spawn, ChildProcess } from 'child_process'
-import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
 import { ErrorHandler, ErrorCode, ErrorSeverity, AppError } from './error-handler'
+import {
+  resolveKokoroWrapperPath,
+  resolveKokoroPythonExecutable,
+  resolveKokoroWorkingDirectory,
+  buildKokoroPythonEnv
+} from './kokoro-env'
 
 export interface KokoroRequest {
   text: string
@@ -123,33 +128,22 @@ export class KokoroTTSServiceEnhanced extends EventEmitter {
 
   private async startPythonProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper.py')
-      
+      const pythonPath = resolveKokoroWrapperPath()
+
       if (!fs.existsSync(pythonPath)) {
         const error = new Error(`Kokoro wrapper not found at ${pythonPath}`)
         reject(error)
         return
       }
 
-      // 设置环境变量
-      const venvPath = path.join(process.cwd(), 'kokoro-local', 'venv')
-      const venvPythonPath = path.join(venvPath, 'bin', 'python')
-      
-      const env = {
-        ...process.env,
-        PYTORCH_ENABLE_MPS_FALLBACK: '1',
-        VIRTUAL_ENV: venvPath,
-        PATH: `${venvPath}/bin:${process.env.PATH || ''}`,
-        PYTHONPATH: [
-          path.join(process.cwd(), 'kokoro-main-ref'),
-          path.join(venvPath, 'lib', 'python3.13', 'site-packages'),
-          process.env.PYTHONPATH || ''
-        ].filter(Boolean).join(':')
-      }
+      // 使用 kokoro-env 构建环境变量和路径
+      const pythonExecutable = resolveKokoroPythonExecutable()
+      const workingDirectory = resolveKokoroWorkingDirectory()
+      const env = buildKokoroPythonEnv({ useVirtualEnv: true })
 
       // 启动Python进程
-      this.process = spawn(venvPythonPath, [pythonPath], {
-        cwd: path.join(process.cwd(), 'kokoro-local'),
+      this.process = spawn(pythonExecutable, [pythonPath], {
+        cwd: workingDirectory,
         env,
         stdio: ['pipe', 'pipe', 'pipe']
       })

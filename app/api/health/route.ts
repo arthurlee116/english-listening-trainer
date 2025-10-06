@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import fs from 'fs'
 import path from 'path'
+import { resolveKokoroWrapperPath } from '@/lib/kokoro-env'
 
 /**
  * 健康检查处理器
@@ -47,7 +48,7 @@ export async function GET(_request: NextRequest) {
     } else if (ttsMode === 'local') {
       // 检查 Kokoro TTS 文件是否存在
       try {
-        const kokoroPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper.py')
+        const kokoroPath = resolveKokoroWrapperPath()
         if (fs.existsSync(kokoroPath)) {
           ttsStatus = 'ready'
         } else {
