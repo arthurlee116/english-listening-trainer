@@ -3,15 +3,22 @@
 ## To-Do
 - [ ] 编写并验证 `.github/workflows/prewarm-deps.yml`（参见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。
 - [ ] 将 Dockerfile 基础镜像替换为 GHCR 镜像并测试缓存命中（参见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。
-- [ ] 设计 `kokoro_local/selftest` CLI 脚本与配置范本（参见 `documents/future-roadmap/tts-refactor-roadmap.md`）。
 
 ## In Progress
-- [ ] 阶段 2：实现 CLI 自检脚本（待执行）
+- [ ] 阶段 3：GitHub Actions 集成自检步骤（待执行）
 
 ## Review
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-06 **阶段 2：实现 CLI 自检脚本**
+  - 创建 `kokoro_local/selftest/` 模块结构
+  - 创建配置文件 `configs/default.yaml`（CPU）和 `configs/gpu.yaml`（GPU）
+  - 实现 `selftest/__main__.py` 核心逻辑（300+ 行）
+  - 支持 Markdown（默认）和 JSON 输出格式
+  - 支持 `--skip-on-missing-model` 参数
+  - 集成性能指标输出（合成时间、实时因子等）
+  - 验证：Python 语法 ✅、文件结构 ✅
 - [x] 2025-10-06 **代码重构：使用 kokoro-env 辅助函数消除硬编码路径**
   - 重构 4 个 TypeScript 服务文件使用 `lib/kokoro-env.ts` 辅助函数
   - 替换硬编码路径为 `resolveKokoroWrapperPath()`, `resolveKokoroPythonExecutable()`, `resolveKokoroWorkingDirectory()`, `buildKokoroPythonEnv()`
