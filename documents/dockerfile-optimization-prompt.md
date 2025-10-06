@@ -60,7 +60,7 @@ I'm working on an English Listening Trainer application with the following setup
 ├── .next/ (built Next.js app)
 ├── public/ (static assets)
 ├── scripts/ (utility scripts like seed-docker.js)
-├── kokoro-local/ (TTS engine code)
+├── kokoro_local/ (TTS engine code)
 └── node_modules/ (installed packages)
 ```
 
@@ -181,7 +181,7 @@ FROM base AS runtime
 
 ENV NODE_ENV=production \
     APP_HOME=/app \
-    KOKORO_VENV=/app/kokoro-local/venv \
+    KOKORO_VENV=/app/kokoro_local/venv \
     PYTHONPATH=/app/kokoro-main-ref:/app/kokoro-main-ref/kokoro.js \
     PYTORCH_ENABLE_MPS_FALLBACK=1 \
     NVIDIA_VISIBLE_DEVICES=all \
@@ -201,7 +201,7 @@ COPY --from=deps --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=deps --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=deps --chown=nextjs:nodejs /app/package-lock.json ./package-lock.json
 COPY --from=deps --chown=nextjs:nodejs /app/scripts ./scripts
-COPY --from=deps --chown=nextjs:nodejs /app/kokoro-local ./kokoro-local
+COPY --from=deps --chown=nextjs:nodejs /app/kokoro_local ./kokoro_local
 COPY --from=deps --chown=nextjs:nodejs /app/admin-server.mjs ./admin-server.mjs
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
@@ -226,7 +226,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Install Kokoro requirements (separate layer for better caching)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    ${KOKORO_VENV}/bin/pip install --no-cache-dir -r /app/kokoro-local/requirements.txt \
+    ${KOKORO_VENV}/bin/pip install --no-cache-dir -r /app/kokoro_local/requirements.txt \
  && find ${KOKORO_VENV} -type f -name "*.pyc" -delete
 
 # Pre-install SpaCy English model (required by Kokoro's misaki G2P)
@@ -337,7 +337,7 @@ __pycache__/
 pip-log.txt
 
 # Kokoro TTS 虚拟环境 (会在容器中重新创建)
-kokoro-local/venv/
+kokoro_local/venv/
 
 # 其他
 .dockerignore

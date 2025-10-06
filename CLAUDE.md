@@ -40,9 +40,9 @@ npm run setup-kokoro     # Initialize Kokoro TTS (first-time setup)
 # Supports env vars: KOKORO_TORCH_VARIANT, KOKORO_CUDA_HOME, KOKORO_DEVICE
 
 # Kokoro self-test CLI (validate TTS functionality)
-python -m kokoro_local.selftest --config kokoro-local/configs/default.yaml  # CPU mode, Markdown output
-python -m kokoro_local.selftest --config kokoro-local/configs/gpu.yaml --format json  # GPU mode, JSON output
-python -m kokoro_local.selftest --config kokoro-local/configs/default.yaml --skip-on-missing-model  # CI mode
+python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml  # CPU mode, Markdown output
+python -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml --format json  # GPU mode, JSON output
+python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml --skip-on-missing-model  # CI mode
 ```
 
 ### Build & Deploy
@@ -102,10 +102,10 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 
 ### Python Integration (Kokoro TTS)
 
-- **Main wrapper:** `kokoro-local/kokoro_wrapper.py` (unified entry point)
-- **Text chunking:** `kokoro-local/text_chunker.py` (shared by wrapper and CLI)
-- **Self-test CLI:** `kokoro-local/selftest/` (validate TTS before deployment)
-- **Legacy scripts:** `kokoro-local/legacy/*.deprecated` (deprecated, do not use)
+- **Main wrapper:** `kokoro_local/kokoro_wrapper.py` (unified entry point)
+- **Text chunking:** `kokoro_local/text_chunker.py` (shared by wrapper and CLI)
+- **Self-test CLI:** `kokoro_local/selftest/` (validate TTS before deployment)
+- **Legacy scripts:** `kokoro_local/legacy/*.deprecated` (deprecated, do not use)
 - **Environment detection:** `lib/kokoro-env.ts` handles device detection (CPU/GPU/Metal), Python path resolution
 - **Process management:** Both services spawn Python workers, communicate via stdin/stdout, implement circuit breakers with exponential backoff
 - **Python version:** Requires Python 3.8-3.12 (not 3.13+)
@@ -190,7 +190,7 @@ TTS API returns metadata for instant UI feedback:
 **TTS:**
 - `KOKORO_DEVICE`: `auto` | `cpu` | `cuda` | `metal` (default: auto)
 - `KOKORO_LOCAL_MODEL_PATH`: Custom model path (optional, for offline loading)
-- `TTS_PYTHON_PATH`: Path to Python executable (default: `kokoro-local/venv/bin/python`)
+- `TTS_PYTHON_PATH`: Path to Python executable (default: `kokoro_local/venv/bin/python`)
 - `TTS_TIMEOUT`: Python process timeout in ms (default: 30000)
 
 **Optional:**
@@ -246,8 +246,8 @@ First-time deployment requires running `npm run setup-kokoro` inside container o
 
 **Validate TTS before deployment:**
 ```bash
-python -m kokoro_local.selftest --config kokoro-local/configs/default.yaml  # CPU validation
-python -m kokoro_local.selftest --config kokoro-local/configs/gpu.yaml      # GPU validation
+python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml  # CPU validation
+python -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml      # GPU validation
 ```
 
 ## Common Troubleshooting
@@ -255,8 +255,8 @@ python -m kokoro_local.selftest --config kokoro-local/configs/gpu.yaml      # GP
 ### TTS Failures
 1. Check Python version: `python3 --version` (must be 3.8-3.12)
 2. Check circuit breaker logs for `Circuit breaker: OPEN`
-3. Verify venv exists: `ls kokoro-local/venv`
-4. Recreate venv: `cd kokoro-local && rm -rf venv && npm run setup-kokoro`
+3. Verify venv exists: `ls kokoro_local/venv`
+4. Recreate venv: `cd kokoro_local && rm -rf venv && npm run setup-kokoro`
 
 ### Database Lock Errors
 - WAL mode should prevent most locks

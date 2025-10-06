@@ -64,7 +64,7 @@ https://huggingface.co/hexgrad/Kokoro-82M/tree/main
 ssh -p 60022 ubuntu@49.234.30.246
 
 # 检查模型文件
-cd ~/english-listening-trainer/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+cd ~/english-listening-trainer/kokoro_local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
 ls -lh snapshots/main/
 
 # 应该看到模型文件
@@ -82,7 +82,7 @@ docker compose -f docker-compose.gpu.yml logs -f app
 
 应该看到：
 ```
-✅ Found local model: /app/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+✅ Found local model: /app/kokoro_local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
 📊 Model size: XXX MB
 📥 Loading model from local cache...
 ```
@@ -102,5 +102,5 @@ docker compose -f docker-compose.gpu.yml logs -f app
 ```bash
 # SSH 到服务器，修复权限
 ssh -p 60022 ubuntu@49.234.30.246
-chmod -R 755 ~/english-listening-trainer/kokoro-local/.cache
+chmod -R 755 ~/english-listening-trainer/kokoro_local/.cache
 ```

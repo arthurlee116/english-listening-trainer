@@ -27,7 +27,7 @@
 2. WHEN 历史 wrapper 脚本存在 THEN 系统 SHALL 将它们移动到 `kokoro_local/legacy/` 目录
 3. WHEN 用户尝试使用 legacy wrapper THEN 系统 SHALL 在脚本顶部显示 deprecated 警告信息
 4. WHEN Node.js 服务调用 TTS THEN 系统 SHALL 通过 `lib/kokoro-env.ts` 的 `resolveKokoroWrapperPath()` 解析到新的 wrapper 路径
-5. IF 环境变量 `KOKORO_WRAPPER_PATH` 未设置 THEN 系统 SHALL 默认使用 `kokoro-local/wrapper.py`
+5. IF 环境变量 `KOKORO_WRAPPER_PATH` 未设置 THEN 系统 SHALL 默认使用 `kokoro_local/wrapper.py`
 6. WHEN wrapper 初始化完成 THEN 系统 SHALL 输出包含 "service is ready" 的日志消息
 7. WHEN wrapper 接收 JSON 请求 THEN 系统 SHALL 返回包含 `success`、`audio_data`、`device`、`error` 字段的 JSON 响应
 
@@ -63,7 +63,7 @@
 #### Acceptance Criteria
 
 1. WHEN wrapper 初始化模型 THEN 系统 SHALL 仅扫描以下本地路径：
-   - `kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/`
+   - `kokoro_local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/`
    - `kokoro-models/Kokoro-82M/`
 2. IF 模型文件在上述路径中不存在 THEN 系统 SHALL 抛出明确错误并终止初始化
 3. WHEN 模型文件缺失 THEN 错误消息 SHALL 包含：
@@ -137,7 +137,7 @@
 #### Acceptance Criteria
 
 1. WHEN Node.js 服务初始化 THEN 系统 SHALL 通过 `resolveKokoroWrapperPath()` 自动解析到新的 wrapper 路径
-2. WHEN wrapper 路径变更 THEN `lib/kokoro-env.ts` 中的 `DEFAULT_WRAPPER_PATH` SHALL 更新为 `kokoro-local/wrapper.py`
+2. WHEN wrapper 路径变更 THEN `lib/kokoro-env.ts` 中的 `DEFAULT_WRAPPER_PATH` SHALL 更新为 `kokoro_local/wrapper.py`
 3. WHEN Node.js 服务调用 `generateAudio()` THEN 系统 SHALL 保持现有的函数签名和返回类型
 4. WHEN wrapper 返回响应 THEN JSON 格式 SHALL 与现有格式兼容（包含 `success`、`audio_data`、`device`、`error` 字段）
 5. WHEN Node.js 服务需要分块逻辑 THEN 系统 SHALL 可选地从 Python text_chunker 导入（通过子进程调用）或在 TypeScript 中实现等效逻辑
@@ -216,7 +216,7 @@
 
 1. WHEN 重构完成 THEN `README.md` SHALL 包含"Kokoro TTS 自检"章节
 2. WHEN 文档更新 THEN 系统 SHALL 说明以下内容：
-   - 唯一权威 wrapper 路径（`kokoro-local/wrapper.py`）
+   - 唯一权威 wrapper 路径（`kokoro_local/wrapper.py`）
    - 离线模型路径要求
    - CLI 自检工具使用方法
    - 配置文件示例和参数说明
@@ -224,7 +224,7 @@
 4. WHEN 文档更新 THEN `documents/SERVER_DEPLOYMENT_TEST_GUIDE.md` SHALL 包含 TTS 自检步骤
 5. WHEN 文档更新 THEN `documents/WORKFLOW_TESTING_GUIDE.md` SHALL 包含 TTS 测试场景
 6. WHEN 文档更新 THEN 系统 SHALL 提供常见错误排查指南（模型缺失、设备不可用、权限问题等）
-7. WHEN legacy 脚本被移动 THEN `kokoro-local/legacy/README.md` SHALL 说明这些文件已废弃并指向新 wrapper
+7. WHEN legacy 脚本被移动 THEN `kokoro_local/legacy/README.md` SHALL 说明这些文件已废弃并指向新 wrapper
 8. WHEN 配置示例创建 THEN `configs/default.yaml` 和 `configs/gpu.yaml` SHALL 包含注释说明每个参数的作用
 9. WHEN 文档更新 THEN 系统 SHALL 在 `documents/project-status.md` 中更新 TTS 重构的里程碑状态
 10. WHEN 文档更新 THEN 系统 SHALL 在 `documents/project-board.md` 中将相关任务移至 Done 栏
@@ -264,7 +264,7 @@
 4. **操作系统**: 主要支持 macOS（Apple Silicon 优化），兼容 Linux（CUDA）
 5. **模型文件**: Kokoro-82M 模型文件总大小约 330MB
 6. **内存要求**: CPU 模式至少 2GB RAM，GPU 模式至少 4GB VRAM
-7. **文件系统**: 需要对 `kokoro-local/`、`kokoro-models/`、`public/` 目录的读写权限
+7. **文件系统**: 需要对 `kokoro_local/`、`kokoro-models/`、`public/` 目录的读写权限
 8. **环境变量**: 支持 `KOKORO_DEVICE`、`KOKORO_WRAPPER_PATH`、`HF_HUB_OFFLINE`、`TRANSFORMERS_OFFLINE` 等
 9. **JSON 通信**: wrapper 使用 stdin/stdout 进行 JSON 行协议通信
 10. **音频格式**: 输出 WAV 格式，16-bit PCM，采样率由模型决定（通常 24kHz）
@@ -275,9 +275,9 @@
 
 重构成功的标准：
 
-1. ✅ 所有 4 个历史 wrapper 脚本已移至 `kokoro-local/legacy/` 并标记为 deprecated
-2. ✅ `kokoro-local/wrapper.py` 成为唯一活跃的入口点
-3. ✅ `kokoro-local/text_chunker.py` 模块已创建并被 wrapper 和 CLI 使用
+1. ✅ 所有 4 个历史 wrapper 脚本已移至 `kokoro_local/legacy/` 并标记为 deprecated
+2. ✅ `kokoro_local/wrapper.py` 成为唯一活跃的入口点
+3. ✅ `kokoro_local/text_chunker.py` 模块已创建并被 wrapper 和 CLI 使用
 4. ✅ 离线模型加载已实现，无任何联网尝试
 5. ✅ CLI 自检工具 `python -m kokoro_local.selftest` 可运行并生成报告
 6. ✅ `configs/default.yaml` 和 `configs/gpu.yaml` 配置文件已创建

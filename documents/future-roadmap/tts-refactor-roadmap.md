@@ -32,7 +32,7 @@
 
 3. **彻底改为离线加载**
    - wrapper 在初始化时仅扫描固定路径：
-     - `kokoro-local/.cache/huggingface/...`
+     - `kokoro_local/.cache/huggingface/...`
      - `kokoro-models/Kokoro-82M/`
    - 未发现模型文件时直接抛出明确错误；取消所有联网下载尝试。
 
