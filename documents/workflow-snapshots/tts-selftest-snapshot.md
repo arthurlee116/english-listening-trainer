@@ -1,15 +1,37 @@
 # TTS 自检快照
 
-- **最近测试**：2025-10-06，阶段 1 + 2 + 3 完成（代码重构 + CLI 自检脚本 + GitHub Actions 集成），设备：本地开发环境（MacOS）+ GitHub Actions runner（ubuntu-latest）
+- **最近测试**：2025-10-06，阶段 4 文档同步完成，设备：全流程文档验证
 - **结果摘要**：
-  - 状态：✅ 成功（阶段 1 + 辅助函数重构 + 阶段 2 CLI 实现 + 阶段 3 CI 集成完成）
-  - Python 语法检查：通过（`python3 -m py_compile`）
-  - text_chunker 模块导入：通过（MAX_CHUNK_CHAR_SIZE=100）
-  - Node 层引用验证：通过（所有服务文件已使用 `kokoro-env.ts` 辅助函数）
-  - 辅助函数重构：完成（消除所有硬编码路径）
-  - CLI 自检脚本：实现完成（语法验证通过）
-  - GitHub Actions 集成：完成（YAML 语法验证通过）
-  - lint 与 test：已运行（已存在错误与本次改动无关）
+  - 状态：✅ 成功（全部 4 阶段已完成）
+  - CLAUDE.md 更新：添加 CLI 使用说明、环境变量、生产验证步骤 ✅
+  - Python Integration 章节：说明新模块结构（wrapper, text_chunker, selftest, legacy）✅
+  - 项目文档同步：project-status.md, project-board.md ✅
+  - 文档一致性验证：所有文档已反映 4 阶段改动 ✅
+- **完整改造总结**（4 阶段）：
+  - **阶段 1**：代码重构
+    - 创建 `text_chunker.py` 独立模块
+    - 重构 `kokoro_wrapper.py` 使用新模块
+    - 强化离线加载，添加 `KOKORO_LOCAL_MODEL_PATH` 环境变量
+    - 迁移 3 个 legacy wrapper 到 `legacy/` 目录
+    - 更新 Node 层引用（`lib/kokoro-env.ts`）
+  - **阶段 2**：CLI 自检实现
+    - 创建 `kokoro_local/selftest/` 模块（`__init__.py`, `__main__.py`）
+    - 创建 CPU/GPU 配置文件（`configs/default.yaml`, `configs/gpu.yaml`）
+    - 支持 Markdown（默认）+ JSON 输出格式
+    - 支持 `--skip-on-missing-model` 参数（CI 兼容）
+    - 输出性能指标（合成时间、实时因子、chunks 等）
+  - **阶段 3**：GitHub Actions 集成
+    - 修改 `.github/workflows/build-and-push.yml` 添加自检步骤
+    - Setup Python 3.11 + PyYAML 依赖
+    - 运行 CLI 自检（JSON 格式，`--skip-on-missing-model`）
+    - 上传测试报告为 artifact（30 天保留）
+    - 添加测试结果到 GitHub Actions Summary
+  - **阶段 4**：文档同步
+    - 更新 `CLAUDE.md` 添加 CLI 使用说明
+    - 更新环境变量文档（`KOKORO_LOCAL_MODEL_PATH`）
+    - 更新 Python Integration 章节说明新模块结构
+    - 补充生产环境 TTS 验证步骤
+    - 同步项目文档（project-status.md, project-board.md）
 - **关键日志/报告**：
   ```bash
   # text_chunker 模块验证
@@ -27,18 +49,6 @@
   lib/config-manager.ts: Uses helpers for default TTS paths
   app/api/health/route.ts: Uses resolveKokoroWrapperPath() for path check
 
-  # CLI 命令示例
-  python -m kokoro_local.selftest --config configs/default.yaml               # Markdown 输出
-  python -m kokoro_local.selftest --config configs/gpu.yaml --format json     # JSON 输出
-  python -m kokoro_local.selftest --config configs/default.yaml --skip-on-missing-model  # CI 模式
-
-  # 输出指标
-  - 合成时间（synthesis_time_seconds）
-  - 音频时长（audio_duration_seconds）
-  - 实时因子（Real-time Factor）
-  - Chunks 数量
-  - 模型路径、设备信息、输出文件大小等
-
   # GitHub Actions 集成步骤
   - name: Set up Python for Kokoro self-test
     uses: actions/setup-python@v5
@@ -46,9 +56,6 @@
       python-version: '3.11'
       cache: 'pip'
       cache-dependency-path: kokoro_local/requirements.txt
-
-  - name: Install Kokoro self-test dependencies
-    run: pip install pyyaml
 
   - name: Run Kokoro TTS self-test
     run: |
@@ -68,25 +75,34 @@
   - name: Add self-test results to summary
     # 添加测试结果到 GitHub Actions Summary
   ```
-- **改动文件清单**：
-  - **阶段 3 修改**：
-    - `.github/workflows/build-and-push.yml`（新增 5 个步骤，约 71 行代码）
-  - **阶段 2 新增**：
-    - `kokoro_local/selftest/__init__.py` (6 行)
-    - `kokoro_local/selftest/__main__.py` (300+ 行)
-    - `kokoro_local/configs/default.yaml` (CPU 配置)
-    - `kokoro_local/configs/gpu.yaml` (GPU 配置)
-  - **阶段 1**：
-    - 新增：`kokoro_local/text_chunker.py`
-    - 修改：`kokoro_local/kokoro_wrapper.py`
-    - 修改：`lib/kokoro-env.ts`
-    - 迁移：`kokoro_local/legacy/*.deprecated`（3 个文件）
+- **关键命令清单**：
+  ```bash
+  # CLI 自检（Markdown 输出）
+  python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml
+
+  # CLI 自检（JSON 输出）
+  python -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml --format json
+
+  # CI 模式（无模型时优雅跳过）
+  python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml --skip-on-missing-model
+  ```
+- **改动文件汇总**（全 4 阶段）：
+  - **阶段 1**：`text_chunker.py`, `kokoro_wrapper.py`, `lib/kokoro-env.ts`, `legacy/*.deprecated`（3 个文件）
+  - **阶段 2**：`selftest/__init__.py`, `selftest/__main__.py`, `configs/default.yaml`, `configs/gpu.yaml`
+  - **阶段 3**：`.github/workflows/build-and-push.yml`
+  - **阶段 4**：`CLAUDE.md`, `project-status.md`, `project-board.md`, `tts-selftest-snapshot.md`
   - **辅助函数重构**：
     - 修改：`lib/kokoro-service-enhanced.ts`
     - 修改：`lib/enhanced-tts-service.ts`
     - 修改：`lib/config-manager.ts`
     - 修改：`app/api/health/route.ts`
     - 修改：`vitest.config.ts`
+- **验收状态**：
+  - ✅ Node 层无需改动逻辑即可运行（验证通过）
+  - ✅ CLI 自检在本地环境语法验证通过（待真实环境完整测试）
+  - ✅ GitHub Actions 集成完成（待 PR 合并后 CI 运行验证）
+  - ✅ 文档明确列出"唯一权威入口"与模块结构
+  - ✅ 全部 4 阶段已完成，符合路线图验收标准
 - **问题 & 备注**：
   - 本地环境缺少依赖（torch, PyYAML），无法完整运行 CLI，但代码结构和语法验证已通过
   - 环境变量 `KOKORO_LOCAL_MODEL_PATH` 已在 `kokoro_wrapper.py` 第 128 行实现优先级扫描
@@ -107,7 +123,8 @@
   - ✅ **有模型环境**：完整运行测试，输出性能指标
   - ⚠️ **无模型环境**：优雅跳过（status: skipped），exit code 0
   - ❌ **代码错误**：捕获异常，输出 error 状态，但不阻塞后续步骤
-- **下一步动作**：
-  - 阶段 4：最终文档同步（CLAUDE.md 等）
-  - 在 PR 合并后验证 CI 自检实际运行结果
-  - 记录首次 CI 运行的 artifact 和 summary 输出
+- **待验证事项**：
+  - 在有完整依赖的环境中运行 CLI 完整测试
+  - 在 PR 合并后验证 GitHub Actions 自检实际运行结果
+  - 在生产环境（GPU 服务器）验证 CLI 性能指标准确性
+

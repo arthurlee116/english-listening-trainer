@@ -5,12 +5,19 @@
 - [ ] 将 Dockerfile 基础镜像替换为 GHCR 镜像并测试缓存命中（参见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。
 
 ## In Progress
-- [ ] 阶段 4：最终文档同步（待执行）
+- [ ] （暂无）
 
 ## Review
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-06 **阶段 4：最终文档同步**
+  - 更新 `CLAUDE.md` 添加 Kokoro CLI 使用说明
+  - 添加 TTS Setup 部分的 CLI 自检命令示例
+  - 更新 Python Integration 章节说明新模块结构
+  - 添加 `KOKORO_LOCAL_MODEL_PATH` 环境变量文档
+  - 补充生产环境 TTS 验证步骤
+  - 验证：文档一致性 ✅
 - [x] 2025-10-06 **阶段 3：GitHub Actions 集成自检步骤**
   - 修改 `.github/workflows/build-and-push.yml` 添加 Kokoro 自检步骤
   - 添加 Python 3.11 环境配置（使用 actions/setup-python@v5）
