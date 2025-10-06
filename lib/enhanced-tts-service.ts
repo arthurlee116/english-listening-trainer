@@ -8,6 +8,12 @@ import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
 import { AppError, ErrorType, ErrorSeverity, OperationCanceller } from './enhanced-error-handler'
+import {
+  resolveKokoroWrapperPath,
+  resolveKokoroPythonExecutable,
+  resolveKokoroWorkingDirectory,
+  buildKokoroPythonEnv
+} from './kokoro-env'
 
 export interface KokoroRequest {
   text: string
@@ -266,40 +272,34 @@ class EnhancedKokoroTTSService extends EventEmitter {
 
   private async startPythonProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const pythonPath = path.join(process.cwd(), 'kokoro-local', 'kokoro_wrapper.py')
-      
+      const pythonPath = resolveKokoroWrapperPath()
+
       if (!fs.existsSync(pythonPath)) {
         reject(new Error(`Kokoro wrapper not found at ${pythonPath}`))
         return
       }
 
       console.log('🐍 Starting enhanced Kokoro Python process...')
-      
-      // 设置环境变量
-      const env = {
-        ...process.env,
-        PYTORCH_ENABLE_MPS_FALLBACK: '1',
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + (process.env.PYTHONPATH || ''),
-        // 添加内存优化环境变量
-        OMP_NUM_THREADS: '2',
-        MKL_NUM_THREADS: '2',
-        PYTORCH_MPS_HIGH_WATERMARK_RATIO: '0.0'
-      }
 
-      const venvPythonPath = path.join(process.cwd(), 'kokoro-local', 'venv', 'bin', 'python')
-      const venvPath = path.join(process.cwd(), 'kokoro-local', 'venv')
-      
-      const venvEnv = {
-        ...env,
-        VIRTUAL_ENV: venvPath,
-        PATH: `${venvPath}/bin:${process.env.PATH || ''}`,
-        PYTHONPATH: path.join(process.cwd(), 'kokoro-main-ref') + ':' + path.join(venvPath, 'lib', 'python3.13', 'site-packages') + ':' + (process.env.PYTHONPATH || '')
-      }
-      
+      // 使用 kokoro-env 构建环境变量和路径
+      const pythonExecutable = resolveKokoroPythonExecutable()
+      const workingDirectory = resolveKokoroWorkingDirectory()
+
+      // 构建环境变量，添加额外的内存优化配置
+      const env = buildKokoroPythonEnv({
+        useVirtualEnv: true,
+        additionalPythonPaths: []
+      })
+
+      // 添加内存优化环境变量
+      env.OMP_NUM_THREADS = '2'
+      env.MKL_NUM_THREADS = '2'
+      env.PYTORCH_MPS_HIGH_WATERMARK_RATIO = '0.0'
+
       // 启动Python进程
-      this.process = spawn(venvPythonPath, [pythonPath], {
-        cwd: path.join(process.cwd(), 'kokoro-local'),
-        env: venvEnv,
+      this.process = spawn(pythonExecutable, [pythonPath], {
+        cwd: workingDirectory,
+        env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
 

@@ -41,7 +41,9 @@
       "Bash(git clone:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(claude mcp:*)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "mcp__github__get_pull_request",
+      "mcp__github__get_pull_request_files"
     ],
     "deny": [],
     "ask": [],
