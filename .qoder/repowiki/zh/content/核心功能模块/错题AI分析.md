@@ -1,4 +1,3 @@
-
 # 错题AI分析
 
 <cite>
@@ -209,8 +208,47 @@ stateDiagram-v2
 
 ```mermaid
 graph TD
-    A[wrong-answers-book.tsx] --> B[analyze/route.ts]
-    A --> C[analyze-batch/route.ts]
-    B --> D[ai-analysis-service.ts]
-    C --> D
-    D --> E[ark
+A[wrong-answers-book.tsx] --> B[analyze/route.ts]
+A --> C[analyze-batch/route.ts]
+B --> D[ai-analysis-service.ts]
+C --> D
+D --> E[ark-helper]
+B --> F[Prisma]
+C --> F
+```
+
+**图示来源**
+- [wrong-answers-book.tsx](file://components/wrong-answers-book.tsx)
+- [analyze/route.ts](file://app/api/ai/wrong-answers/analyze/route.ts)
+- [analyze-batch/route.ts](file://app/api/ai/wrong-answers/analyze-batch/route.ts)
+- [ai-analysis-service.ts](file://lib/ai-analysis-service.ts)
+
+## 性能考量
+系统在设计时充分考虑了性能与稳定性。单题分析采用电路断路器模式（circuit breaker）防止AI服务故障导致雪崩效应，并集成速率限制机制。批量分析通过`BATCH_SIZE=10`的分批处理和并发控制，避免对AI服务造成过大压力。前端使用`useBatchProcessing`钩子实现进度追踪与取消功能，提升用户体验。
+
+**章节来源**
+- [analyze/route.ts](file://app/api/ai/wrong-answers/analyze/route.ts)
+- [analyze-batch/route.ts](file://app/api/ai/wrong-answers/analyze-batch/route.ts)
+- [ai-analysis-service.ts](file://lib/ai-analysis-service.ts)
+- [wrong-answers-book.tsx](file://components/wrong-answers-book.tsx)
+
+## 故障排查指南
+### 常见问题
+1. **空响应或500错误**：检查AI服务是否正常运行，确认`CEREBRAS_PROXY_URL`配置正确。
+2. **格式错误**：验证返回的JSON是否符合`ANALYSIS_SCHEMA`定义，特别是`analysis`字段长度需大于50字。
+3. **权限错误**：确保用户已登录且请求的错题属于该用户。
+4. **速率限制**：检查`X-RateLimit-*`响应头，避免超过`AI_ANALYSIS`和`BATCH_PROCESSING`配额。
+
+### 调试步骤
+1. 查看服务日志中的`AI analysis failed`错误信息。
+2. 验证数据库中`PracticeAnswer`记录的`isCorrect`字段值。
+3. 检查`aiAnalysis`字段是否已正确存储JSON字符串。
+4. 使用Postman测试API端点，确认请求体结构符合要求。
+
+**章节来源**
+- [analyze/route.ts](file://app/api/ai/wrong-answers/analyze/route.ts)
+- [analyze-batch/route.ts](file://app/api/ai/wrong-answers/analyze-batch/route.ts)
+- [ai-analysis-service.ts](file://lib/ai-analysis-service.ts)
+
+## 结论
+错题AI分析系统通过模块化设计实现了高内聚、低耦合的架构。从用户交互到AI调用再到数据存储，各组件职责清晰，便于维护与扩展。未来可引入缓存机制优化重复分析场景，并增加多语言支持以服务更广泛的用户群体。
