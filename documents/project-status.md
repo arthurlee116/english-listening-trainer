@@ -7,6 +7,12 @@
 - [x] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：全部 4 阶段已完成 ✅
 
 ## 最近里程碑
+- 2025-10-06 **关键 Bug 修复：PR #6-9 bug 修复推送**
+  - **Bug #1**：修复环境变量空字符串导致 `Path('')` 解析为当前目录问题（`kokoro_wrapper.py:122-140`）
+  - **Bug #2**：重命名 `kokoro-local/` → `kokoro_local/`，解决 Python 模块命名冲突（30+ 文件更新）
+  - **Bug #3**：修复 CI 环境缺少 torch/soundfile 导致 selftest 失败问题（添加 ImportError 捕获）
+  - 受影响 PR：#6 (7542a2d), #7 (9ecacec), #8 (a431f15), #9 (e2a9c5d)
+  - 详细记录：`documents/workflow-snapshots/tts-selftest-snapshot.md`
 - 2025-10-06 **完成阶段 4：最终文档同步**
   - 更新 `CLAUDE.md` 添加 Kokoro CLI 使用说明
   - 添加 CLI 自检命令示例（CPU/GPU/CI 模式）
