@@ -5,12 +5,20 @@
 - [ ] 将 Dockerfile 基础镜像替换为 GHCR 镜像并测试缓存命中（参见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。
 
 ## In Progress
-- [ ] 阶段 3：GitHub Actions 集成自检步骤（待执行）
+- [ ] 阶段 4：最终文档同步（待执行）
 
 ## Review
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-06 **阶段 3：GitHub Actions 集成自检步骤**
+  - 修改 `.github/workflows/build-and-push.yml` 添加 Kokoro 自检步骤
+  - 添加 Python 3.11 环境配置（使用 actions/setup-python@v5）
+  - 安装 PyYAML 依赖
+  - 运行 `python -m kokoro_local.selftest --config configs/default.yaml --format json --skip-on-missing-model`
+  - 上传测试报告为 artifact（保留 30 天）
+  - 添加测试结果到 GitHub Actions Summary
+  - 验证：YAML 语法 ✅
 - [x] 2025-10-06 **阶段 2：实现 CLI 自检脚本**
   - 创建 `kokoro_local/selftest/` 模块结构
   - 创建配置文件 `configs/default.yaml`（CPU）和 `configs/gpu.yaml`（GPU）

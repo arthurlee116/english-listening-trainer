@@ -4,9 +4,16 @@
 
 ## 当前核心目标
 - [x] 切换 Docker 基础镜像与缓存分层（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：待指定。目标日期：待定。
-- [ ] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：阶段 2 已完成（4 阶段中）。
+- [ ] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：阶段 3 已完成（4 阶段中）。
 
 ## 最近里程碑
+- 2025-10-06 **完成阶段 3：GitHub Actions 集成自检步骤**
+  - 修改 `.github/workflows/build-and-push.yml` 添加 Kokoro 自检步骤
+  - 集成 Python 3.11 环境配置与 PyYAML 依赖安装
+  - 使用 `--skip-on-missing-model` 参数确保 CI 环境兼容性
+  - 实现 JSON 格式测试报告生成与上传（artifact 保留 30 天）
+  - 添加测试结果到 GitHub Actions Summary
+  - 验证：YAML 语法检查通过 ✅
 - 2025-10-06 **完成阶段 2：CLI 自检脚本实现**
   - 创建 `kokoro_local/selftest/` 模块（`__init__.py`, `__main__.py`）
   - 创建配置文件 `configs/default.yaml`（CPU）和 `configs/gpu.yaml`（GPU）
@@ -37,8 +44,8 @@
 - [ ] 远程部署机 Docker 层缓存是否保留完好？（检查 `docker images --digests` 结果并记录于快照）
 
 ## 下一步计划
-- 本周：完成 TTS 重构阶段 3（GitHub Actions 集成）。
-- 下周：完成 TTS 重构阶段 4（最终文档同步）。
+- 本周：完成 TTS 重构阶段 4（最终文档同步）。
+- 下周：开始其他规划任务。
 
 ## 参考文档
 - CI 缓存路线图：`documents/future-roadmap/ci-docker-cache-roadmap.md`
