@@ -123,16 +123,21 @@ class KokoroTTSWrapper:
                 from pathlib import Path
                 import shutil
 
-                local_model_paths = [
-                    # 优先：环境变量指定的路径
-                    Path(os.environ.get('KOKORO_LOCAL_MODEL_PATH', '')),
+                local_model_paths = []
+                # 优先：环境变量指定的路径（仅在设置且非空时添加）
+                env_model_path = os.environ.get('KOKORO_LOCAL_MODEL_PATH')
+                if env_model_path:
+                    local_model_paths.append(Path(env_model_path))
+
+                # 次选和备选路径
+                local_model_paths.extend([
                     # 次选：项目本地缓存
-                    Path('kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main'),
+                    Path('kokoro_local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main'),
                     # 备选：用户 home 目录缓存
                     Path.home() / '.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main',
                     # 备选：独立模型目录
                     Path('kokoro-models/Kokoro-82M'),
-                ]
+                ])
 
                 found_model = None
                 for model_path in local_model_paths:
