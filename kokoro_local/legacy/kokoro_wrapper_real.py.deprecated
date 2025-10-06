@@ -1,0 +1,603 @@
+#!/usr/bin/env python3
+"""
+DEPRECATED: This file has been replaced by kokoro_wrapper.py
+DO NOT USE in production. Kept for reference only.
+
+This legacy wrapper is no longer maintained. All functionality has been
+consolidated into kokoro_wrapper.py with improved offline loading and
+unified text chunking via text_chunker.py module.
+"""
+import os
+import sys
+import json
+import torch
+import numpy as np
+import io
+import re
+import soundfile as sf
+from pathlib import Path
+import warnings
+warnings.filterwarnings('ignore')
+
+DEFAULT_VOICES = {
+    'a': 'af_bella',
+    'b': 'bf_emma',
+    'e': 'ef_dora',
+    'f': 'ff_siwis',
+    'h': 'hf_alpha',
+    'i': 'if_sara',
+    'p': 'pf_dora',
+    'j': 'jf_alpha',
+    'z': 'zf_ziqi'
+}
+
+# Keep chunk size small to stay within Kokoro phoneme limits.
+MAX_CHUNK_CHAR_SIZE = 100
+
+
+def _normalize_lang_code(lang_code: str) -> str:
+    normalized = lang_code.lower()
+    return ALIASES.get(normalized, normalized) if 'ALIASES' in globals() else normalized
+
+
+def _default_voice_for_lang(lang_code: str) -> str:
+    normalized = _normalize_lang_code(lang_code)
+    return DEFAULT_VOICES.get(normalized, 'af_bella')
+
+# 添加Kokoro路径到Python路径
+def _extend_sys_path() -> None:
+    """Ensure Kokoro sources are discoverable regardless of host layout."""
+    candidates = []
+
+    repo_override = os.environ.get('KOKORO_REPO_PATH')
+    if repo_override:
+        for raw_path in repo_override.split(os.pathsep):
+            raw_path = raw_path.strip()
+            if raw_path:
+                candidates.append(Path(raw_path))
+                candidates.append(Path(raw_path) / 'kokoro.js')
+    else:
+        project_root = Path(__file__).resolve().parents[1]
+        default_repo = project_root / 'kokoro-main-ref'
+        candidates.append(default_repo)
+        candidates.append(default_repo / 'kokoro.js')
+
+    additional = os.environ.get('KOKORO_ADDITIONAL_PYTHONPATH')
+    if additional:
+        for raw_path in additional.split(os.pathsep):
+            raw_path = raw_path.strip()
+            if raw_path:
+                candidates.append(Path(raw_path))
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                resolved = str(candidate.resolve())
+                if resolved not in sys.path:
+                    sys.path.append(resolved)
+        except Exception:
+            continue
+
+
+_extend_sys_path()
+
+# 导入真实的Kokoro模块
+try:
+    from kokoro.model import KModel
+    from kokoro.pipeline import KPipeline
+    try:
+        # kokoro<0.9.0 re-exported helpers at package root; 0.9.4+ keeps them in pipeline
+        from kokoro import ALIASES, LANG_CODES  # type: ignore
+    except ImportError:
+        from kokoro.pipeline import ALIASES, LANG_CODES
+    KOKORO_AVAILABLE = True
+except ImportError as e:
+    print(f"❌ Failed to import Kokoro modules: {e}", file=sys.stderr)
+    KOKORO_AVAILABLE = False
+
+class KokoroTTSReal:
+    def __init__(self):
+        self.models = {}
+        self.pipelines = {}
+        self.device = None
+        self.model = None
+        
+        # 自动检测设备
+        self.setup_device()
+        
+        # 初始化模型
+        if KOKORO_AVAILABLE:
+            self.initialize_model()
+        
+        # 发送就绪信号
+        self.send_ready_signal()
+        
+    def setup_device(self):
+        """设置计算设备，优先使用GPU"""
+        try:
+            # 设置代理（如果可用）
+            if os.environ.get('https_proxy') or os.environ.get('http_proxy'):
+                print(f"🌐 Using proxy: {os.environ.get('https_proxy', os.environ.get('http_proxy'))}", file=sys.stderr)
+
+            preferred_device = os.environ.get('KOKORO_DEVICE', 'auto').lower()
+
+            def _use_cuda() -> bool:
+                if not torch.cuda.is_available():
+                    return False
+                self.device = 'cuda'
+                gpu_name = torch.cuda.get_device_name(0)
+                print(f"🚀 Using GPU: {gpu_name}", file=sys.stderr)
+                print(f"📊 GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB", file=sys.stderr)
+                print(f"🔥 CUDA Version: {torch.version.cuda}", file=sys.stderr)
+                return True
+
+            def _use_mps() -> bool:
+                if not hasattr(torch.backends, 'mps') or not torch.backends.mps.is_available():
+                    return False
+                self.device = 'mps'
+                os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = os.environ.get('PYTORCH_ENABLE_MPS_FALLBACK', '1')
+                print("🍎 Using Apple Silicon MPS", file=sys.stderr)
+                return True
+
+            used = False
+            if preferred_device == 'cuda':
+                used = _use_cuda()
+                if not used:
+                    print("⚠️ Requested CUDA but no compatible GPU is available. Falling back to auto detection.", file=sys.stderr)
+            elif preferred_device in {'mps', 'metal'}:
+                used = _use_mps()
+                if not used:
+                    print("⚠️ Requested MPS but it is not available. Falling back to auto detection.", file=sys.stderr)
+            elif preferred_device == 'cpu':
+                self.device = 'cpu'
+                print("💻 Using CPU (forced)", file=sys.stderr)
+                used = True
+
+            if not used:
+                if _use_cuda():
+                    used = True
+                elif _use_mps():
+                    used = True
+                else:
+                    self.device = 'cpu'
+                    print("💻 Using CPU (fallback)", file=sys.stderr)
+
+            sys.stderr.flush()
+
+        except Exception as e:
+            self.device = 'cpu'
+            print(f"⚠️ Device detection failed, falling back to CPU: {e}", file=sys.stderr)
+            sys.stderr.flush()
+    
+    def send_ready_signal(self):
+        """发送就绪信号到stderr，让Node.js知道服务已准备好"""
+        if KOKORO_AVAILABLE and self.model:
+            print("🚀 Kokoro TTS service is ready with real GPU acceleration", file=sys.stderr)
+        else:
+            print("⚠️ Kokoro TTS service ready but using fallback mode", file=sys.stderr)
+        sys.stderr.flush()
+        
+    def initialize_model(self):
+        """初始化Kokoro模型"""
+        try:
+            print("🔄 Initializing Kokoro model...", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # 检查本地 .pth 文件
+            local_pth_paths = [
+                Path('/app/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/kokoro-v1_0.pth'),
+                Path.home() / '.cache' / 'huggingface' / 'hub' / 'models--hexgrad--Kokoro-82M' / 'snapshots' / 'main' / 'kokoro-v1_0.pth',
+            ]
+            
+            local_pth = None
+            for pth_path in local_pth_paths:
+                if pth_path.exists():
+                    local_pth = pth_path
+                    print(f"✅ Found local model: {pth_path}", file=sys.stderr)
+                    print(f"📊 Model size: {pth_path.stat().st_size / 1024 / 1024:.1f} MB", file=sys.stderr)
+                    break
+            
+            if local_pth:
+                print("📥 Loading model from local .pth file...", file=sys.stderr)
+                sys.stderr.flush()
+                
+                # 设置离线模式环境变量（强制 HuggingFace 使用本地缓存）
+                os.environ['HF_HUB_OFFLINE'] = '1'
+                os.environ['TRANSFORMERS_OFFLINE'] = '1'
+                os.environ['HF_DATASETS_OFFLINE'] = '1'
+                
+                try:
+                    # 尝试从本地缓存加载（使用 repo_id 但强制离线）
+                    print("📥 Attempting offline load from cache...", file=sys.stderr)
+                    sys.stderr.flush()
+                    
+                    self.model = KModel(
+                        repo_id='hexgrad/Kokoro-82M',
+                        disable_complex=False
+                    )
+                    
+                    print("✅ Model loaded from local cache", file=sys.stderr)
+                    sys.stderr.flush()
+                    
+                except Exception as e:
+                    print(f"⚠️ Offline load failed: {e}", file=sys.stderr)
+                    print("📥 Trying direct weight loading...", file=sys.stderr)
+                    sys.stderr.flush()
+                    
+                    # 回退：直接加载权重文件
+                    # 注意：这可能不完全兼容，但值得一试
+                    state_dict = torch.load(str(local_pth), map_location='cpu')
+                    
+                    # 创建一个空模型并加载权重
+                    # 这里假设 KModel 可以无参数初始化
+                    try:
+                        self.model = KModel()
+                        self.model.load_state_dict(state_dict)
+                        print("✅ Weights loaded directly", file=sys.stderr)
+                        sys.stderr.flush()
+                    except Exception as e2:
+                        print(f"❌ Direct loading also failed: {e2}", file=sys.stderr)
+                        raise Exception(f"Cannot load model: {e}, {e2}")
+                        
+            else:
+                print("📥 Model not found locally, will download from HuggingFace...", file=sys.stderr)
+                print("   (This may take 3-5 minutes on first run)", file=sys.stderr)
+                sys.stderr.flush()
+                
+                # 从 HuggingFace 下载
+                self.model = KModel(
+                    repo_id='hexgrad/Kokoro-82M',
+                    disable_complex=False
+                )
+            
+            print("✅ Model weights loaded", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # 移动到指定设备
+            if self.device != 'cpu':
+                print(f"🚀 Moving model to {self.device}...", file=sys.stderr)
+                sys.stderr.flush()
+                self.model = self.model.to(self.device)
+                print(f"✅ Model moved to {self.device}", file=sys.stderr)
+                sys.stderr.flush()
+                
+                # GPU预热：运行一次小的推理
+                if self.device == 'cuda':
+                    print("🔥 Warming up GPU with test inference...", file=sys.stderr)
+                    sys.stderr.flush()
+                    try:
+                        test_pipeline = KPipeline(
+                            lang_code='en-us',
+                            model=self.model,
+                            device=self.device
+                        )
+                        # 运行一个很短的测试
+                        list(test_pipeline("Hello", voice='af_bella', speed=1.0))
+                        print("✅ GPU warmup complete", file=sys.stderr)
+                        sys.stderr.flush()
+                    except Exception as warmup_error:
+                        print(f"⚠️ GPU warmup failed (non-critical): {warmup_error}", file=sys.stderr)
+                        sys.stderr.flush()
+                
+            print(f"✅ Model initialized on {self.device}", file=sys.stderr)
+            sys.stderr.flush()
+            
+        except Exception as e:
+            print(f"❌ Model initialization failed: {e}", file=sys.stderr)
+            sys.stderr.flush()
+            self.model = None
+    
+    def get_pipeline(self, lang_code='en-us', voice='af'):
+        """获取或创建语言管道"""
+        pipeline_key = f"{lang_code}_{voice}"
+        
+        if pipeline_key in self.pipelines:
+            return self.pipelines[pipeline_key]
+            
+        try:
+            print(f"🔄 Creating pipeline for {lang_code} with voice {voice}...", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # 创建管道
+            pipeline = KPipeline(
+                lang_code=lang_code,
+                model=self.model if self.model else True,  # 使用我们的模型或自动创建
+                device=self.device if self.device != 'cpu' else None
+            )
+            
+            self.pipelines[pipeline_key] = pipeline
+            
+            print(f"✅ Pipeline created for {lang_code}_{voice}", file=sys.stderr)
+            sys.stderr.flush()
+            
+            return pipeline
+            
+        except Exception as e:
+            print(f"❌ Pipeline creation failed for {lang_code}_{voice}: {e}", file=sys.stderr)
+            sys.stderr.flush()
+            return None
+
+    @staticmethod
+    def split_text_intelligently(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list[str]:
+        """智能分割文本，优先按照段落与句子边界拆分长文本。"""
+        chunks: list[str] = []
+        paragraphs = text.split('\n\n')
+        current_chunk = ''
+
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+
+            if len(current_chunk) + len(paragraph) <= max_chunk_size:
+                current_chunk += (paragraph + '\n\n')
+                continue
+
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+                current_chunk = ''
+
+            if len(paragraph) > max_chunk_size:
+                chunks.extend(KokoroTTSReal.split_by_sentences(paragraph, max_chunk_size))
+            else:
+                current_chunk = paragraph + '\n\n'
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+
+        return chunks or [text]
+
+    @staticmethod
+    def split_by_sentences(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list[str]:
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        chunks: list[str] = []
+        current_chunk = ''
+
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) <= max_chunk_size:
+                current_chunk += (sentence + ' ')
+                continue
+
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+                current_chunk = ''
+
+            if len(sentence) > max_chunk_size:
+                chunks.extend(KokoroTTSReal.split_by_commas(sentence, max_chunk_size))
+            else:
+                current_chunk = sentence + ' '
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+
+        return chunks
+
+    @staticmethod
+    def split_by_commas(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list[str]:
+        parts = text.split(', ')
+        chunks: list[str] = []
+        current_chunk = ''
+
+        for part in parts:
+            if len(current_chunk) + len(part) <= max_chunk_size:
+                current_chunk += (part + ', ')
+                continue
+
+            if current_chunk.strip():
+                chunks.append(current_chunk.rstrip(', '))
+                current_chunk = ''
+
+            if len(part) > max_chunk_size:
+                remaining = part
+                while len(remaining) > max_chunk_size:
+                    chunks.append(remaining[:max_chunk_size])
+                    remaining = remaining[max_chunk_size:]
+                if remaining:
+                    current_chunk = remaining + ', '
+            else:
+                current_chunk = part + ', '
+
+        if current_chunk.strip():
+            chunks.append(current_chunk.rstrip(', '))
+
+        return chunks
+    
+    def synthesize_audio(self, text, voice='af', speed=1.0, lang_code='en-us'):
+        """使用真实Kokoro模型合成音频"""
+        try:
+            if not KOKORO_AVAILABLE:
+                raise Exception("Kokoro modules not available")
+                
+            if not self.model:
+                raise Exception("Model not initialized")
+            
+            print(f"🎤 Synthesizing audio: {text[:50]}...", file=sys.stderr)
+            print(f"🎭 Voice request: {voice}, Language: {lang_code}, Speed: {speed}", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # 获取管道
+            pipeline = self.get_pipeline(lang_code, voice)
+            if not pipeline:
+                raise Exception(f"Failed to create pipeline for {lang_code}")
+            
+            pipeline_lang = getattr(pipeline, 'lang_code', lang_code)
+            requested_voice = voice or _default_voice_for_lang(pipeline_lang)
+
+            # 确保语音包可用，必要时自动回退
+            def _ensure_voice(voice_id: str) -> str:
+                try:
+                    pipeline.load_voice(voice_id)
+                    return voice_id
+                except Exception as voice_error:
+                    fallback_voice = _default_voice_for_lang(pipeline_lang)
+                    if fallback_voice != voice_id:
+                        print(f"🔄 Voice fallback: {voice_id} → {fallback_voice} ({voice_error})", file=sys.stderr)
+                        sys.stderr.flush()
+                        pipeline.load_voice(fallback_voice)
+                        return fallback_voice
+                    raise
+
+            requested_voice = _ensure_voice(requested_voice)
+
+            # 遍历管道输出，收集所有音频段
+            audio_segments: list[torch.Tensor] = []
+            segment_count = 0
+
+            def _extract_audio(segment):
+                if hasattr(segment, 'audio'):
+                    return segment.audio, getattr(segment, 'graphemes', None)
+                if isinstance(segment, (list, tuple)) and len(segment) >= 3:
+                    return segment[2], segment[0]
+                return None, None
+
+            def _collect_segments(input_text: str, chunk_index: int | None = None) -> None:
+                nonlocal segment_count
+                for segment in pipeline(
+                    input_text,
+                    voice=requested_voice,
+                    speed=speed,
+                    split_pattern=r'\n+'
+                ):
+                    audio_tensor, graphemes = _extract_audio(segment)
+                    if audio_tensor is None:
+                        continue
+                    if isinstance(audio_tensor, torch.Tensor):
+                        audio_tensor = audio_tensor.detach().to('cpu')
+                    else:
+                        audio_tensor = torch.tensor(audio_tensor, dtype=torch.float32)
+                    audio_segments.append(audio_tensor)
+                    segment_count += 1
+                    segment_info = len(graphemes) if isinstance(graphemes, str) else 'unknown'
+                    prefix = f"chunk {chunk_index+1} " if chunk_index is not None else ''
+                    print(f"✅ Segment {segment_count} captured ({prefix}chars: {segment_info})", file=sys.stderr)
+
+            if len(text) > MAX_CHUNK_CHAR_SIZE:
+                chunks = self.split_text_intelligently(text)
+                print(f"🧩 Split text into {len(chunks)} chunks for processing", file=sys.stderr)
+                for idx, chunk_text in enumerate(chunks):
+                    print(f"🚀 Processing chunk {idx+1}/{len(chunks)} ({len(chunk_text)} chars)", file=sys.stderr)
+                    _collect_segments(chunk_text, idx)
+            else:
+                _collect_segments(text)
+
+            if not audio_segments:
+                raise Exception("No audio data generated")
+
+            # 拼接所有音频段
+            combined_audio = torch.cat(audio_segments)
+
+            # 转换为numpy数组
+            audio_array = combined_audio.cpu().numpy() if hasattr(combined_audio, 'cpu') else np.array(combined_audio)
+
+            # 确保音频数据是float32格式
+            if audio_array.dtype != np.float32:
+                audio_array = audio_array.astype(np.float32)
+
+            # 归一化音频到[-1, 1]范围
+            max_val = np.abs(audio_array).max()
+            if max_val > 0:
+                audio_array = audio_array / max_val * 0.95  # 留一些余量避免削波
+
+            # Kokoro默认采样率是24000Hz
+            sample_rate = 24000
+
+            print(f"🎵 Audio generated: {len(audio_array)} samples at {sample_rate}Hz (segments: {segment_count})", file=sys.stderr)
+            sys.stderr.flush()
+
+            # 创建WAV文件（保持PCM16以兼容前端播放器）
+            try:
+                buffer = io.BytesIO()
+                sf.write(buffer, audio_array, sample_rate, format='WAV', subtype='PCM_16')
+                audio_bytes = buffer.getvalue()
+                audio_hex = audio_bytes.hex()
+
+                print(f"✅ Audio synthesized successfully: {len(audio_hex)} hex chars", file=sys.stderr)
+                print(f"📊 Audio size: {len(audio_bytes)} bytes (voice: {requested_voice}, segments: {segment_count})", file=sys.stderr)
+                sys.stderr.flush()
+
+                return audio_hex
+
+            except Exception as wav_error:
+                raise Exception(f"Failed to encode WAV audio: {wav_error}")
+                
+        except Exception as e:
+            print(f"❌ Audio synthesis failed: {e}", file=sys.stderr)
+            sys.stderr.flush()
+            raise Exception(f"Audio synthesis failed: {e}")
+    
+    def process_request(self, request_data):
+        """处理JSON请求"""
+        try:
+            request = json.loads(request_data)
+            
+            text = request.get('text', '')
+            speed = request.get('speed', 1.0)
+            voice = request.get('voice', 'af')
+            lang_code = request.get('lang_code', 'en-us')
+            
+            if not text:
+                return {
+                    'success': False,
+                    'error': 'Text cannot be empty'
+                }
+            
+            # 合成音频
+            audio_data = self.synthesize_audio(text, voice, speed, lang_code)
+            
+            return {
+                'success': True,
+                'audio_data': audio_data,
+                'device': self.device,
+                'message': f'Audio synthesized using {self.device} with voice: {voice}'
+            }
+            
+        except json.JSONDecodeError:
+            return {
+                'success': False,
+                'error': 'Invalid JSON request'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def run(self):
+        """运行交互式服务"""
+        while True:
+            try:
+                # 读取输入
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                    
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # 处理请求
+                response = self.process_request(line)
+                
+                # 发送响应
+                print(json.dumps(response), flush=True)
+                
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                error_response = {
+                    'success': False,
+                    'error': f'Service error: {e}'
+                }
+                print(json.dumps(error_response), flush=True)
+
+def main():
+    """主函数"""
+    try:
+        service = KokoroTTSReal()
+        service.run()
+    except Exception as e:
+        print(f"Failed to start Kokoro TTS service: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()

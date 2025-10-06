@@ -1,0 +1,418 @@
+#!/usr/bin/env python3
+"""
+DEPRECATED: This file has been replaced by kokoro_wrapper.py
+DO NOT USE in production. Kept for reference only.
+
+The offline functionality has been integrated into the main kokoro_wrapper.py
+with enhanced path scanning and KOKORO_LOCAL_MODEL_PATH environment variable support.
+
+Original description:
+Kokoro TTS Offline Wrapper
+完全离线的 Kokoro TTS 包装器，不依赖 HuggingFace Hub
+"""
+
+import os
+import sys
+import json
+import torch
+import numpy as np
+import io
+import re
+import soundfile as sf
+from pathlib import Path
+from typing import Optional
+import warnings
+warnings.filterwarnings('ignore')
+
+TRUTHY_VALUES = {'1', 'true', 'yes', 'on'}
+FALSY_VALUES = {'0', 'false', 'no', 'off'}
+OFFLINE_ENV_KEYS = ('HF_HUB_OFFLINE', 'TRANSFORMERS_OFFLINE', 'HF_DATASETS_OFFLINE')
+
+
+def parse_env_bool(value: Optional[str], default: Optional[bool] = None) -> Optional[bool]:
+    if value is None:
+        return default
+    lowered = value.strip().lower()
+    if lowered in TRUTHY_VALUES:
+        return True
+    if lowered in FALSY_VALUES:
+        return False
+    return default
+
+
+def apply_offline_mode(enabled: bool) -> None:
+    for key in OFFLINE_ENV_KEYS:
+        if enabled:
+            os.environ[key] = '1'
+        else:
+            os.environ.pop(key, None)
+
+
+def determine_offline_mode() -> bool:
+    override = parse_env_bool(os.environ.get('KOKORO_OFFLINE'))
+    if override is None:
+        override = parse_env_bool(os.environ.get('HF_HUB_OFFLINE'))
+    if override is None:
+        override = True
+    return bool(override)
+
+
+DEFAULT_VOICES = {
+    'a': 'af_bella',
+    'b': 'bf_emma',
+    'e': 'ef_dora',
+    'f': 'ff_siwis',
+    'h': 'hf_alpha',
+    'i': 'if_sara',
+    'p': 'pf_dora',
+    'j': 'jf_alpha',
+    'z': 'zf_ziqi'
+}
+
+MAX_CHUNK_CHAR_SIZE = 100
+
+def _extend_sys_path() -> None:
+    """添加 Kokoro 路径到 Python 路径"""
+    candidates = []
+    
+    repo_override = os.environ.get('KOKORO_REPO_PATH')
+    if repo_override:
+        for raw_path in repo_override.split(os.pathsep):
+            raw_path = raw_path.strip()
+            if raw_path:
+                candidates.append(Path(raw_path))
+                candidates.append(Path(raw_path) / 'kokoro.js')
+    else:
+        project_root = Path(__file__).resolve().parents[1]
+        default_repo = project_root / 'kokoro-main-ref'
+        candidates.append(default_repo)
+        candidates.append(default_repo / 'kokoro.js')
+    
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                resolved = str(candidate.resolve())
+                if resolved not in sys.path:
+                    sys.path.append(resolved)
+        except Exception:
+            continue
+
+_extend_sys_path()
+
+# 导入 Kokoro 模块
+build_model = None
+
+try:
+    from kokoro.pipeline import KPipeline
+except ImportError as e:
+    print(f"❌ Failed to import Kokoro pipeline: {e}", file=sys.stderr)
+    KPipeline = None
+
+try:
+    # 优先尝试新的 build_model API
+    from kokoro.models import build_model  # type: ignore
+except ImportError:
+    pass
+
+try:
+    from kokoro.model import KModel  # type: ignore
+except ImportError as e:
+    KModel = None
+    print(f"⚠️ KModel not available: {e}", file=sys.stderr)
+
+KOKORO_AVAILABLE = KPipeline is not None and KModel is not None
+
+class KokoroOfflineTTS:
+    def __init__(self):
+        self.model = None
+        self.pipelines = {}
+        self.device = None
+        self.offline_mode = determine_offline_mode()
+        apply_offline_mode(self.offline_mode)
+        if self.offline_mode:
+            print("📴 HuggingFace offline mode enabled", file=sys.stderr)
+        else:
+            print("🌐 HuggingFace offline mode disabled", file=sys.stderr)
+        sys.stderr.flush()
+        
+        self.setup_device()
+        
+        if KOKORO_AVAILABLE:
+            self.initialize_model_offline()
+        
+        self.send_ready_signal()
+    
+    def setup_device(self):
+        """设置计算设备"""
+        try:
+            if os.environ.get('https_proxy') or os.environ.get('http_proxy'):
+                print(f"🌐 Using proxy: {os.environ.get('https_proxy', os.environ.get('http_proxy'))}", file=sys.stderr)
+            
+            preferred_device = os.environ.get('KOKORO_DEVICE', 'auto').lower()
+            
+            if preferred_device == 'cuda' and torch.cuda.is_available():
+                self.device = 'cuda'
+                print(f"🚀 Using GPU: {torch.cuda.get_device_name(0)}", file=sys.stderr)
+                print(f"📊 GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB", file=sys.stderr)
+                print(f"🔥 CUDA Version: {torch.version.cuda}", file=sys.stderr)
+            elif preferred_device in {'mps', 'metal'} and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = 'mps'
+                print("🍎 Using Apple Silicon MPS", file=sys.stderr)
+            else:
+                self.device = 'cpu'
+                print("💻 Using CPU", file=sys.stderr)
+            
+            sys.stderr.flush()
+        except Exception as e:
+            self.device = 'cpu'
+            print(f"⚠️ Device detection failed: {e}", file=sys.stderr)
+            sys.stderr.flush()
+    
+    def initialize_model_offline(self):
+        """完全离线初始化模型"""
+        try:
+            print("🔄 Initializing Kokoro model (offline mode)...", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # 查找本地 .pth 文件
+            local_pth_paths = [
+                Path('/app/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/kokoro-v1_0.pth'),
+                Path.home() / '.cache' / 'huggingface' / 'hub' / 'models--hexgrad--Kokoro-82M' / 'snapshots' / 'main' / 'kokoro-v1_0.pth',
+            ]
+            
+            local_pth = None
+            for pth_path in local_pth_paths:
+                if pth_path.exists():
+                    local_pth = pth_path
+                    print(f"✅ Found local model: {pth_path}", file=sys.stderr)
+                    print(f"📊 Model size: {pth_path.stat().st_size / 1024 / 1024:.1f} MB", file=sys.stderr)
+                    break
+            
+            if not local_pth:
+                raise Exception("Local model file not found")
+            
+            print("📥 Loading model weights directly from .pth file...", file=sys.stderr)
+            sys.stderr.flush()
+            
+            local_config_paths = [
+                Path('/app/kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main/config.json'),
+                Path('/app/kokoro-models/Kokoro-82M/config.json'),
+                Path.home() / '.cache' / 'huggingface' / 'hub' / 'models--hexgrad--Kokoro-82M' / 'snapshots' / 'main' / 'config.json',
+            ]
+
+            local_config = None
+            for config_path in local_config_paths:
+                if config_path.exists():
+                    local_config = config_path
+                    print(f"✅ Found local config: {config_path}", file=sys.stderr)
+                    break
+
+            model_kwargs = {
+                'repo_id': 'hexgrad/Kokoro-82M',
+                'model': str(local_pth),
+            }
+            if local_config is not None:
+                model_kwargs['config'] = str(local_config)
+
+            if KModel is None:
+                raise Exception("KModel class not available in current Kokoro build")
+
+            print("📦 Initializing KModel from local files...", file=sys.stderr)
+            self.model = KModel(**model_kwargs)
+            print("✅ KModel weights loaded", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # 移动到目标设备
+            if self.device != 'cpu':
+                print(f"🚀 Moving model to {self.device}...", file=sys.stderr)
+                sys.stderr.flush()
+                self.model = self.model.to(self.device)
+                self.model.eval()
+                print(f"✅ Model on {self.device}", file=sys.stderr)
+                sys.stderr.flush()
+            
+            if self.device == 'cpu' and hasattr(self.model, 'eval'):
+                self.model.eval()
+
+            print(f"✅ Model initialized successfully (offline)", file=sys.stderr)
+            sys.stderr.flush()
+            
+        except Exception as e:
+            print(f"❌ Model initialization failed: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
+            self.model = None
+    
+    def send_ready_signal(self):
+        """发送就绪信号"""
+        if KOKORO_AVAILABLE and self.model:
+            print("🚀 Kokoro TTS service is ready (offline mode)", file=sys.stderr)
+        else:
+            print("⚠️ Kokoro TTS service ready but using fallback mode", file=sys.stderr)
+        sys.stderr.flush()
+    
+    def get_pipeline(self, lang_code='en-us', voice='af_bella'):
+        """获取或创建管道"""
+        pipeline_key = f"{lang_code}_{voice}"
+        
+        if pipeline_key in self.pipelines:
+            return self.pipelines[pipeline_key]
+        
+        try:
+            print(f"🔄 Creating pipeline for {lang_code}...", file=sys.stderr)
+            sys.stderr.flush()
+            
+            apply_offline_mode(self.offline_mode)
+            
+            # 设置本地语音包路径
+            # Kokoro 会在这些位置查找语音包
+            voice_paths = [
+                Path('/app/kokoro-local/voices'),
+                Path.home() / 'english-listening-trainer' / 'kokoro-local' / 'voices',
+                Path('/app/kokoro-main-ref/kokoro.js/kokoro.js/voices'),
+            ]
+            
+            for vp in voice_paths:
+                if vp.exists():
+                    print(f"📁 Found voice packs at: {vp}", file=sys.stderr)
+                    # 将语音包路径添加到环境变量
+                    os.environ['KOKORO_VOICE_DIR'] = str(vp)
+                    break
+            
+            sys.stderr.flush()
+            
+            # 创建管道（使用已加载的模型）
+            pipeline = KPipeline(
+                lang_code=lang_code,
+                model=self.model,
+                device=self.device if self.device != 'cpu' else None
+            )
+            
+            self.pipelines[pipeline_key] = pipeline
+            print(f"✅ Pipeline created", file=sys.stderr)
+            sys.stderr.flush()
+            
+            return pipeline
+        except Exception as e:
+            print(f"❌ Pipeline creation failed: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
+            return None
+    
+    def synthesize_audio(self, text, voice='af_bella', speed=1.0, lang_code='en-us'):
+        """合成音频"""
+        try:
+            if not KOKORO_AVAILABLE or not self.model:
+                raise Exception("Model not available")
+            
+            print(f"🎤 Synthesizing: {text[:50]}...", file=sys.stderr)
+            sys.stderr.flush()
+            
+            pipeline = self.get_pipeline(lang_code, voice)
+            if not pipeline:
+                raise Exception("Failed to create pipeline")
+            
+            # 生成音频
+            audio_segments = []
+            for segment in pipeline(text, voice=voice, speed=speed):
+                if hasattr(segment, 'audio'):
+                    audio_tensor = segment.audio
+                elif isinstance(segment, (list, tuple)) and len(segment) >= 3:
+                    audio_tensor = segment[2]
+                else:
+                    continue
+                
+                if isinstance(audio_tensor, torch.Tensor):
+                    audio_tensor = audio_tensor.detach().to('cpu')
+                else:
+                    audio_tensor = torch.tensor(audio_tensor, dtype=torch.float32)
+                
+                audio_segments.append(audio_tensor)
+            
+            if not audio_segments:
+                raise Exception("No audio generated")
+            
+            # 合并音频
+            combined_audio = torch.cat(audio_segments)
+            audio_array = combined_audio.numpy()
+            
+            if audio_array.dtype != np.float32:
+                audio_array = audio_array.astype(np.float32)
+            
+            # 归一化
+            max_val = np.abs(audio_array).max()
+            if max_val > 0:
+                audio_array = audio_array / max_val * 0.95
+            
+            # 生成 WAV
+            buffer = io.BytesIO()
+            sf.write(buffer, audio_array, 24000, format='WAV', subtype='PCM_16')
+            audio_bytes = buffer.getvalue()
+            
+            print(f"✅ Audio generated: {len(audio_bytes)} bytes", file=sys.stderr)
+            sys.stderr.flush()
+            
+            return audio_bytes.hex()
+            
+        except Exception as e:
+            print(f"❌ Synthesis failed: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
+            raise
+    
+    def process_request(self, request_data):
+        """处理请求"""
+        try:
+            request = json.loads(request_data)
+            text = request.get('text', '')
+            speed = request.get('speed', 1.0)
+            voice = request.get('voice', 'af_bella')
+            lang_code = request.get('lang_code', 'en-us')
+            
+            if not text:
+                return {'success': False, 'error': 'Text cannot be empty'}
+            
+            audio_data = self.synthesize_audio(text, voice, speed, lang_code)
+            
+            return {
+                'success': True,
+                'audio_data': audio_data,
+                'device': self.device,
+                'message': f'Audio synthesized (offline mode)'
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def run(self):
+        """运行服务"""
+        while True:
+            try:
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                
+                line = line.strip()
+                if not line:
+                    continue
+                
+                response = self.process_request(line)
+                print(json.dumps(response), flush=True)
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                error_response = {'success': False, 'error': f'Service error: {e}'}
+                print(json.dumps(error_response), flush=True)
+
+def main():
+    try:
+        service = KokoroOfflineTTS()
+        service.run()
+    except Exception as e:
+        print(f"Failed to start service: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()

@@ -11,8 +11,8 @@ interface BuildEnvOptions {
 
 const PROJECT_ROOT = process.cwd()
 const DEFAULT_KOKORO_DIR = path.join(PROJECT_ROOT, 'kokoro-main-ref')
-const DEFAULT_WRAPPER_PATH = path.join(PROJECT_ROOT, 'kokoro-local', 'kokoro_wrapper_offline.py')
-const DEFAULT_VENV_PATH = path.join(PROJECT_ROOT, 'kokoro-local', 'venv')
+const DEFAULT_WRAPPER_PATH = path.join(PROJECT_ROOT, 'kokoro_local', 'kokoro_wrapper.py')
+const DEFAULT_VENV_PATH = path.join(PROJECT_ROOT, 'kokoro_local', 'venv')
 
 const isWindows = process.platform === 'win32'
 const PATH_KEY = isWindows ? 'Path' : 'PATH'
@@ -212,5 +212,5 @@ export function buildKokoroPythonEnv(options: BuildEnvOptions = {}): NodeJS.Proc
 }
 
 export function resolveKokoroWorkingDirectory(): string {
-  return process.env.KOKORO_WORKDIR ?? path.join(PROJECT_ROOT, 'kokoro-local')
+  return process.env.KOKORO_WORKDIR ?? path.join(PROJECT_ROOT, 'kokoro_local')
 }
