@@ -109,7 +109,7 @@ async def run_synthesis_test(config: Dict[str, Any], skip_on_missing: bool = Fal
         if model_path == 'auto-detected':
             # 尝试找到实际使用的模型路径
             possible_paths = [
-                Path('kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main'),
+                Path('kokoro_local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main'),
                 Path.home() / '.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main',
                 Path('kokoro-models/Kokoro-82M'),
             ]
