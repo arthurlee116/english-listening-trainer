@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 """
+DEPRECATED: This file has been replaced by kokoro_wrapper.py
+DO NOT USE in production. Kept for reference only.
+
+The offline functionality has been integrated into the main kokoro_wrapper.py
+with enhanced path scanning and KOKORO_LOCAL_MODEL_PATH environment variable support.
+
+Original description:
 Kokoro TTS Offline Wrapper
 完全离线的 Kokoro TTS 包装器，不依赖 HuggingFace Hub
 """

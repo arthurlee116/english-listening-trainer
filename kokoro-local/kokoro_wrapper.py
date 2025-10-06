@@ -13,9 +13,7 @@ from typing import Optional
 import torch
 import soundfile as sf
 import io
-
-# Keep chunk size small to stay within Kokoro phoneme limits.
-MAX_CHUNK_CHAR_SIZE = 100
+from text_chunker import split_text_intelligently, MAX_CHUNK_CHAR_SIZE
 
 # 设置日志
 logging.basicConfig(level=logging.WARNING)
@@ -116,50 +114,64 @@ class KokoroTTSWrapper:
             # 初始化pipeline (如果语言改变需要重新创建)
             if self.current_lang_code != self.lang_code:
                 print(f"🌍 Initializing pipeline for language: {self.lang_code}", file=sys.stderr)
+
+                # 强制离线模式，不允许在线下载
+                os.environ['HF_HUB_OFFLINE'] = '1'
+                os.environ['TRANSFORMERS_OFFLINE'] = '1'
+
+                # 扫描本地模型路径（按优先级）
+                from pathlib import Path
+                import shutil
+
+                local_model_paths = [
+                    # 优先：环境变量指定的路径
+                    Path(os.environ.get('KOKORO_LOCAL_MODEL_PATH', '')),
+                    # 次选：项目本地缓存
+                    Path('kokoro-local/.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main'),
+                    # 备选：用户 home 目录缓存
+                    Path.home() / '.cache/huggingface/hub/models--hexgrad--Kokoro-82M/snapshots/main',
+                    # 备选：独立模型目录
+                    Path('kokoro-models/Kokoro-82M'),
+                ]
+
+                found_model = None
+                for model_path in local_model_paths:
+                    if model_path.exists() and model_path.is_dir():
+                        found_model = model_path
+                        print(f"✅ Found local model at: {model_path}", file=sys.stderr)
+                        break
+
+                if not found_model:
+                    # 模型未找到，抛出明确错误
+                    error_msg = (
+                        "❌ Kokoro model not found in offline mode.\n"
+                        "Searched paths:\n" +
+                        "\n".join([f"  - {p}" for p in local_model_paths if str(p)]) +
+                        "\n\nPlease ensure model exists at one of the above paths,\n"
+                        "or set KOKORO_LOCAL_MODEL_PATH environment variable."
+                    )
+                    raise FileNotFoundError(error_msg)
+
+                # 确保模型在标准缓存位置（Kokoro 期望的结构）
+                cache_path = Path.home() / '.cache/huggingface/hub/models--hexgrad--Kokoro-82M'
+                snapshot_dir = cache_path / 'snapshots/main'
+
+                if not snapshot_dir.exists() and found_model != snapshot_dir:
+                    print(f"📦 Copying model to HuggingFace cache structure...", file=sys.stderr)
+                    cache_path.mkdir(parents=True, exist_ok=True)
+                    (cache_path / 'refs').mkdir(exist_ok=True)
+                    shutil.copytree(found_model, snapshot_dir, dirs_exist_ok=True)
+                    (cache_path / 'refs/main').write_text('main')
+                    print("✅ Model copied to cache", file=sys.stderr)
+
+                # 初始化 pipeline（仅离线模式）
                 try:
-                    # Check if local model exists
-                    local_model_path = os.environ.get('KOKORO_LOCAL_MODEL_PATH')
-                    if local_model_path and os.path.exists(local_model_path):
-                        print(f"Found local model at {local_model_path}", file=sys.stderr)
-                        # Use local model by copying to expected cache location
-                        import shutil
-                        cache_path = os.path.expanduser("~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M")
-                        if not os.path.exists(f"{cache_path}/snapshots"):
-                            os.makedirs(f"{cache_path}/snapshots", exist_ok=True)
-                            os.makedirs(f"{cache_path}/refs", exist_ok=True)
-                            # Create proper cache structure
-                            snapshot_dir = f"{cache_path}/snapshots/main"
-                            if not os.path.exists(snapshot_dir):
-                                shutil.copytree(local_model_path, snapshot_dir)
-                            with open(f"{cache_path}/refs/main", "w") as f:
-                                f.write("main")
-                            print("Local model copied to HuggingFace cache", file=sys.stderr)
-                    
-                    # 设置环境变量使用离线模式
-                    os.environ['HF_HUB_OFFLINE'] = '1'  # 使用离线模式
-                    os.environ['TRANSFORMERS_OFFLINE'] = '1'
-                    # 尝试离线初始化
                     self.pipeline = KPipeline(lang_code=self.lang_code)
-                    print(f"Kokoro TTS initialized successfully in offline mode for language: {self.lang_code}", file=sys.stderr)
-                    
+                    print(f"✅ Kokoro TTS initialized in offline mode for language: {self.lang_code}", file=sys.stderr)
                 except Exception as e:
-                    print(f"⚠️  Warning: Offline initialization failed: {e}", file=sys.stderr)
-                    print("Switching to online mode with proxy...", file=sys.stderr)
-                    
-                    # 尝试在线模式
-                    os.environ['HF_HUB_OFFLINE'] = '0'
-                    os.environ['TRANSFORMERS_OFFLINE'] = '0'
-                    if 'KOKORO_HTTP_PROXY' in os.environ and 'http_proxy' not in os.environ:
-                        os.environ['http_proxy'] = os.environ['KOKORO_HTTP_PROXY']
-                    if 'KOKORO_HTTPS_PROXY' in os.environ and 'https_proxy' not in os.environ:
-                        os.environ['https_proxy'] = os.environ['KOKORO_HTTPS_PROXY']
-                    
-                    try:
-                        self.pipeline = KPipeline(lang_code=self.lang_code)
-                        print(f"Kokoro TTS initialized successfully in online mode for language: {self.lang_code}", file=sys.stderr)
-                    except Exception as online_e:
-                        print(f"Online initialization also failed: {online_e}", file=sys.stderr)
-                        raise online_e
+                    print(f"❌ Pipeline initialization failed: {e}", file=sys.stderr)
+                    raise RuntimeError(f"Failed to initialize Kokoro pipeline: {e}")
+
                 self.current_lang_code = self.lang_code
             
             # 加载语音 (如果语音改变需要重新加载)
@@ -207,99 +219,10 @@ class KokoroTTSWrapper:
             
         # 对于短文本，直接使用单块处理
         return await self.generate_speech_single(text, speed)
-    
-    def split_text_intelligently(self, text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list:
-        """智能分割文本，优先在句子边界分割"""
-        chunks = []
-        
-        # 先按段落分割
-        paragraphs = text.split('\n\n')
-        current_chunk = ""
-        
-        for paragraph in paragraphs:
-            # 如果当前块加上新段落不会太长，就添加
-            if len(current_chunk + paragraph) <= max_chunk_size:
-                current_chunk += paragraph + "\n\n"
-            else:
-                # 如果当前块不为空，先保存
-                if current_chunk.strip():
-                    chunks.append(current_chunk.strip())
-                    current_chunk = ""
-                
-                # 如果单个段落太长，需要进一步分割
-                if len(paragraph) > max_chunk_size:
-                    sentences = self.split_by_sentences(paragraph, max_chunk_size)
-                    chunks.extend(sentences)
-                else:
-                    current_chunk = paragraph + "\n\n"
-        
-        # 添加最后一个块
-        if current_chunk.strip():
-            chunks.append(current_chunk.strip())
-        
-        return chunks
-    
-    def split_by_sentences(self, text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list:
-        """按句子分割文本"""
-        import re
-        
-        # 按句子分割（句号、问号、感叹号）
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        chunks = []
-        current_chunk = ""
-        
-        for sentence in sentences:
-            if len(current_chunk + sentence) <= max_chunk_size:
-                current_chunk += sentence + " "
-            else:
-                if current_chunk.strip():
-                    chunks.append(current_chunk.strip())
-                    current_chunk = ""
-                
-                # 如果单个句子太长，按逗号分割
-                if len(sentence) > max_chunk_size:
-                    sub_chunks = self.split_by_commas(sentence, max_chunk_size)
-                    chunks.extend(sub_chunks)
-                else:
-                    current_chunk = sentence + " "
-        
-        if current_chunk.strip():
-            chunks.append(current_chunk.strip())
-        
-        return chunks
-    
-    def split_by_commas(self, text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> list:
-        """按逗号分割文本"""
-        parts = text.split(', ')
-        chunks = []
-        current_chunk = ""
-        
-        for part in parts:
-            if len(current_chunk + part) <= max_chunk_size:
-                current_chunk += part + ", "
-            else:
-                if current_chunk.strip():
-                    chunks.append(current_chunk.rstrip(', '))
-                    current_chunk = ""
-                
-                # 如果单个部分还是太长，强制分割
-                if len(part) > max_chunk_size:
-                    while len(part) > max_chunk_size:
-                        chunks.append(part[:max_chunk_size])
-                        part = part[max_chunk_size:]
-                    if part:
-                        current_chunk = part + ", "
-                else:
-                    current_chunk = part + ", "
-        
-        if current_chunk.strip():
-            chunks.append(current_chunk.rstrip(', '))
-        
-        return chunks
-    
+
     async def generate_speech_chunked(self, text: str, speed: float = 1.0) -> str:
         """分块生成音频并拼接（线程池并行 + 可配置并发度）"""
-        chunks = self.split_text_intelligently(text)
+        chunks = split_text_intelligently(text)
         total = len(chunks)
         print(f"🧩 Split text into {total} chunks for parallel processing", file=sys.stderr)
 

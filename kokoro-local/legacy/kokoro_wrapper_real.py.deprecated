@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""
+DEPRECATED: This file has been replaced by kokoro_wrapper.py
+DO NOT USE in production. Kept for reference only.
+
+This legacy wrapper is no longer maintained. All functionality has been
+consolidated into kokoro_wrapper.py with improved offline loading and
+unified text chunking via text_chunker.py module.
+"""
 import os
 import sys
 import json

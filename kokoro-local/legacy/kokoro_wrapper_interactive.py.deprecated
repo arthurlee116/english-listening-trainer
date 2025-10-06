@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+DEPRECATED: This file has been replaced by kokoro_wrapper.py
+DO NOT USE in production. Kept for reference only.
+
+The interactive functionality is no longer needed. Use kokoro_wrapper.py
+which supports stdin/stdout communication via the main() function.
+"""
 import os
 import sys
 import json

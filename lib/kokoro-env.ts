@@ -11,7 +11,7 @@ interface BuildEnvOptions {
 
 const PROJECT_ROOT = process.cwd()
 const DEFAULT_KOKORO_DIR = path.join(PROJECT_ROOT, 'kokoro-main-ref')
-const DEFAULT_WRAPPER_PATH = path.join(PROJECT_ROOT, 'kokoro-local', 'kokoro_wrapper_offline.py')
+const DEFAULT_WRAPPER_PATH = path.join(PROJECT_ROOT, 'kokoro-local', 'kokoro_wrapper.py')
 const DEFAULT_VENV_PATH = path.join(PROJECT_ROOT, 'kokoro-local', 'venv')
 
 const isWindows = process.platform === 'win32'
