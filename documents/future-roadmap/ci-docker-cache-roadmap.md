@@ -38,7 +38,7 @@
 
 ## 行动步骤
 
-### 1. 基础镜像内刊化
+### 1. 基础镜像内刊化 ✅ 已完成（2025-10-07）
 - **任务**：在本地或专用 workflow 中执行：
   ```bash
   docker pull nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04
@@ -53,6 +53,12 @@
 - **好处**：
   - 固定 digest，避免 CI/远程机重复下载基础层。
   - GHCR 内的镜像可配合 `cache-from` 命中。
+- **执行记录**：
+  - 时间：2025-10-07
+  - Digest: `sha256:b2c52e5236a0cb72d88444dca87eaf69c8e79836b875f20ad58f4b65c12faa34`
+  - 大小：3.38GB
+  - 更新文件：`Dockerfile`, `Dockerfile.optimized`
+  - 远程服务器：配置 Docker 镜像加速器（daocloud, 1panel, dockerproxy）
 
 ### 2. 新建“依赖缓存预热”工作流
 - **文件**：`.github/workflows/prewarm-deps.yml`
