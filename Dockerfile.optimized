@@ -1,7 +1,7 @@
 # 优化的 Dockerfile - 更好的缓存策略
 # 将不常变的层（Python 依赖）放在前面
 
-FROM ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04 AS base
+FROM ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
 
 ARG BUILDKIT_INLINE_CACHE=1
 

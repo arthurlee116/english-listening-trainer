@@ -6,11 +6,17 @@
 - **操作时间**：2025-10-07
 - **基础镜像**：
   - 切换前：`nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04`（Docker Hub 外部源）
-  - 切换后：`ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04`（GHCR 内刊镜像）
+  - 切换后：`ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04`（GHCR 内刊镜像）
   - Digest: `sha256:b2c52e5236a0cb72d88444dca87eaf69c8e79836b875f20ad58f4b65c12faa34`
   - 大小：3.38GB
+  - cuDNN 版本：`libcudnn8 8.9.0.131-1+cuda12.1` ✅
+- **关键修复**：
+  - 初始标签 `12.1.1-cudnn-runtime` 缺少版本号，存在被 cuDNN9 覆盖风险
+  - 修正为 `12.1.1-cudnn8-runtime` 保留明确版本号
+  - 验证镜像内容：`dpkg -l | grep cudnn` 确认包含 libcudnn8
 - **预期影响**：
   - CI 构建时不再从 Docker Hub 拉取基础镜像，改用 GHCR（同源缓存更高效）
+  - cuDNN8 兼容性保证：PyTorch/TensorFlow 依赖 libcudnn.so.8 正常加载
   - 为 Phase 2 多级缓存奠定基础
 
 ### 最近 CI 执行（待填充）

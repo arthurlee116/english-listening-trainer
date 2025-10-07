@@ -12,9 +12,11 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
-- [x] 2025-10-07 **Phase 1: 基础镜像内刊化**
+- [x] 2025-10-07 **Phase 1: 基础镜像内刊化（含 cuDNN8 标签修复）**
   - 推送 CUDA 基础镜像至 GHCR（digest: sha256:b2c52e...c12faa34）
-  - 更新 `Dockerfile` 和 `Dockerfile.optimized` FROM 行
+  - **修复标签命名**：保留 `cudnn8` 后缀 → `12.1.1-cudnn8-runtime-ubuntu22.04`
+  - 验证 cuDNN 版本：libcudnn8 8.9.0.131 ✅
+  - 更新 `Dockerfile` 和 `Dockerfile.optimized` FROM 行使用正确标签
   - 配置远程服务器 Docker 镜像加速器
   - 更新项目文档（status/board/snapshot/roadmap）
 - [x] 2025-10-06 **关键 Bug 修复：PR #6-9**

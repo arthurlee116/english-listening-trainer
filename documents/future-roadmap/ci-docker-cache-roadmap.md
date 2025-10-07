@@ -41,14 +41,14 @@
 ### 1. 基础镜像内刊化 ✅ 已完成（2025-10-07）
 - **任务**：在本地或专用 workflow 中执行：
   ```bash
-  docker pull nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04
-  docker tag nvidia/cuda:12.1.1-cudnn-runtime-ubuntu22.04 \
-    ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04
-  docker push ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04
+  docker pull nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+  docker tag nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 \
+    ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+  docker push ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
   ```
 - **Dockerfile 调整**：
   ```dockerfile
-  FROM ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04
+  FROM ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
   ```
 - **好处**：
   - 固定 digest，避免 CI/远程机重复下载基础层。
@@ -57,8 +57,14 @@
   - 时间：2025-10-07
   - Digest: `sha256:b2c52e5236a0cb72d88444dca87eaf69c8e79836b875f20ad58f4b65c12faa34`
   - 大小：3.38GB
+  - cuDNN 版本：`libcudnn8 8.9.0.131-1+cuda12.1` ✅
   - 更新文件：`Dockerfile`, `Dockerfile.optimized`
   - 远程服务器：配置 Docker 镜像加速器（daocloud, 1panel, dockerproxy）
+- **重要修复**：
+  - 初始推送标签缺少 `cudnn8` 版本号（仅 `cudnn-runtime`）
+  - 修正为 `12.1.1-cudnn8-runtime-ubuntu22.04` 保留明确版本号
+  - **风险说明**：PyTorch/TensorFlow 依赖 `libcudnn.so.8`，若使用 cuDNN9 会导致符号缺失
+  - **验证方法**：`docker run --rm <image> dpkg -l | grep cudnn` 确认 libcudnn8 存在
 
 ### 2. 新建“依赖缓存预热”工作流
 - **文件**：`.github/workflows/prewarm-deps.yml`

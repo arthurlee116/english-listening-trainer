@@ -7,11 +7,13 @@
 - [x] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：全部 4 阶段已完成 ✅
 
 ## 最近里程碑
-- 2025-10-07 **Phase 1: 基础镜像内刊化完成**
-  - 推送 CUDA 基础镜像至 GHCR：`ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04`
+- 2025-10-07 **Phase 1: 基础镜像内刊化完成（含 cuDNN8 标签修复）**
+  - 推送 CUDA 基础镜像至 GHCR：`ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04`
   - Digest: `sha256:b2c52e5236a0cb72d88444dca87eaf69c8e79836b875f20ad58f4b65c12faa34`
   - 镜像大小：3.38GB
-  - 更新 `Dockerfile` 和 `Dockerfile.optimized` FROM 行引用 GHCR 镜像
+  - **关键修复**：保留 `cudnn8` 后缀，确保与 PyTorch/TensorFlow libcudnn8 依赖兼容
+  - cuDNN 版本验证：`libcudnn8 8.9.0.131-1+cuda12.1` ✅
+  - 更新 `Dockerfile` 和 `Dockerfile.optimized` FROM 行引用正确标签
   - 配置远程服务器 Docker 镜像加速器（daocloud, 1panel, dockerproxy）
   - 下一步：Phase 2 - 创建依赖缓存预热工作流
 - 2025-10-06 **关键 Bug 修复：PR #6-9 bug 修复推送**
