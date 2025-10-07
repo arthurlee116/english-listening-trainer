@@ -6,7 +6,7 @@
 # Stage: base
 # Install system dependencies that rarely change (shared across all stages)
 ###############################################################################
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
+FROM ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_MAJOR=20 \

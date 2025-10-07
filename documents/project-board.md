@@ -1,8 +1,9 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] 编写并验证 `.github/workflows/prewarm-deps.yml`（参见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。
-- [ ] 将 Dockerfile 基础镜像替换为 GHCR 镜像并测试缓存命中（参见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。
+- [ ] Phase 2: 编写并验证 `.github/workflows/prewarm-deps.yml`（依赖缓存预热工作流）
+- [ ] Phase 3: 调整主 workflow 使用多级 cache-from
+- [ ] Phase 4: 完善部署文档与缓存管理指南
 
 ## In Progress
 - [ ] （暂无）
@@ -11,6 +12,13 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-07 **Phase 1: 基础镜像内刊化（含 cuDNN8 标签修复）**
+  - 推送 CUDA 基础镜像至 GHCR（digest: sha256:b2c52e...c12faa34）
+  - **修复标签命名**：保留 `cudnn8` 后缀 → `12.1.1-cudnn8-runtime-ubuntu22.04`
+  - 验证 cuDNN 版本：libcudnn8 8.9.0.131 ✅
+  - 更新 `Dockerfile` 和 `Dockerfile.optimized` FROM 行使用正确标签
+  - 配置远程服务器 Docker 镜像加速器
+  - 更新项目文档（status/board/snapshot/roadmap）
 - [x] 2025-10-06 **关键 Bug 修复：PR #6-9**
   - 修复环境变量空字符串路径错误（`kokoro_wrapper.py:122-140`）
   - 重命名 `kokoro-local/` → `kokoro_local/`（Python 模块兼容性）
