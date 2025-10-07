@@ -35,3 +35,39 @@
   - Phase 2: 创建依赖缓存预热 workflow
 
 > 更新步骤：构建结束后复制 run 链接与摘要信息，按上述要点填写，耗时控制在 1 分钟内。
+
+## Phase 2 预热工作流基线（2025-10-07）
+
+### 工作流配置
+- **文件路径**：`.github/workflows/prewarm-deps.yml`
+- **触发方式**：
+  - 定时：每周一 02:00 UTC（cron: `0 2 * * 1`）
+  - 手动：workflow_dispatch（可指定 cache_quarter）
+- **季度版本**：2025Q4（固定）
+- **推送标签**：
+  - 滚动标签：`cache-base`, `cache-python`, `cache-node`
+  - 季度标签：`cache-base-2025Q4`, `cache-python-2025Q4`, `cache-node-2025Q4`
+
+### 首次执行（待填充）
+- **执行时间**：待记录（示例：2025-10-07 手动触发）
+- **Run 链接**：待记录（https://github.com/.../runs/...）
+- **执行结果**：
+  - prewarm-base: ✅ / ❌ （耗时 X 分钟）
+  - prewarm-python: ✅ / ❌ （耗时 X 分钟）
+  - prewarm-node: ✅ / ❌ （耗时 X 分钟）
+- **缓存层大小**（通过 `imagetools inspect` 获取）：
+  - cache-base: 待记录（预期 ~3.4GB）
+  - cache-python: 待记录（预期 ~1.5-2GB）
+  - cache-node: 待记录（预期 ~500-800MB）
+- **磁盘使用**：
+  - 构建前：待记录（例如：12.5GB / 14GB）
+  - 构建后：待记录（例如：8.2GB / 14GB）
+- **问题 & 备注**：待记录
+
+### 验证清单
+- [ ] GHCR 中存在 6 个标签（3 个滚动 + 3 个季度）
+- [ ] `docker buildx imagetools inspect` 显示层完整
+- [ ] Summary 报告正确生成表格与指南
+- [ ] 磁盘空间检查正常工作（无低于 4GB 告警）
+
+> 更新步骤：首次运行后填写执行数据，记录任何异常情况。

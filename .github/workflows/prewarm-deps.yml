@@ -1,0 +1,291 @@
+name: Prewarm Dependencies Cache
+
+on:
+  workflow_dispatch:
+    inputs:
+      cache_quarter:
+        description: 'Cache quarter version (e.g., 2025Q4)'
+        required: false
+        default: '2025Q4'
+      skip_builder:
+        description: 'Skip builder cache (recommended for size control)'
+        required: false
+        default: 'true'
+  schedule:
+    - cron: '0 2 * * 1'  # Every Monday at 02:00 UTC
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  CACHE_QUARTER: ${{ github.event.inputs.cache_quarter || '2025Q4' }}
+
+jobs:
+  # Job 1: Prewarm base layer
+  prewarm-base:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          echo "🧹 Cleaning up disk space..."
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo rm -rf /usr/share/swift /usr/share/man
+          sudo apt-get clean
+          docker system prune -af --volumes || true
+
+          echo "📊 Disk space after cleanup:"
+          df -h /
+
+          # Check available space (fail threshold: 4GB)
+          AVAILABLE=$(df / | tail -1 | awk '{print $4}')
+          AVAILABLE_GB=$((AVAILABLE / 1024 / 1024))
+          echo "Available: ${AVAILABLE_GB}GB"
+
+          if [ $AVAILABLE_GB -lt 4 ]; then
+            echo "❌ ERROR: Less than 4GB available. Aborting."
+            exit 1
+          fi
+
+          echo "✅ Disk space check passed"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.optimized
+          target: base
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base-${{ env.CACHE_QUARTER }}
+          cache-to: type=inline
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Inspect base cache
+        run: |
+          echo "🔍 Inspecting base cache..."
+          docker buildx imagetools inspect \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
+
+      - name: Report to summary
+        run: |
+          echo "## 🔄 Base Cache Prewarm Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Tags pushed**: \`cache-base\`, \`cache-base-${{ env.CACHE_QUARTER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 **Base image**: \`ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+  # Job 2: Prewarm python-deps layer
+  prewarm-python:
+    runs-on: ubuntu-latest
+    needs: [prewarm-base]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          echo "🧹 Cleaning up disk space..."
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo rm -rf /usr/share/swift /usr/share/man
+          sudo apt-get clean
+          docker system prune -af --volumes || true
+
+          echo "📊 Disk space before build:"
+          df -h /
+
+          AVAILABLE=$(df / | tail -1 | awk '{print $4}')
+          AVAILABLE_GB=$((AVAILABLE / 1024 / 1024))
+          echo "Available: ${AVAILABLE_GB}GB"
+
+          if [ $AVAILABLE_GB -lt 4 ]; then
+            echo "❌ ERROR: Less than 4GB available. Aborting."
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push python-deps cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.optimized
+          target: python-deps
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python-${{ env.CACHE_QUARTER }}
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
+          cache-to: type=inline
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Inspect python cache
+        run: |
+          echo "🔍 Inspecting python cache..."
+          docker buildx imagetools inspect \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python
+
+      - name: Report to summary
+        run: |
+          echo "## 🐍 Python Deps Cache Prewarm Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Tags pushed**: \`cache-python\`, \`cache-python-${{ env.CACHE_QUARTER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 **Dependencies**: PyTorch 2.3.0+cu121, requirements.txt" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+  # Job 3: Prewarm node-deps layer
+  prewarm-node:
+    runs-on: ubuntu-latest
+    needs: [prewarm-python]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          echo "🧹 Cleaning up disk space..."
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo rm -rf /usr/share/swift /usr/share/man
+          sudo apt-get clean
+          docker system prune -af --volumes || true
+
+          echo "📊 Disk space before build:"
+          df -h /
+
+          AVAILABLE=$(df / | tail -1 | awk '{print $4}')
+          AVAILABLE_GB=$((AVAILABLE / 1024 / 1024))
+          echo "Available: ${AVAILABLE_GB}GB"
+
+          if [ $AVAILABLE_GB -lt 4 ]; then
+            echo "❌ ERROR: Less than 4GB available. Aborting."
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push node-deps cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.optimized
+          target: node-deps
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-node
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-node-${{ env.CACHE_QUARTER }}
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python
+          cache-to: type=inline
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Inspect node cache
+        run: |
+          echo "🔍 Inspecting node cache..."
+          docker buildx imagetools inspect \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-node
+
+      - name: Report to summary
+        run: |
+          echo "## 📦 Node Deps Cache Prewarm Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Tags pushed**: \`cache-node\`, \`cache-node-${{ env.CACHE_QUARTER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 **Dependencies**: npm packages, Prisma client" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+  # Job 4: Summary report
+  summary:
+    runs-on: ubuntu-latest
+    needs: [prewarm-base, prewarm-python, prewarm-node]
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate summary report
+        run: |
+          echo "# 🎯 依赖缓存预热完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📊 缓存标签" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 层级 | 滚动标签 | 季度标签 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|---------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Base | \`cache-base\` | \`cache-base-${{ env.CACHE_QUARTER }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python | \`cache-python\` | \`cache-python-${{ env.CACHE_QUARTER }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node | \`cache-node\` | \`cache-node-${{ env.CACHE_QUARTER }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📝 使用方式" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "主构建工作流将自动使用滚动标签 (\`cache-base\`, \`cache-python\`, \`cache-node\`)。" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "如需回滚到特定季度版本，修改主 workflow 的 \`cache-from\` 引用季度标签。" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## ⏭️ 下一步" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. 验证缓存：手动触发主构建工作流，观察缓存命中情况" >> $GITHUB_STEP_SUMMARY
+          echo "2. 部署预热：在远程服务器执行 \`docker pull\` 拉取缓存层" >> $GITHUB_STEP_SUMMARY
+          echo "3. 监控效果：下次构建时观察时间缩短幅度" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📅 定时执行" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏰ **自动运行**: 每周一 02:00 UTC" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 **手动触发**: 依赖变更时在 Actions 页面手动运行" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
