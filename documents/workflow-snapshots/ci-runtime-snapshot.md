@@ -100,3 +100,15 @@
 - [ ] 磁盘空间检查正常工作（无低于 4GB 告警）
 
 > 更新步骤：首次运行后填写执行数据，记录任何异常情况。
+
+## Phase 4 文档与运行手册交付（2025-10-07）
+
+### 交付内容
+- `documents/CACHE_MANAGEMENT_GUIDE.md`：覆盖缓存刷新策略、季度切换流程、旧标签清理与 GHCR 配额监控
+- `documents/SERVER_DEPLOYMENT_TEST_GUIDE.md`：记录远程服务器预热步骤、部署清单、常见问题排查
+- `documents/WORKFLOW_TESTING_GUIDE.md`：定义预热/主 workflow 验证、Summary 阅读、缓存命中率计算方法
+
+### 验收要点
+- 项目状态表、看板、路线图与本快照均已更新，标记 CI 缓存优化路线图完结
+- 文档提供命令示例与记录模板，便于协作者快速执行与追踪
+- 强调远程服务器禁止 `docker system prune -a`，保护 cache-* 层免于误删

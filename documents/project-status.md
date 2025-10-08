@@ -1,12 +1,17 @@
 # 项目状态总表
 
-> 最近更新：2025-10-07。更新本文件时同步调整此处日期。
+> 最近更新：2025-10-07（Phase 4 文档交付）。更新本文件时同步调整此处日期。
 
 ## 当前核心目标
-- [ ] CI/Docker 缓存优化（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：Claude。进度：Phase 3 已完成 ✅
+- [x] CI/Docker 缓存优化（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：Claude。进度：Phase 4 已完成 ✅
 - [x] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：全部 4 阶段已完成 ✅
 
 ## 最近里程碑
+- 2025-10-07 **Phase 4: 缓存与部署文档完善**
+  - 新增《CACHE_MANAGEMENT_GUIDE.md》，覆盖刷新策略、季度切换、配额监控与故障恢复
+  - 创建《SERVER_DEPLOYMENT_TEST_GUIDE.md》，补充远程服务器预热步骤、部署清单与排查模板
+  - 创建《WORKFLOW_TESTING_GUIDE.md》，定义预热/主 workflow 验证流程与缓存命中率计算方法
+  - 同步状态/看板/快照/路线图，标记 Phase 4 结束与整体路线图完成
 - 2025-10-07 **Phase 3: 主构建工作流切换至多级缓存链**
   - 更新 `.github/workflows/build-and-push.yml`，改用 registry `cache-base/cache-python/cache-node/cache-builder` 链
   - 移除 `actions/cache` + 本地目录迁移逻辑，统一推送 `cache-builder`（zstd 压缩）
@@ -77,7 +82,7 @@
 - 2025-03-?? 新增《AI 协作守则》与 CI/TTS 路线图（`documents/future-roadmap/`）。
 
 ## 阻塞/待确认事项
-- [ ] 远程部署机 Docker 层缓存是否保留完好？（检查 `docker images --digests` 结果并记录于快照）
+- [ ] 每季度初检查远程部署机缓存是否仍命中（参考《服务器部署与缓存预热指南》）
 
 ## 下一步计划
 - 本周：开始其他规划任务。

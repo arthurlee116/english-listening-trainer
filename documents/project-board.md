@@ -1,7 +1,7 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] Phase 4: 完善部署文档与缓存管理指南
+- [ ] （暂无）
 
 ## In Progress
 - [ ] （暂无）
@@ -9,7 +9,11 @@
 ## Review
 - [ ] （留空，提交 PR 后填入）
 
-## Done
+- [x] 2025-10-07 **Phase 4: 完善部署文档与缓存管理指南**
+  - 新增《CACHE_MANAGEMENT_GUIDE.md》定义缓存刷新/季度切换/配额监控
+  - 创建《SERVER_DEPLOYMENT_TEST_GUIDE.md》，补充远程缓存预热与部署排查
+  - 创建《WORKFLOW_TESTING_GUIDE.md》，记录预热/主 workflow 验证与 Summary 读取
+  - 同步状态表、快照、路线图，完成 CI 缓存优化路线图
 - [x] 2025-10-07 **Phase 3: 调整主 workflow 使用多级 cache-from**
   - `.github/workflows/build-and-push.yml` 采用 GHCR `cache-base/cache-python/cache-node/cache-builder` 链
   - 移除 `actions/cache` 及本地缓存目录迁移步骤，仅推送 `cache-builder`
