@@ -85,29 +85,14 @@
   - Run 链接：待首次执行后填写
   - 标签验证：待确认
 
-### 3. 调整主构建工作流 (`build-and-push.yml`)
-- **关键修改**：
-  - 移除 `actions/cache`（或仅用于小文件，如 lint 缓存）。
-  - 在 `cache-from` 中按顺序引用 `cache-base/cache-python/cache-node/cache-builder`。
-  - `cache-to` 仅保留 `type=registry,ref=...:cache-builder`（可选）和小型 `type=gha`。
-  - 提供 `inputs.rebuild-cache`，仅清除 builder 缓存，不影响 base/python/node。
-  - 在构建前输出 `df -h`，控制空间位于 `/home/runner/work`。
-  - 构建完成后写明命中情况（可从 BuildKit 日志中 grep `CACHED`）。
-
-示例片段：
-```yaml
-      - name: Build runtime image
-        uses: docker/build-push-action@v6
-        with:
-          target: runtime
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-python
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-node
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-builder
-          cache-to: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-builder,mode=max,compression=zstd
-```
+### 3. 调整主构建工作流 (`build-and-push.yml`) ✅ 已完成（2025-10-07）
+- **核心结果**：
+  - `actions/cache` 与 `/tmp/.buildx-cache` 逻辑全部移除，统一依赖 GHCR 多级缓存链。
+  - `cache-from` 依次引用 `cache-base` → `cache-python` → `cache-node` → `cache-builder`；`cache-to` 仅推送 `cache-builder`（zstd 压缩）。
+  - 通过 `docker buildx build`（`--progress plain` + `tee build.log`）记录完整日志，Summary 输出 `CACHED` 命中行数。
+  - 在构建前执行 `df -h` 与 4 GB 阈值校验，空间不足时立即失败。
+  - `workflow_dispatch` 新增 `rebuild-deps-cache` 输入，用于提醒手动触发预热 workflow 刷新依赖层。
+  - `rebuild-cache` 描述更新为“仅重建 builder cache”，避免误删 base/python/node。
 
 ### 4. 远程服务器缓存预热
 - **一次性执行**：

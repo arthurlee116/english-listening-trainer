@@ -1,7 +1,6 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] Phase 3: 调整主 workflow 使用多级 cache-from
 - [ ] Phase 4: 完善部署文档与缓存管理指南
 
 ## In Progress
@@ -11,6 +10,12 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-07 **Phase 3: 调整主 workflow 使用多级 cache-from**
+  - `.github/workflows/build-and-push.yml` 采用 GHCR `cache-base/cache-python/cache-node/cache-builder` 链
+  - 移除 `actions/cache` 及本地缓存目录迁移步骤，仅推送 `cache-builder`
+  - 增加 `df -h` + 4GB 阈值检查，构建日志 `CACHED` 统计写入 Summary
+  - workflow_dispatch 新增 `rebuild-deps-cache` 输入，用于提醒触发 `prewarm-deps.yml`
+  - Summary 输出命中行数与后续建议
 - [x] 2025-10-07 **Phase 2: 依赖缓存预热工作流**
   - 创建 `prewarm-deps.yml`（三层缓存：base/python/node）
   - 季度版本标签：2025Q4（固定策略）
