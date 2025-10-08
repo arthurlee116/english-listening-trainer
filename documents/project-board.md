@@ -1,7 +1,6 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] Phase 2: 编写并验证 `.github/workflows/prewarm-deps.yml`（依赖缓存预热工作流）
 - [ ] Phase 3: 调整主 workflow 使用多级 cache-from
 - [ ] Phase 4: 完善部署文档与缓存管理指南
 
@@ -12,6 +11,13 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-07 **Phase 2: 依赖缓存预热工作流**
+  - 创建 `prewarm-deps.yml`（三层缓存：base/python/node）
+  - 季度版本标签：2025Q4（固定策略）
+  - 跳过 builder 层推送（避免体积失控）
+  - 每周一自动执行 + workflow_dispatch 手动触发
+  - 磁盘空间监控：<4GB 时失败告警
+  - Summary 报告：标签表格 + 使用指南
 - [x] 2025-10-07 **Phase 1: 基础镜像内刊化（含 cuDNN8 标签修复）**
   - 推送 CUDA 基础镜像至 GHCR（digest: sha256:b2c52e...c12faa34）
   - **修复标签命名**：保留 `cudnn8` 后缀 → `12.1.1-cudnn8-runtime-ubuntu22.04`

@@ -66,18 +66,24 @@
   - **风险说明**：PyTorch/TensorFlow 依赖 `libcudnn.so.8`，若使用 cuDNN9 会导致符号缺失
   - **验证方法**：`docker run --rm <image> dpkg -l | grep cudnn` 确认 libcudnn8 存在
 
-### 2. 新建“依赖缓存预热”工作流
-- **文件**：`.github/workflows/prewarm-deps.yml`
-- **触发方式**：`workflow_dispatch` + 每周定时（例如周一凌晨）。
+### 2. 新建"依赖缓存预热"工作流 ✅ 已完成（2025-10-07）
+- **文件**：`.github/workflows/prewarm-deps.yml`（280 行）
+- **触发方式**：`workflow_dispatch` + 每周一凌晨 2 点 UTC。
 - **步骤**：
-  1. 清理磁盘（保留必要目录）。
+  1. 清理磁盘（保留必要目录），检查可用空间 ≥4GB。
   2. 设置 Buildx。
   3. 构建并推送以下目标：
-     - `docker buildx build --target base --cache-to type=registry,ref=...:cache-base,mode=max`
-     - `docker buildx build --target python-deps --cache-from ...:cache-base --cache-to ...:cache-python`
-     - `docker buildx build --target node-deps --cache-from ...:cache-python --cache-to ...:cache-node`
-  4. 可选：为 `builder` 生成 `cache-builder`，但控制体积（例如仅保留 `node_modules/.next/cache`）。
-- **注意**：不要推送 `runtime`；该 workflow 只负责生成稳定依赖层。
+     - `prewarm-base`: 构建 `base` stage → 推送 `cache-base` + `cache-base-2025Q4`
+     - `prewarm-python`: 从 `cache-base` 构建 `python-deps` → 推送 `cache-python` + `cache-python-2025Q4`
+     - `prewarm-node`: 从 `cache-base` + `cache-python` 构建 `node-deps` → 推送 `cache-node` + `cache-node-2025Q4`
+  4. 独立 summary job 生成汇总报告（标签表格 + 使用指南）。
+- **关键决策**：
+  - 季度标签固定为 `2025Q4`（手动更新策略）
+  - **不推送 builder 缓存**（体积控制，避免业务代码变化导致无效缓存）
+- **执行记录**：
+  - 时间：2025-10-07
+  - Run 链接：待首次执行后填写
+  - 标签验证：待确认
 
 ### 3. 调整主构建工作流 (`build-and-push.yml`)
 - **关键修改**：
