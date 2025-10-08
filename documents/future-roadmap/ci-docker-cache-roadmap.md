@@ -92,7 +92,7 @@
   - 通过 `docker buildx build`（`--progress plain` + `tee build.log`）记录完整日志，Summary 输出 `CACHED` 命中行数。
   - 在构建前执行 `df -h` 与 4 GB 阈值校验，空间不足时立即失败。
   - `workflow_dispatch` 新增 `rebuild-deps-cache` 输入，用于提醒手动触发预热 workflow 刷新依赖层。
-  - `rebuild-cache` 描述更新为“仅重建 builder cache”，避免误删 base/python/node。
+  - `rebuild-cache` 描述更新为“仅重建 builder cache”，并在执行时跳过 `cache-builder` 的 `cache-from` 引用，确保 base/python/node 层仍能命中缓存。
 
 ### 4. 远程服务器缓存预热
 - **一次性执行**：

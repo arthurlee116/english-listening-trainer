@@ -196,11 +196,6 @@ jobs:
             push_flag=(--push)
           fi
 
-          no_cache_flag=()
-          if [ "$REBUILD_CACHE" = "true" ]; then
-            no_cache_flag=(--no-cache)
-          fi
-
           tag_args=()
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
@@ -217,8 +212,15 @@ jobs:
             --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-base"
             --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-python"
             --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-node"
-            --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-builder"
           )
+
+          if [ "$REBUILD_CACHE" = "true" ]; then
+            echo "♻️  Rebuilding builder cache: skipping cache-builder layer reuse"
+          else
+            cache_from_args+=(
+              --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-builder"
+            )
+          fi
 
           cache_to_args=(
             --cache-to "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-builder,mode=max,compression=zstd"
@@ -237,7 +239,6 @@ jobs:
             "${push_flag[@]}"
           )
 
-          build_args+=("${no_cache_flag[@]}")
           build_args+=("${tag_args[@]}")
           build_args+=("${label_args[@]}")
           build_args+=("${cache_from_args[@]}")
@@ -250,6 +251,7 @@ jobs:
         if: always()
         env:
           REBUILD_DEPS_CACHE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild-deps-cache || 'false' }}
+          REBUILD_CACHE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild-cache || 'false' }}
         run: |
           echo "## 🎯 缓存命中情况" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -265,6 +267,11 @@ jobs:
           echo "- **CACHED 行数**: ${cached_layers}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **总阶段记录**: ${total_layers}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$REBUILD_CACHE" = "true" ]; then
+            echo "- 本次构建跳过 \`cache-builder\` 读取以强制重建 builder 层" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           if [ "$REBUILD_DEPS_CACHE" = "true" ]; then
             cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
