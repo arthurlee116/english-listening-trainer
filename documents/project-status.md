@@ -3,10 +3,16 @@
 > 最近更新：2025-10-07。更新本文件时同步调整此处日期。
 
 ## 当前核心目标
-- [ ] CI/Docker 缓存优化（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：Claude。进度：Phase 2 已完成 ✅
+- [ ] CI/Docker 缓存优化（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：Claude。进度：Phase 3 已完成 ✅
 - [x] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：全部 4 阶段已完成 ✅
 
 ## 最近里程碑
+- 2025-10-07 **Phase 3: 主构建工作流切换至多级缓存链**
+  - 更新 `.github/workflows/build-and-push.yml`，改用 registry `cache-base/cache-python/cache-node/cache-builder` 链
+  - 移除 `actions/cache` + 本地目录迁移逻辑，统一推送 `cache-builder`（zstd 压缩）
+  - 新增磁盘空间检查（`df -h` + 4GB 阈值）及 BuildKit 日志命中统计写入 Summary
+  - 添加 `rebuild-deps-cache` 输入项，提醒触发 `prewarm-deps.yml` 以刷新依赖层
+  - Summary 输出包含命中行数与后续建议
 - 2025-10-07 **Phase 2: 依赖缓存预热工作流完成**
   - 创建 `.github/workflows/prewarm-deps.yml`（280 行）
   - 实现三层缓存预热：base → python → node

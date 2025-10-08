@@ -16,7 +16,11 @@ on:
         required: false
         default: 'true'
       rebuild-cache:
-        description: 'Force rebuild all caches'
+        description: 'Force rebuild builder cache for this run'
+        required: false
+        default: 'false'
+      rebuild-deps-cache:
+        description: 'Rebuild dependencies cache (triggers prewarm workflow)'
         required: false
         default: 'false'
 
@@ -132,9 +136,27 @@ jobs:
           df -h /
           
           echo "✅ Disk space cleanup completed"
-      
+
+      - name: Check available disk space before build
+        run: |
+          set -euo pipefail
+          echo "📊 Disk usage overview:"
+          df -h /
+          df -h /home/runner/work
+
+          available_kb=$(df --output=avail -k /home/runner/work | tail -n1 | tr -d ' ')
+          min_required_kb=$((4 * 1024 * 1024))
+
+          if [ "$available_kb" -lt "$min_required_kb" ]; then
+            echo "::error::Available disk space is below 4GB (current: $((available_kb / 1024)) MB)."
+            exit 1
+          fi
+
+          echo "✅ Available disk space is sufficient"
+
       - name: Set up Docker Buildx
-          
+        id: setup-buildx
+        uses: docker/setup-buildx-action@v3
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -154,80 +176,113 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-      
-      - name: Cache Docker layers with Local Cache (2025 Best Practice)
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-main
-            ${{ runner.os }}-buildx-
 
-      - name: Build and push Docker image with 2025 Best Practice Caching
-        uses: docker/build-push-action@v6
+      - name: Build and push Docker image using registry cache chain
+        id: build-runtime
+        shell: bash
         env:
-          DOCKER_BUILD_RECORD_UPLOAD: false
-          DOCKER_BUILD_SUMMARY: false
-          DOCKER_BUILD_CHECKS_ANNOTATIONS: false
-        with:
-          context: .
-          file: ./Dockerfile
-          target: runtime
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          
-          # Registry Cache Strategy (解决基础镜像重复下载问题)
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-            type=local,src=/tmp/.buildx-cache
-          
-          cache-to: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max,compression=zstd
-            type=local,dest=/tmp/.buildx-cache-new,mode=max
-          
-          # Build optimization flags
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-            CEREBRAS_API_KEY=placeholder_for_build
-            JWT_SECRET=placeholder_for_build
-            DATABASE_URL=file:./data/app.db
-          
-          # Performance optimizations
-          no-cache: ${{ github.event.inputs.rebuild-cache == 'true' }}
-          
-          # Enable BuildKit features for better caching
-          load: false
-      
-      # Critical 2025 Cache Management Step
-      - name: Move Docker cache (Fix for docker/build-push-action#252)
+          TAGS: ${{ steps.meta.outputs.tags }}
+          LABELS: ${{ steps.meta.outputs.labels }}
+          PUSH_ENABLED: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
+          REBUILD_CACHE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild-cache || 'false' }}
         run: |
-          echo "Moving Docker cache to handle directory properly..."
-          rm -rf /tmp/.buildx-cache || true
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
-          echo "✅ Cache move completed successfully"
-      
-      - name: Extract cache information (2025 Best Practice)
-        if: github.event_name != 'pull_request'
+          set -euo pipefail
+
+          echo "$TAGS" > tags.txt
+          echo "$LABELS" > labels.txt
+
+          push_flag=(--load)
+          if [ "$PUSH_ENABLED" = "true" ]; then
+            push_flag=(--push)
+          fi
+
+          tag_args=()
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            tag_args+=(--tag "$tag")
+          done < tags.txt
+
+          label_args=()
+          while IFS= read -r label; do
+            [ -z "$label" ] && continue
+            label_args+=(--label "$label")
+          done < labels.txt
+
+          cache_from_args=(
+            --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-base"
+            --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-python"
+            --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-node"
+          )
+
+          if [ "$REBUILD_CACHE" = "true" ]; then
+            echo "♻️  Rebuilding builder cache: skipping cache-builder layer reuse"
+          else
+            cache_from_args+=(
+              --cache-from "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-builder"
+            )
+          fi
+
+          cache_to_args=(
+            --cache-to "type=registry,ref=${REGISTRY}/${IMAGE_NAME}:cache-builder,mode=max,compression=zstd"
+          )
+
+          build_args=(
+            --builder "${{ steps.setup-buildx.outputs.name }}"
+            --progress plain
+            --file ./Dockerfile
+            --target runtime
+            --platform linux/amd64
+            --build-arg BUILDKIT_INLINE_CACHE=1
+            --build-arg CEREBRAS_API_KEY=placeholder_for_build
+            --build-arg JWT_SECRET=placeholder_for_build
+            --build-arg DATABASE_URL=file:./data/app.db
+            "${push_flag[@]}"
+          )
+
+          build_args+=("${tag_args[@]}")
+          build_args+=("${label_args[@]}")
+          build_args+=("${cache_from_args[@]}")
+          build_args+=("${cache_to_args[@]}")
+          build_args+=(.)
+
+          docker buildx build "${build_args[@]}" | tee build.log
+
+      - name: Report cache hit statistics
+        if: always()
+        env:
+          REBUILD_DEPS_CACHE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild-deps-cache || 'false' }}
+          REBUILD_CACHE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild-cache || 'false' }}
         run: |
-          echo "## 🚀 Cache Performance (2025 Best Practice)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### **Cache Strategy Applied**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Local Cache (Primary)**: Fast local disk access" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **GitHub Actions Cache**: Persistent cross-run storage" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Cache Move Pattern**: Fixed directory handling issue" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### **Performance Expectations**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🎯 **Next build time**: 5-8 minutes for code changes" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚡ **Cache restore**: < 10 seconds (local) vs 60+ seconds (remote)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔄 **Hit rate**: >90% for code-only changes" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### **What to Look For**" >> $GITHUB_STEP_SUMMARY
-          echo "- Look for **'CACHED'** messages instead of 'Downloading'" >> $GITHUB_STEP_SUMMARY
-          echo "- Python dependencies should show as cached on second build" >> $GITHUB_STEP_SUMMARY
-          echo "- BuildKit should show cache hits in logs" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 缓存命中情况" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f build.log ]; then
+            cached_layers=$(grep -c " CACHED " build.log || true)
+            total_layers=$(grep -c " =>" build.log || true)
+          else
+            cached_layers=0
+            total_layers=0
+          fi
+
+          echo "- **CACHED 行数**: ${cached_layers}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **总阶段记录**: ${total_layers}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$REBUILD_CACHE" = "true" ]; then
+            echo "- 本次构建跳过 \`cache-builder\` 读取以强制重建 builder 层" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$REBUILD_DEPS_CACHE" = "true" ]; then
+            cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+> ⚠️ 本次请求包含 `rebuild-deps-cache=true`，请在本次构建后手动触发 `prewarm-deps.yml` workflow 以刷新 base/python/node 缓存层。
+
+EOF
+          fi
+
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+### 📌 下一步建议
+- 关注 BuildKit 日志中是否出现 "CACHED" 标记
+- 若缓存命中偏低，可先手动触发依赖预热工作流
+EOF
+      

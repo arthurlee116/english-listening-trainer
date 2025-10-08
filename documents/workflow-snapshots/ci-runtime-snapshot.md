@@ -36,6 +36,35 @@
 
 > 更新步骤：构建结束后复制 run 链接与摘要信息，按上述要点填写，耗时控制在 1 分钟内。
 
+## Phase 3 主 workflow 缓存链切换（2025-10-07）
+
+### Workflow 更新点
+- `.github/workflows/build-and-push.yml` 使用多级 `cache-from`：`cache-base` → `cache-python` → `cache-node` → `cache-builder`
+- `cache-to` 仅推送 `cache-builder`（zstd 压缩，保留业务层缓存）
+- 移除本地 `/tmp/.buildx-cache` 及 `actions/cache`，改用 BuildKit 原生 registry 缓存
+- 增加 `df -h` 空间快照与 4GB 阈值校验，失败时直接终止构建
+- 构建日志通过 `tee build.log` 保存，Summary 汇总 `CACHED` 命中行数
+- 新增 `workflow_dispatch.inputs.rebuild-deps-cache`，用于提醒同步触发 `prewarm-deps.yml`
+
+### 最近运行（待填充）
+- **运行时间**：待记录（例如：2025-10-07 18:30 UTC 推送触发）
+- **Run 链接**：待记录（https://github.com/.../runs/...）
+- **耗时**：待记录（目标 5-8 分钟内）
+- **缓存命中统计**：
+  - build.log 中 `CACHED` 行数：待记录
+  - 总阶段记录行数：待记录
+- **磁盘空间**：
+  - 构建前：待记录（`df -h /home/runner/work`）
+  - 构建后（可选）：待记录
+- **是否触发依赖预热提醒**：待记录（如 workflow_dispatch 设置 `rebuild-deps-cache=true`）
+- **问题 & 备注**：待记录（例如：builder cache miss 原因）
+
+### 验证要点
+- Summary 中出现“CACHED 行数”与“下一步建议”段落
+- BuildKit 日志包含 `CACHED` 关键字（至少 base/python/node 任一命中）
+- 构建耗时落在路线图目标区间
+- 若空间不足（<4GB），workflow 应直接失败并提示错误
+
 ## Phase 2 预热工作流基线（2025-10-07）
 
 ### 工作流配置
