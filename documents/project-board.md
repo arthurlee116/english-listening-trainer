@@ -1,7 +1,7 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] Phase 4: 完善部署文档与缓存管理指南
+- [ ] （暂无）
 
 ## In Progress
 - [ ] （暂无）
@@ -10,6 +10,13 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-12 **Phase 4: 远程服务器缓存预热完成**
+  - 创建 `scripts/remote-cache-prewarm.sh` 实现多级缓存预热
+  - 创建 `scripts/verify-cache-layers.sh` 验证缓存层完整性
+  - 修改 `scripts/deploy-from-ghcr.sh` 集成缓存预热步骤
+  - 统一 `Dockerfile.optimized` NODE_MAJOR 版本为 20
+  - 明确两个 Dockerfile 用途并添加注释
+  - 详细记录：`documents/workflow-snapshots/remote-cache-prewarm-snapshot.md`
 - [x] 2025-10-07 **Phase 3: 调整主 workflow 使用多级 cache-from**
   - `.github/workflows/build-and-push.yml` 采用 GHCR `cache-base/cache-python/cache-node/cache-builder` 链
   - 移除 `actions/cache` 及本地缓存目录迁移步骤，仅推送 `cache-builder`

@@ -19,7 +19,21 @@ echo -e "${BLUE}📦 Image: $REGISTRY/$IMAGE_NAME:$TAG${NC}"
 echo ""
 
 # Pull latest image
-echo -e "${BLUE}📥 Pulling image from GHCR...${NC}"
+echo -e "${BLUE}📥 检查缓存层状态...${NC}"
+if ! ./scripts/verify-cache-layers.sh; then
+    echo -e "${YELLOW}⚠️  缓存层不完整，开始预热...${NC}"
+    echo -e "${BLUE}🔥 执行缓存预热...${NC}"
+    if ! ./scripts/remote-cache-prewarm.sh; then
+        echo -e "${RED}❌ 缓存预热失败${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ 缓存预热完成${NC}"
+else
+    echo -e "${GREEN}✅ 缓存层已就绪${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}📥 拉取runtime镜像...${NC}"
 if ! docker pull "$REGISTRY/$IMAGE_NAME:$TAG"; then
   echo -e "${RED}❌ Failed to pull image from GHCR${NC}"
   echo -e "${YELLOW}💡 Make sure you're logged in: docker login ghcr.io${NC}"

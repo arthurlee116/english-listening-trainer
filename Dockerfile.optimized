@@ -6,7 +6,7 @@ FROM ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS 
 ARG BUILDKIT_INLINE_CACHE=1
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    NODE_MAJOR=18 \
+    NODE_MAJOR=20 \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 

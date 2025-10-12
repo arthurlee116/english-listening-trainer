@@ -1,3 +1,7 @@
+# 生产环境Dockerfile - 用于CI/CD构建和部署
+# 特点：完整的多级缓存策略，优化的层结构，支持GPU加速
+# 使用场景：GitHub Actions构建、生产环境部署
+
 # Optimized multi-stage build for Next.js + Kokoro TTS
 # Strategy: Maximize caching by ordering from least to most frequently changed
 # Base runtime uses NVIDIA CUDA 12.1 with cuDNN on Ubuntu 22.04 to support Tesla P40
