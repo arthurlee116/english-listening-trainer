@@ -447,8 +447,8 @@
       "zh": "进度"
     },
     "questionNumber": {
-      "en": "Q",
-      "zh": "第"
+      "en": "Question {number}",
+      "zh": "第{number}题"
     },
     "emergencyTranscriptHint": {
       "en": "Emergency: Show transcript (Please try listening to the audio first!)",
@@ -506,7 +506,7 @@
     },
     "questionNumber": {
       "en": "Question {number}",
-      "zh": "题目 {number}"
+      "zh": "第{number}题"
     },
     "yourAnswer": {
       "en": "Your Answer",
@@ -793,12 +793,12 @@
       "zh": "请仔细听完每段音频，然后根据您的理解程度打分"
     },
     "segmentTitle": {
-      "en": "Segment {number}",
-      "zh": "第{number}段"
+      "en": "Segment {number}: {topic}",
+      "zh": "第{number}段：{topic}"
     },
     "difficultyLevel": {
-      "en": "Difficulty Level",
-      "zh": "难度级别"
+      "en": "Difficulty Level: {level}/30",
+      "zh": "难度级别：{level}/30"
     },
     "ratingPrompt": {
       "en": "Please rate your understanding of this audio segment:",
@@ -813,8 +813,8 @@
       "zh": "完全理解"
     },
     "yourRating": {
-      "en": "Your rating",
-      "zh": "您的评分"
+      "en": "Your rating: {score}/10",
+      "zh": "您的评分：{score}/10"
     },
     "nextQuestion": {
       "en": "Next Question",
@@ -885,8 +885,8 @@
       "zh": "答题详情"
     },
     "question": {
-      "en": "Question",
-      "zh": "问题"
+      "en": "Question {number}",
+      "zh": "第{number}题"
     },
     "options": {
       "en": "Options",

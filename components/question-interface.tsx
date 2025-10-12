@@ -336,7 +336,11 @@ const QuestionInterfaceComponent = ({
         <Card key={index} className="glass-effect p-6">
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded">{t('components.questionInterface.questionNumber')}{index + 1}</span>
+              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded">
+                {t('components.questionInterface.questionNumber', {
+                  values: { number: index + 1 },
+                })}
+              </span>
               {question.type === "short" && (
                 <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded">{t('components.questionInterface.shortAnswer')}</span>
               )}

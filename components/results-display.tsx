@@ -399,7 +399,10 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
               const result = exercise.results[index]
               const userAnswer = exercise.answers[index] || ""
               const isCorrect = result?.is_correct || false
-              
+              const questionLabel = t('components.resultsDisplay.question', {
+                values: { number: index + 1 },
+              })
+
               return (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-start gap-3">
@@ -408,10 +411,10 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
                     ) : (
                       <XCircle className="w-5 h-5 text-rose-400 mt-0.5 flex-shrink-0" />
                     )}
-                    
+
                     <div className="flex-1 space-y-2">
                       <div className="font-medium">
-                        {t('components.resultsDisplay.question')} {index + 1}: {question.question}
+                        {questionLabel}: {question.question}
                       </div>
                       
                       {question.type === "single" && question.options && (

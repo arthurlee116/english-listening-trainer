@@ -222,10 +222,14 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
             </h2>
           </div>
           <Badge variant="outline">
-            <BilingualText 
-              translationKey="components.assessmentInterface.questionCounter" 
-              en={`${currentIndex + 1} / ${ASSESSMENT_QUESTIONS.length}`}
-              zh={`第${currentIndex + 1}题，共${ASSESSMENT_QUESTIONS.length}题`}
+            <BilingualText
+              translationKey="components.assessmentInterface.questionCounter"
+              options={{
+                values: {
+                  current: currentIndex + 1,
+                  total: ASSESSMENT_QUESTIONS.length,
+                },
+              }}
             />
           </Badge>
         </div>
@@ -241,18 +245,25 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
         <div className="text-center space-y-6">
           <div>
             <h3 className="text-xl font-semibold mb-2">
-              <BilingualText 
+              <BilingualText
                 translationKey="components.assessmentInterface.segmentTitle"
-                en={`Segment ${currentQuestion.id}: ${currentQuestion.topic}`}
-                zh={`第${currentQuestion.id}段：${currentQuestion.topic}`}
+                options={{
+                  values: {
+                    number: currentQuestion.id,
+                    topic: currentQuestion.topic,
+                  },
+                }}
               />
             </h3>
             <p className="text-gray-600">{currentQuestion.description}</p>
             <Badge variant="outline" className="mt-2">
-              <BilingualText 
+              <BilingualText
                 translationKey="components.assessmentInterface.difficultyLevel"
-                en={`Difficulty Level: ${currentQuestion.difficulty}/30`}
-                zh={`难度级别: ${currentQuestion.difficulty}/30`}
+                options={{
+                  values: {
+                    level: currentQuestion.difficulty,
+                  },
+                }}
               />
             </Badge>
           </div>
@@ -296,10 +307,13 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
               {answers[currentQuestion.id] !== undefined && (
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-4">
-                    <BilingualText 
+                    <BilingualText
                       translationKey="components.assessmentInterface.yourRating"
-                      en={`Your rating: ${answers[currentQuestion.id]}/10`}
-                      zh={`您的评分：${answers[currentQuestion.id]}/10`}
+                      options={{
+                        values: {
+                          score: answers[currentQuestion.id],
+                        },
+                      }}
                     />
                   </p>
                   <Button 
