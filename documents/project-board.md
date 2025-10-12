@@ -10,13 +10,18 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-13 **Scripts directory精简完成**
+  - 删除 70+ 旧部署/诊断脚本，仅保留 `backup.sh`、`restore.sh`、`setup-kokoro.sh`
+  - 更新 `package.json`、Docker Compose 与部署文档改用手动命令
+  - 调整状态/快照文档，标记缓存脚本已归档，避免误用硬编码凭据
 - [x] 2025-10-12 **Phase 4: 远程服务器缓存预热完成**
   - 创建 `scripts/remote-cache-prewarm.sh` 实现多级缓存预热
   - 创建 `scripts/verify-cache-layers.sh` 验证缓存层完整性
-  - 修改 `scripts/deploy-from-ghcr.sh` 集成缓存预热步骤
+  - 修改 `scripts/deploy-from-ghcr.sh` 集成缓存预热步骤（2025-10-13 起已归档）
   - 统一 `Dockerfile.optimized` NODE_MAJOR 版本为 20
   - 明确两个 Dockerfile 用途并添加注释
   - 详细记录：`documents/workflow-snapshots/remote-cache-prewarm-snapshot.md`
+  - （2025-10-13 更新：脚本已归档，改为直接使用 docker pull + docker compose 流程）
 - [x] 2025-10-07 **Phase 4: 完善部署文档与缓存管理指南**
   - 新增《CACHE_MANAGEMENT_GUIDE.md》定义缓存刷新/季度切换/配额监控
   - 创建《SERVER_DEPLOYMENT_TEST_GUIDE.md》，补充远程缓存预热与部署排查

@@ -31,10 +31,10 @@
 - 支持GPU加速
 - 易于回滚
 
-**使用脚本**：
-- [`scripts/deploy-from-ghcr.sh`](scripts/deploy-from-ghcr.sh) - 主要部署脚本
-- [`scripts/remote-cache-prewarm.sh`](scripts/remote-cache-prewarm.sh) - 缓存预热
-- [`scripts/verify-cache-layers.sh`](scripts/verify-cache-layers.sh) - 缓存验证
+**关键命令**：
+- `docker login ghcr.io`：使用 PAT 认证 GHCR（参见下文“镜像同步”）
+- `docker pull ghcr.io/<namespace>/<image>:<tag>`：拉取预构建镜像
+- `docker compose -f docker-compose.gpu.yml up -d`：启动/更新服务
 
 ### 2. 基于Git拉取部署
 **适用场景**：开发环境、快速迭代、需要源码调试
@@ -44,9 +44,10 @@
 - 便于本地调试
 - 无需镜像构建
 
-**使用脚本**：
-- [`scripts/remote-deploy-gpu.sh`](scripts/remote-deploy-gpu.sh) - GPU服务器部署
-- [`scripts/remote-deploy.sh`](scripts/remote-deploy.sh) - 通用部署
+**关键命令**：
+- `git fetch && git reset --hard origin/main`：同步仓库状态
+- `npm ci && npm run build`：本地构建
+- `pm2 restart elt --update-env` 或 `npm run start`：在服务器上手动重启服务
 
 ---
 
@@ -79,14 +80,11 @@ git diff --cached --name-only
 git add .
 
 # 提交更改（使用约定式提交）
-git commit -m "feat: 添加远程缓存预热功能
+git commit -m "chore: prepare deployment rollout
 
-- 创建 remote-cache-prewarm.sh 实现多级缓存预热
-- 创建 verify-cache-layers.sh 验证缓存层完整性
-- 修改 deploy-from-ghcr.sh 集成缓存预热步骤
-- 统一 Dockerfile NODE_MAJOR 版本为 20
-
-Closes #缓存优化"
+- 清理 scripts 目录，仅保留 backup/restore/setup-kokoro
+- 更新部署文档改用手动命令
+- 同步 docker-compose 与 package.json"
 ```
 
 **选项B：暂存更改（临时保存）**
@@ -174,21 +172,30 @@ ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && rm -rf back
 #### 3.1 缓存预热（首次部署或缓存失效时）
 
 ```bash
-# 执行缓存预热
-./scripts/remote-cache-prewarm.sh
+# 登录 GHCR（需要具有 read:packages 权限的 PAT）
+export GHCR_PAT=<your-token>
+echo "$GHCR_PAT" | docker login ghcr.io -u arthurlee116 --password-stdin
+unset GHCR_PAT
 
-# 验证缓存层
-./scripts/verify-cache-layers.sh
+# 依次拉取缓存层（可选，但建议在首次部署或缓存失效时执行）
+for tag in cache-base cache-python cache-node; do
+  docker pull ghcr.io/arthurlee116/english-listening-trainer:$tag || break
+done
 ```
 
 #### 3.2 执行部署
 
 ```bash
-# 部署最新版本
-./scripts/deploy-from-ghcr.sh
+# 拉取业务镜像
+docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
 
-# 部署指定版本
-./scripts/deploy-from-ghcr.sh v1.2.3
+# 在服务器上重新加载容器
+ssh -p 60022 ubuntu@49.234.30.246 <<'EOF'
+set -e
+cd ~/english-listening-trainer
+docker compose -f docker-compose.gpu.yml down --remove-orphans
+docker compose -f docker-compose.gpu.yml up -d
+EOF
 ```
 
 #### 3.3 部署验证
@@ -209,21 +216,31 @@ curl -f http://49.234.30.246:3000/api/health
 #### 4.1 完整部署（首次）
 
 ```bash
-# 使用自动化脚本
-./scripts/remote-deploy-gpu.sh --host 49.234.30.246 --port 60022 --branch main
-
-# 手动指定仓库（首次部署）
-./scripts/remote-deploy-gpu.sh --repo https://github.com/arthurlee116/english-listening-trainer.git
+ssh -p 60022 ubuntu@49.234.30.246 <<'EOF'
+set -e
+mkdir -p ~/english-listening-trainer
+cd ~/english-listening-trainer
+git clone https://github.com/arthurlee116/english-listening-trainer.git . || git pull origin main
+npm ci
+npm run build
+pm2 delete elt || true
+pm2 start npm --name elt -- start
+EOF
 ```
 
 #### 4.2 更新部署（已有项目）
 
 ```bash
-# 仅更新代码
-./scripts/remote-deploy-gpu.sh --update
-
-# 运行测试后部署
-./scripts/remote-deploy-gpu.sh --run-tests
+ssh -p 60022 ubuntu@49.234.30.246 <<'EOF'
+set -e
+cd ~/english-listening-trainer
+git fetch origin
+git reset --hard origin/main
+git clean -fd
+npm ci
+npm run build
+pm2 reload elt --update-env || pm2 start npm --name elt -- start
+EOF
 ```
 
 ---
@@ -287,8 +304,8 @@ ssh -p 60022 ubuntu@49.234.30.246 "docker images | grep english-listening-traine
 # 回滚到上一个版本
 ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:previous docker compose -f docker-compose.gpu.yml up -d"
 
-# 使用脚本回滚
-./scripts/deploy-from-ghcr.sh v1.2.2
+# 重新部署指定版本
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:v1.2.2 docker compose -f docker-compose.gpu.yml up -d"
 ```
 
 ### 完整回滚（Git代码）
@@ -428,7 +445,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "sudo systemctl restart nvidia-persistenced"
    ssh -p 60022 ubuntu@49.234.30.246 "docker image prune -f --filter 'until=72h'"
    
    # 验证缓存完整性
-   ./scripts/verify-cache-layers.sh
+   ssh -p 60022 ubuntu@49.234.30.246 "docker images | grep 'english-listening-trainer:cache-' || echo '未找到缓存镜像'"
    ```
 
 ### 网络优化
@@ -526,7 +543,24 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Deploy to server
-        run: ./scripts/deploy-from-ghcr.sh
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_KEY }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        run: |
+          echo "$SSH_KEY" > key.pem
+          chmod 600 key.pem
+          echo "$GHCR_PAT" | docker login ghcr.io -u arthurlee116 --password-stdin
+          ssh -i key.pem -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+          set -e
+          cd ~/english-listening-trainer
+          docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+          docker compose -f docker-compose.gpu.yml down --remove-orphans
+          docker compose -f docker-compose.gpu.yml up -d
+          EOF
+          rm key.pem
 ```
 
 ### 2. 定时任务

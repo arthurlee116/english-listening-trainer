@@ -59,13 +59,13 @@ I'm working on an English Listening Trainer application with the following setup
 ├── next.config.mjs (Next.js config)
 ├── .next/ (built Next.js app)
 ├── public/ (static assets)
-├── scripts/ (utility scripts like seed-docker.js)
+├── scripts/ (maintenance scripts: backup.sh / restore.sh / setup-kokoro.sh)
 ├── kokoro_local/ (TTS engine code)
 └── node_modules/ (installed packages)
 ```
 
 ### Frequently Changed Files
-- `scripts/*.js` - utility scripts
+- `scripts/backup.sh` / `scripts/restore.sh` / `scripts/setup-kokoro.sh` - 运维脚本
 - `app/**/*.tsx` - Next.js pages and API routes
 - `components/**/*.tsx` - React components
 - `lib/**/*.ts` - business logic

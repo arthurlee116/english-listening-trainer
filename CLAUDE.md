@@ -31,7 +31,7 @@ npm run test:coverage    # Generate coverage report
 npm run db:generate      # Generate Prisma client
 npm run db:migrate       # Create/apply migrations
 npm run db:studio        # Open Prisma Studio
-npm exec ts-node scripts/database-migration.ts  # Run migration script
+npm run db:migrate  # Run Prisma migrations
 ```
 
 ### TTS Setup

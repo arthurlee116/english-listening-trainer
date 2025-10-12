@@ -4,7 +4,7 @@
 - `app/` holds Next.js route handlers, layouts, and global styles; keep new pages in feature folders under `app/`.
 - `components/` contains reusable UI and form primitives shared across views.
 - `lib/` groups domain services (TTS, AI analysis, Kokoro) plus configuration helpers; co-locate new service modules here.
-- `prisma/schema.prisma` owns the database model; migrations and seed data live in `prisma/` and `scripts/`.
+- `prisma/schema.prisma` owns the database model; migrations now run via Prisma CLI (`npm run db:migrate`).
 - Tests are split across `__tests__/` (unit, integration, e2e) and `src/test/` fixtures; assets and public audio reside under `public/` and `data/`.
 
 ## Build, Test, and Development Commands

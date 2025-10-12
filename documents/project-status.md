@@ -27,10 +27,15 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+- 2025-10-13 **Scripts 目录精简**
+  - 删除历史远程部署脚本，保留 `backup.sh`、`restore.sh`、`setup-kokoro.sh`
+  - 更新 `package.json`、Docker Compose、部署文档改用手动命令
+  - 清理文档引用，避免误用内嵌凭据
 - 2025-10-12 **Phase 4: 远程服务器缓存预热完成**
-  - 创建 `scripts/remote-cache-prewarm.sh` 和 `scripts/verify-cache-layers.sh`，实现多级缓存预热与完整性校验
-  - 更新 `scripts/deploy-from-ghcr.sh` 将缓存预热纳入标准部署流程，并统一 `Dockerfile.optimized` 的 `NODE_MAJOR=20`
+  - 创建 `scripts/remote-cache-prewarm.sh` 和 `scripts/verify-cache-layers.sh`（已于 2025-10-13 归档），实现多级缓存预热与完整性校验
+  - 更新 `scripts/deploy-from-ghcr.sh`（已于 2025-10-13 归档）将缓存预热纳入标准部署流程，并统一 `Dockerfile.optimized` 的 `NODE_MAJOR=20`
   - 在 `documents/workflow-snapshots/remote-cache-prewarm-snapshot.md` 记录执行细节与问题排查日志
+  - （2025-10-13 更新：上述脚本已归档，改用 GHCR + docker compose 手动命令）
 - 2025-10-07 **Phase 4: 完善部署文档与缓存管理指南**
   - 新增《CACHE_MANAGEMENT_GUIDE.md》《SERVER_DEPLOYMENT_TEST_GUIDE.md》《WORKFLOW_TESTING_GUIDE.md》三份文档，覆盖缓存刷新策略、部署排查以及 workflow 验证流程
   - 同步状态表、看板、快照与路线图，标记 CI 缓存优化路线图收官
@@ -41,8 +46,9 @@
 
 ## 最近里程碑
 - 2025-10-12 **Phase 4: 远程服务器缓存预热完成**
-  - 创建 `scripts/remote-cache-prewarm.sh` 与 `scripts/verify-cache-layers.sh`，并在 `deploy-from-ghcr.sh` 集成缓存预热流程
+  - 创建 `scripts/remote-cache-prewarm.sh` 与 `scripts/verify-cache-layers.sh`（2025-10-13 起归档），并在 `deploy-from-ghcr.sh` 集成缓存预热流程
   - 统一 Dockerfile 说明与 NODE_MAJOR 版本，补充远程服务器部署手册（`documents/DEPLOYMENT.md`）
+  - （2025-10-13 更新：脚本工具已退役，部署手册改为纯命令行流程）
 - 2025-10-07 **Phase 4: 缓存与部署文档完善**
   - 发布《CACHE_MANAGEMENT_GUIDE.md》《SERVER_DEPLOYMENT_TEST_GUIDE.md》《WORKFLOW_TESTING_GUIDE.md》
   - 更新状态/看板/快照/路线图，完成 CI 缓存优化收尾工作

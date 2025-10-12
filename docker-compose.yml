@@ -83,7 +83,6 @@ services:
       - POSTGRES_INITDB_ARGS="--encoding=UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app_network
     healthcheck:
@@ -112,7 +111,6 @@ services:
       - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./scripts/init-mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app_network
     healthcheck:

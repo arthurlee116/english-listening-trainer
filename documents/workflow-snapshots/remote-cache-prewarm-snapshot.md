@@ -2,7 +2,7 @@
 
 > **创建时间**: 2025-10-12 10:30 UTC  
 > **负责人**: Kilo Code  
-> **状态**: 已完成 ✅  
+> **状态**: 已完成 ✅（2025-10-13 起脚本归档，改为手动 GHCR 拉取 + docker compose 流程）  
 > **版本**: v1.3.0  
 
 ## 任务概述
@@ -25,7 +25,9 @@
 
 ### 1. 创建远程缓存预热脚本
 
-**文件**: [`scripts/remote-cache-prewarm.sh`](scripts/remote-cache-prewarm.sh)
+> 备注：脚本已于 2025-10-13 移除，现改用手动 `docker pull` 预拉缓存层。
+
+**文件**: `scripts/remote-cache-prewarm.sh`（已归档）
 
 **核心功能**:
 - 按顺序拉取cache-base、cache-python、cache-node镜像
@@ -56,7 +58,9 @@ done
 
 ### 2. 创建缓存层验证脚本
 
-**文件**: [`scripts/verify-cache-layers.sh`](scripts/verify-cache-layers.sh)
+> 备注：脚本已于 2025-10-13 移除，现改用 `docker images` 手动检查缓存状态。
+
+**文件**: `scripts/verify-cache-layers.sh`（已归档）
 
 **核心功能**:
 - 检查所有缓存层是否存在
@@ -80,7 +84,9 @@ done
 
 ### 3. 修改部署脚本集成缓存预热
 
-**文件**: [`scripts/deploy-from-ghcr.sh`](scripts/deploy-from-ghcr.sh)
+> 备注：脚本已于 2025-10-13 移除，使用 SSH + docker compose 手动部署。
+
+**文件**: `scripts/deploy-from-ghcr.sh`（已归档）
 
 **修改内容**:
 - 在拉取runtime镜像前先执行缓存验证
@@ -154,6 +160,7 @@ fi
 
 ### 1. 脚本语法检查
 ```bash
+# （已归档脚本，仅用于历史追踪）
 # 检查所有脚本语法
 bash -n scripts/remote-cache-prewarm.sh
 bash -n scripts/verify-cache-layers.sh
@@ -162,6 +169,7 @@ bash -n scripts/deploy-from-ghcr.sh
 
 ### 2. 功能测试
 ```bash
+# （已归档脚本，仅用于历史追踪）
 # 验证缓存预热
 ./scripts/remote-cache-prewarm.sh
 

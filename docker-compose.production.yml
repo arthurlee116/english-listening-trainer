@@ -89,38 +89,6 @@ services:
     # 用户权限
     user: "1000:1000"
 
-  # 数据库初始化服务
-  init-db:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    container_name: listening-training-init-db
-    
-    environment:
-      - NODE_ENV=production
-    
-    env_file:
-      - .env.production
-    
-    volumes:
-      - app-data:/app/data
-      - ./scripts:/app/scripts:ro
-    
-    networks:
-      - app-network
-    
-    command: ["./scripts/init-db.sh"]
-    
-    restart: "no"
-    
-    # 资源限制
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-
   # Nginx 反向代理
   nginx:
     image: nginx:alpine
@@ -237,7 +205,6 @@ services:
     
     volumes:
       - logs-data:/var/log/app
-      - ./scripts:/scripts:ro
     
     # 每天轮转日志
     command: ["sh", "-c", "while true; do find /var/log/app -name '*.log' -size +100M -exec truncate -s 0 {} \\;; sleep 86400; done"]
@@ -249,42 +216,6 @@ services:
       resources:
         limits:
           memory: 64M
-          cpus: '0.1'
-
-  # 健康检查和监控服务
-  healthcheck:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    container_name: listening-training-healthcheck
-    
-    environment:
-      - NODE_ENV=production
-    
-    env_file:
-      - .env.production
-    
-    volumes:
-      - ./scripts:/app/scripts:ro
-      - logs-data:/app/logs
-    
-    networks:
-      - app-network
-    
-    # 每 5 分钟执行健康检查
-    command: ["sh", "-c", "while true; do ./scripts/health-check.sh >> /app/logs/health.log 2>&1; sleep 300; done"]
-    
-    restart: unless-stopped
-    
-    depends_on:
-      - app
-    
-    # 资源限制
-    deploy:
-      resources:
-        limits:
-          memory: 128M
           cpus: '0.1'
 
   # 可选：Redis 缓存服务
@@ -337,7 +268,6 @@ services:
     
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./scripts:/docker-entrypoint-initdb.d:ro
     
     networks:
       - app-network

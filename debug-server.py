@@ -11,7 +11,7 @@ def main():
     commands = [
         "cd /home/ubuntu/english-listening-trainer",
         "git pull origin main",
-        "python3 scripts/debug-kokoro-remote.py"
+        "python3 -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml --format json --skip-on-missing-model"
     ]
     
     remote_cmd = " && ".join(commands)

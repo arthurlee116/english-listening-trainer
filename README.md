@@ -47,7 +47,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 
 4.  **Run database migrations:**
     ```bash
-    npm exec ts-node scripts/database-migration.ts
+    npm run db:migrate
     ```
 
 5.  **Run the development server:**
@@ -76,7 +76,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 - `components/`: React components used throughout the application.
 - `lib/`: Core application logic, services, and utilities.
 - `hooks/`: Custom React hooks.
-- `scripts/`: Utility scripts for tasks like database migration and setting up Kokoro.
+- `scripts/`: Maintenance utilities (`backup.sh`, `restore.sh`, `setup-kokoro.sh`).
 - `kokoro_local/`: The local Kokoro TTS engine and its related files.
 - `public/`: Static assets, including generated audio files.
 - `data/`: The SQLite database file.
