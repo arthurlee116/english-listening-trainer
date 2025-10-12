@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { renderHook } from '@testing-library/react'
 import { mockStorage } from '../../helpers/storage-mock'
 import { createMockExercise, createMockProgressMetrics, createMockGoalSettings } from '../../helpers/mock-utils'
 import {
@@ -13,11 +14,48 @@ import {
 } from '../../../lib/achievement-service'
 import { convertExerciseToSessionData } from '../../../lib/storage'
 import type { UserProgressMetrics, AchievementBadge, Exercise } from '../../../lib/types'
+import type { TranslationKey } from '@/lib/i18n/types'
+import { useBilingualText, clearTranslationCache } from '@/hooks/use-bilingual-text'
+import achievementsTranslations from '@/lib/i18n/translations/achievements.json'
+
+const achievementsJson = achievementsTranslations as Record<string, unknown>
+const achievementsJsonSection = (achievementsJson['achievements'] as Record<string, unknown>) || {}
+
+const resolveAchievementTranslationFromJson = (key: string): TranslationKey | null => {
+  const walkPath = (base: Record<string, unknown>, path: string[]): unknown => {
+    return path.reduce<unknown>((current, segment) => {
+      if (current && typeof current === 'object' && segment in (current as Record<string, unknown>)) {
+        return (current as Record<string, unknown>)[segment]
+      }
+      return undefined
+    }, base)
+  }
+
+  const directResult = walkPath(achievementsJson, key.split('.'))
+  if (directResult && typeof directResult === 'object' && 'en' in directResult && 'zh' in directResult) {
+    return directResult as TranslationKey
+  }
+
+  if (key.startsWith('achievements.')) {
+    const remainder = key.substring(13)
+    const base = remainder.startsWith('notifications.') || remainder.startsWith('dashboard.')
+      ? achievementsJson
+      : achievementsJsonSection
+    const fallbackResult = walkPath(base, remainder.split('.'))
+
+    if (fallbackResult && typeof fallbackResult === 'object' && 'en' in fallbackResult && 'zh' in fallbackResult) {
+      return fallbackResult as TranslationKey
+    }
+  }
+
+  return null
+}
 
 describe('Achievement Service', () => {
   beforeEach(() => {
     mockStorage()
     vi.clearAllMocks()
+    clearTranslationCache()
   })
 
   describe('updateProgressMetrics', () => {
@@ -317,7 +355,7 @@ describe('Achievement Service', () => {
   describe('getEarnedAchievements', () => {
     it('should return only earned achievements', () => {
       initializeAchievements()
-      
+
       // Earn first achievement by completing a session
       const exercise = createMockExercise()
       handlePracticeCompleted(exercise)
@@ -334,8 +372,37 @@ describe('Achievement Service', () => {
       initializeAchievements()
       
       const earnedAchievements = getEarnedAchievements()
-      
+
       expect(earnedAchievements).toEqual([])
+    })
+
+    it('should align earned achievement text with translation resources', () => {
+      initializeAchievements()
+
+      const exercise = createMockExercise()
+      handlePracticeCompleted(exercise)
+
+      const { result } = renderHook(() => useBilingualText())
+      const { t, getBilingualValue } = result.current
+
+      const earnedAchievements = getEarnedAchievements()
+      expect(earnedAchievements.length).toBeGreaterThan(0)
+
+      earnedAchievements.forEach(achievement => {
+        const titleTranslation = resolveAchievementTranslationFromJson(achievement.titleKey)
+        const descriptionTranslation = resolveAchievementTranslationFromJson(achievement.descriptionKey)
+
+        expect(titleTranslation).not.toBeNull()
+        expect(descriptionTranslation).not.toBeNull()
+
+        if (titleTranslation) {
+          expect(t(achievement.titleKey)).toBe(getBilingualValue(titleTranslation))
+        }
+
+        if (descriptionTranslation) {
+          expect(t(achievement.descriptionKey)).toBe(getBilingualValue(descriptionTranslation))
+        }
+      })
     })
   })
 

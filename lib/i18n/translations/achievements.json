@@ -99,7 +99,7 @@
       },
       "description": {
         "en": "You've earned the '{title}' achievement!",
-        "zh": "您获得了"{title}"成就！"
+        "zh": "您获得了\"{title}\"成就！"
       }
     },
     "goalCompleted": {
