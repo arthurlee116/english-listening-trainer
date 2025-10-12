@@ -53,8 +53,6 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
   // 遍历所有的chunk
   try {
     while (offset + 8 <= buffer.length) {
-      if (offset + 8 > buffer.length) break
-
       const chunkId = buffer.toString('ascii', offset, offset + 4)
       const chunkSize = buffer.readUInt32LE(offset + 4)
 
@@ -63,20 +61,27 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
         break
       }
 
-      const nextOffset = offset + 8 + chunkSize
+      const chunkDataStart = offset + 8
+      const paddedChunkSize = chunkSize + (chunkSize % 2) // RIFF chunks align to even bytes
+      const nextOffset = chunkDataStart + paddedChunkSize
+
+      if (nextOffset > buffer.length + 1) {
+        console.warn(`Chunk exceeds buffer bounds: ${chunkId} size=${chunkSize}`)
+        break
+      }
 
       if (chunkId === 'fmt ') {
         if (chunkSize >= 16) {
           // AudioFormat (uint16) - 通常是1 (PCM)
-          const audioFormat = buffer.readUInt16LE(offset + 8)
+          const audioFormat = buffer.readUInt16LE(chunkDataStart)
           if (audioFormat !== 1) {
             console.warn(`Unsupported audio format: ${audioFormat} (only PCM supported)`)
             return fallback
           }
 
-          channels = buffer.readUInt16LE(offset + 8 + 2)
-          sampleRate = buffer.readUInt32LE(offset + 8 + 4)
-          bitsPerSample = buffer.readUInt16LE(offset + 8 + 14)
+          channels = buffer.readUInt16LE(chunkDataStart + 2)
+          sampleRate = buffer.readUInt32LE(chunkDataStart + 4)
+          bitsPerSample = buffer.readUInt16LE(chunkDataStart + 14)
 
           // 验证参数合理性
           if (sampleRate < 8000 || sampleRate > 48000) {
@@ -98,7 +103,7 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
         }
       } else if (chunkId === 'data') {
         dataChunkSize = chunkSize
-        dataStartOffset = offset + 8
+        dataStartOffset = chunkDataStart
         // 继续处理可能存在的其他chunks
       }
 

@@ -500,6 +500,18 @@
       "en": "Questions Generation Failed",
       "zh": "题目生成失败"
     },
+    "parallelGenerationSuccess": {
+      "en": "Audio and Questions Generated Successfully",
+      "zh": "音频和题目同时生成成功"
+    },
+    "parallelGenerationSuccessDesc": {
+      "en": "Audio ({duration}) and {questionCount} questions are ready!",
+      "zh": "音频 ({duration}) 和 {questionCount} 道题目已准备就绪！"
+    },
+    "parallelGenerationFailed": {
+      "en": "Parallel Generation Failed",
+      "zh": "并行生成失败"
+    },
     "answersSubmissionSuccess": {
       "en": "Answers Submitted",
       "zh": "答题完成"

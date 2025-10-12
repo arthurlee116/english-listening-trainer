@@ -9,6 +9,7 @@ import json
 import sys
 import os
 import logging
+from threading import Lock
 from typing import Optional
 import torch
 import soundfile as sf
@@ -37,6 +38,7 @@ class KokoroTTSWrapper:
         self.voice = voice
         self.current_lang_code = None
         self.current_voice = None
+        self._pipeline_lock = Lock()
         
     def setup_device(self):
         """设置计算设备 (自动检测CUDA/Metal/CPU)"""
@@ -226,194 +228,82 @@ class KokoroTTSWrapper:
         return await self.generate_speech_single(text, speed)
 
     async def generate_speech_chunked(self, text: str, speed: float = 1.0) -> str:
-        """分块生成音频并拼接（线程池并行 + 可配置并发度）"""
+        """分块生成音频并拼接（串行保障 pipeline 安全，使用 soundfile 输出规范 WAV）"""
         chunks = split_text_intelligently(text)
         total = len(chunks)
-        print(f"🧩 Split text into {total} chunks for parallel processing", file=sys.stderr)
+        print(f"🧩 Split text into {total} chunks for processing", file=sys.stderr)
 
-        # 在本函数内定义同步的块生成函数，在线程池中执行
-        def _generate_chunk_hex_sync(chunk_text: str, s: float) -> str:
-            import torch
-            buffer = io.BytesIO()
+        lock = self._pipeline_lock
+
+        def _synthesize_chunk(chunk_text: str, s: float):
+            import numpy as np
             audio_tensors = []
-            # 直接对该块运行一次pipeline（避免重复遍历）
-            for _, _, audio in self.pipeline(
-                chunk_text,
-                voice=self.voice,
-                speed=s,
-                split_pattern=r'\n+'
-            ):
-                if audio is not None:
-                    if self.device == 'mps':
-                        audio = audio.to('cpu')
-                    audio_tensors.append(audio)
+            with lock:
+                for _, _, audio in self.pipeline(
+                    chunk_text,
+                    voice=self.voice,
+                    speed=s,
+                    split_pattern=r'\n+'
+                ):
+                    if audio is not None:
+                        if self.device == 'mps':
+                            audio = audio.to('cpu')
+                        audio_tensors.append(audio.detach().cpu())
 
             if not audio_tensors:
-                raise Exception("No audio chunks were generated")
+                raise RuntimeError("No audio chunks were generated")
 
-            combined = torch.cat(audio_tensors)
-            sf.write(buffer, combined.numpy(), 24000, format='WAV')
-            return buffer.getvalue().hex()
+            combined_tensor = torch.cat(audio_tensors)
+            return combined_tensor.numpy().astype(np.float32)
 
-        # 并发度（默认2，可通过环境变量调整）
-        try:
-            max_concurrency = max(1, int(os.environ.get('KOKORO_TTS_MAX_CONCURRENCY', '2')))
-        except Exception:
-            max_concurrency = 2
+        pcm_segments = []
+        for idx, chunk in enumerate(chunks):
+            print(f"🚀 Synthesizing chunk {idx + 1}/{total}: {len(chunk)} chars", file=sys.stderr)
+            segment = await asyncio.to_thread(_synthesize_chunk, chunk, speed)
+            pcm_segments.append(segment)
 
-        sem = asyncio.Semaphore(max_concurrency)
+        if not pcm_segments:
+            raise RuntimeError("No PCM segments collected from chunk synthesis")
 
-        async def worker(idx: int, chunk_text: str):
-            print(f"🚀 Starting chunk {idx+1}/{total}: {len(chunk_text)} chars", file=sys.stderr)
-            async with sem:
-                # 在线程池中执行CPU密集型任务
-                hex_data = await asyncio.to_thread(_generate_chunk_hex_sync, chunk_text, speed)
-                return idx, hex_data
-
-        tasks = [worker(i, c) for i, c in enumerate(chunks)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # 处理结果并按原始顺序拼接
-        audio_chunks: list[bytes] = []
-        for result in sorted(
-            [r for r in results if not isinstance(r, Exception)], key=lambda x: x[0]
-        ):
-            idx, chunk_hex = result
-            try:
-                chunk_bytes = bytes.fromhex(chunk_hex)
-                if chunk_bytes.startswith(b'RIFF'):
-                    data_pos = chunk_bytes.find(b'data')
-                    if data_pos == -1:
-                        print(f"❌ No 'data' chunk found in audio for chunk {idx+1}", file=sys.stderr)
-                        continue
-                    data_start = data_pos + 8
-                    if data_start >= len(chunk_bytes):
-                        print(f"❌ Invalid data chunk position for chunk {idx+1}", file=sys.stderr)
-                        continue
-                    audio_data = chunk_bytes[data_start:]
-                    audio_chunks.append(audio_data)
-                else:
-                    audio_chunks.append(chunk_bytes)
-                print(f"✅ Chunk {idx+1} processed successfully.", file=sys.stderr)
-            except Exception as e:
-                print(f"❌ Error processing result for chunk {idx+1}: {e}", file=sys.stderr)
-                continue
-
-        
-        if not audio_chunks:
-            raise Exception("No audio chunks were generated successfully")
-        
-        # 拼接所有音频数据
-        combined_audio_data = b''.join(audio_chunks)
-        
-        # 确保音频数据对齐到样本边界 (16位=2字节对齐)
-        if len(combined_audio_data) % 2 != 0:
-            combined_audio_data += b'\x00'  # 填充一个字节
-        
-        # 创建新的WAV头
-        import struct
-        sample_rate = 24000
-        num_channels = 1
-        bits_per_sample = 16
-        byte_rate = sample_rate * num_channels * bits_per_sample // 8
-        block_align = num_channels * bits_per_sample // 8
-        data_size = len(combined_audio_data)
-        file_size = 36 + data_size
-        
-        # 确保WAV头完全正确 (RIFF文件大小应该是整个文件减去8字节)
-        riff_size = 36 + data_size  # fmt chunk (24 bytes) + data chunk header (8 bytes) + data
-        wav_header = struct.pack('<4sI4s4sIHHIIHH4sI',
-            b'RIFF',           # ChunkID
-            riff_size,         # ChunkSize (整个文件大小 - 8)
-            b'WAVE',           # Format
-            b'fmt ',           # Subchunk1ID
-            16,                # Subchunk1Size (PCM = 16)
-            1,                 # AudioFormat (PCM = 1)
-            num_channels,      # NumChannels
-            sample_rate,       # SampleRate
-            byte_rate,         # ByteRate
-            block_align,       # BlockAlign
-            bits_per_sample,   # BitsPerSample
-            b'data',           # Subchunk2ID
-            data_size          # Subchunk2Size
-        )
-        
-        print(f"🔧 WAV Header Info:", file=sys.stderr)
-        print(f"  - Sample Rate: {sample_rate} Hz", file=sys.stderr)
-        print(f"  - Channels: {num_channels}", file=sys.stderr)
-        print(f"  - Bit Depth: {bits_per_sample} bits", file=sys.stderr)
-        print(f"  - Data Size: {data_size} bytes", file=sys.stderr)
-        print(f"  - File Size: {file_size + 8} bytes", file=sys.stderr)
-        
-        # 组合完整的WAV文件
-        complete_wav = wav_header + combined_audio_data
-        
-        total_duration = len(combined_audio_data) / (sample_rate * num_channels * bits_per_sample // 8)
-        print(f"🎵 Combined {len(chunks)} chunks, total length: {total_duration:.2f}s", file=sys.stderr)
-        
-        return complete_wav.hex()
+        import numpy as np
+        concatenated = np.concatenate(pcm_segments)
+        buffer = io.BytesIO()
+        sf.write(buffer, concatenated, 24000, format='WAV', subtype='PCM_16')
+        total_duration = concatenated.shape[0] / 24000
+        print(f"🎵 Combined {len(pcm_segments)} chunks, total length: {total_duration:.2f}s", file=sys.stderr)
+        return buffer.getvalue().hex()
     
     async def generate_speech_single(self, text: str, speed: float = 1.0) -> str:
-        """生成单个文本块的音频（原来的generate_speech逻辑）"""
+        """生成单个文本块的音频（串行生成，确保 pipeline 安全）"""
         try:
-            import torch
-            import concurrent.futures
-            
-            # 首先收集所有文本块
-            text_chunks = []
-            for i, (graphemes, phonemes, audio) in enumerate(
-                self.pipeline(
-                    text, 
-                    voice=self.voice, 
-                    speed=speed,
-                    split_pattern=r'\n+'
-                )
-            ):
-                if audio is not None:
-                    text_chunks.append((i, graphemes, phonemes))
-                    print(f"🎵 Found chunk {i+1}: {len(graphemes)} chars, {len(phonemes)} phonemes", file=sys.stderr)
-            
-            if not text_chunks:
-                raise Exception("No audio chunks were generated")
-            
-            print(f"🎵 Total {len(text_chunks)} chunks to process", file=sys.stderr)
-            
-            # 串行处理（单块音频不需要并行）
-            print(f"📝 Processing {len(text_chunks)} chunks sequentially...", file=sys.stderr)
-            
-            audio_chunks = []
-            for i, (graphemes, phonemes, audio) in enumerate(
-                self.pipeline(
-                    text, 
-                    voice=self.voice, 
-                    speed=speed,
-                    split_pattern=r'\n+'
-                )
-            ):
-                if audio is not None:
-                    if self.device == 'mps':
-                        audio = audio.to('cpu')
-                    audio_chunks.append(audio)
-                    print(f"✅ Chunk {i+1} completed", file=sys.stderr)
-            
-            if not audio_chunks:
-                raise Exception("No audio chunks were generated successfully")
-            
-            # 拼接所有音频块
-            combined_audio = torch.cat(audio_chunks)
-            
-            # 转换为字节数据
-            import io
-            import soundfile as sf
+            def _synthesize_single():
+                import numpy as np
+                audio_segments = []
+                with self._pipeline_lock:
+                    for _, _, audio in self.pipeline(
+                        text,
+                        voice=self.voice,
+                        speed=speed,
+                        split_pattern=r'\n+'
+                    ):
+                        if audio is not None:
+                            if self.device == 'mps':
+                                audio = audio.to('cpu')
+                            audio_segments.append(audio.detach().cpu())
+
+                if not audio_segments:
+                    raise RuntimeError("No audio chunks were generated")
+
+                combined = torch.cat(audio_segments)
+                return combined.numpy().astype(np.float32)
+
+            pcm = await asyncio.to_thread(_synthesize_single)
             buffer = io.BytesIO()
-            sf.write(buffer, combined_audio.numpy(), 24000, format='WAV')
-            audio_data = buffer.getvalue()
-            
-            total_duration = len(combined_audio) / 24000
-            print(f"🎵 Generated {len(audio_chunks)} chunks, total length: {total_duration:.2f}s", file=sys.stderr)
-            
-            return audio_data.hex()
-            
+            sf.write(buffer, pcm, 24000, format='WAV', subtype='PCM_16')
+            total_duration = pcm.shape[0] / 24000
+            print(f"🎵 Generated single segment, total length: {total_duration:.2f}s", file=sys.stderr)
+            return buffer.getvalue().hex()
+
         except Exception as e:
             print(f"❌ Error in generate_speech_single: {e}", file=sys.stderr)
             import traceback

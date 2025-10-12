@@ -207,6 +207,11 @@ function HomePage() {
   const [focusAreaStats, setFocusAreaStats] = useState<FocusAreaStats>({})
   const [focusCoverage, setFocusCoverage] = useState<FocusCoverage | null>(null)
   
+  // 并行生成状态
+  const [isQuestionGenerationPending, setIsQuestionGenerationPending] = useState<boolean>(false)
+  const [questionGenerationError, setQuestionGenerationError] = useState<string | null>(null)
+  const pendingQuestionPromiseRef = useRef<Promise<void> | null>(null)
+  
   // 快捷键相关状态
   const [showShortcutHelp, setShowShortcutHelp] = useState<boolean>(false)
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false)
@@ -1107,79 +1112,233 @@ function HomePage() {
     toast({ title: t("pages.templates.deleteSuccess"), description: "" })
   }, [t, toast])
 
+  // 提取 Focus Coverage 处理逻辑为独立函数
+  const handleFocusCoverageResult = useCallback((focusCoverage?: FocusCoverage) => {
+    if (!isSpecializedMode || !focusCoverage) return
+    
+    setFocusCoverage(focusCoverage)
+    
+    // 检查零覆盖率（AI 不支持焦点领域）
+    if (focusCoverage.coverage === 0) {
+      // 记录用户意图用于未来推荐
+      recordUserIntent(selectedFocusAreas)
+      
+      toast({
+        title: t("messages.specializedModeUnavailable"),
+        description: t("messages.specializedModeUnavailableDesc"),
+        variant: "default",
+      })
+    } else if (focusCoverage.coverage < 0.8) {
+      toast({
+        title: t("messages.partialCoverageWarning"),
+        description: t("messages.partialCoverageWarningDesc", {
+          values: { coverage: Math.round(focusCoverage.coverage * 100) },
+        }),
+        variant: "default",
+      })
+    }
+  }, [isSpecializedMode, selectedFocusAreas, recordUserIntent, toast, t])
+
+  // 计算缓存键函数，保证与 handleStartQuestions 一致
+  const generateCacheKey = useCallback((prefix: string) => {
+    const transcriptHash = transcript.slice(0, 50) // 使用前50个字符作为hash
+    const focusMode = isSpecializedMode ? selectedFocusAreas.join(',') : 'normal'
+    return `${prefix}-${difficulty}-${transcriptHash}-${language}-${duration}-${focusMode}`
+  }, [transcript, difficulty, language, duration, isSpecializedMode, selectedFocusAreas])
+
+  // 重置并行生成状态的辅助函数
+  const resetParallelGenerationState = useCallback(() => {
+    setIsQuestionGenerationPending(false)
+    setQuestionGenerationError(null)
+    if (pendingQuestionPromiseRef.current) {
+      pendingQuestionPromiseRef.current = null
+    }
+  }, [])
+
   const handleGenerateAudio = useCallback(async () => {
-    if (!transcript) return
+    if (!transcript || !difficulty) return
 
     setLoading(true)
-    setLoadingMessage("Generating audio...")
+    setLoadingMessage("正在同时生成音频与题目...")
     setAudioError(false)
     setAudioDuration(null)
+    
+    // 重置并行状态
+    resetParallelGenerationState()
+    setIsQuestionGenerationPending(true)
+    
+    // 计算题目生成的缓存键
+    const questionsCacheKey = generateCacheKey('questions')
 
     try {
-      console.log(`🎤 开始生成音频，文本长度: ${transcript.length}`)
-      const audioResult = await generateAudio(transcript, { language })
-      console.log(`✅ 音频生成完成，URL: ${audioResult.audioUrl}`)
-      setAudioUrl(audioResult.audioUrl)
+      console.log(`🎤 开始并行生成：音频 + 题目，文本长度: ${transcript.length}`)
       
-      // 立即设置音频时长，避免显示0:00的延迟
-      const duration = typeof audioResult.duration === 'number' && audioResult.duration > 0 
-        ? audioResult.duration 
-        : null
-      setAudioDuration(duration)
-      if (!exerciseStartTimeRef.current) {
-        exerciseStartTimeRef.current = Date.now()
-      }
+      // 创建并行任务
+      const audioPromise = generateAudio(transcript, { language })
       
-      // 如果时长不可用，尝试从音频元数据获取
-      if (!duration && audioResult.audioUrl) {
+      const questionPromise = cachedApiCall(
+        questionsCacheKey,
+        () => generateQuestions(
+          difficulty, 
+          transcript, 
+          language, 
+          duration, 
+          undefined, 
+          isSpecializedMode ? selectedFocusAreas : undefined
+        ),
+        180000 // 3 分钟缓存
+      ).then((response) => {
+        const questionResponse = response as { questions: Question[]; focusCoverage?: FocusCoverage; focusMatch?: Array<{questionIndex: number; matchedTags: FocusArea[]; confidence: 'high' | 'medium' | 'low'}>; degradationReason?: string }
+        
+        // 处理题目生成结果
+        setQuestions(questionResponse.questions)
+        setAnswers({})
+        
+        // 处理 Focus Coverage
+        handleFocusCoverageResult(questionResponse.focusCoverage)
+        
+        console.log(`✅ 题目生成完成，生成 ${questionResponse.questions.length} 道题目`)
+        return questionResponse
+      }).catch((error) => {
+        console.error('❌ 题目生成失败:', error)
+        const errorMessage = isError(error) ? error.message : String(error)
+        setQuestionGenerationError(errorMessage)
+        throw error
+      })
+      
+      // 存储 Promise 引用以便清理
+      pendingQuestionPromiseRef.current = questionPromise.then(() => {}).catch(() => {})
+      
+      // 等待两个任务完成
+      const results = await Promise.allSettled([audioPromise, questionPromise])
+      const [audioResult, questionResult] = results
+      
+      // 处理音频生成结果
+      if (audioResult.status === 'fulfilled') {
+        console.log(`✅ 音频生成完成，URL: ${audioResult.value.audioUrl}`)
+        setAudioUrl(audioResult.value.audioUrl)
+        
+        // 立即设置音频时长，避免显示0:00的延迟
+        const duration = typeof audioResult.value.duration === 'number' && audioResult.value.duration > 0 
+          ? audioResult.value.duration 
+          : null
+        setAudioDuration(duration)
+        
+        if (!exerciseStartTimeRef.current) {
+          exerciseStartTimeRef.current = Date.now()
+        }
+        
+        // 如果时长不可用，尝试从音频元数据获取
+        if (!duration && audioResult.value.audioUrl) {
+          try {
+            const response = await fetch(audioResult.value.audioUrl)
+            if (response.ok) {
+              const contentLength = response.headers.get('content-length')
+              if (contentLength) {
+                // 估算时长 (WAV格式，16kHz，16bit，单声道)
+                const estimatedDuration = parseInt(contentLength) / (16000 * 2)
+                setAudioDuration(Math.max(estimatedDuration, 1)) // 至少1秒
+                console.log(`📊 估算音频时长: ${estimatedDuration.toFixed(1)}秒`)
+              }
+            }
+          } catch (estimateError) {
+            console.warn('⚠️ 无法估算音频时长:', estimateError)
+          }
+        }
+        
+        // 验证音频文件是否可访问
         try {
-          const response = await fetch(audioResult.audioUrl)
+          const response = await fetch(audioResult.value.audioUrl, { method: 'HEAD' })
+          console.log(`📁 音频文件检查: ${response.status} ${response.statusText}`)
           if (response.ok) {
             const contentLength = response.headers.get('content-length')
-            if (contentLength) {
-              // 估算时长 (WAV格式，16kHz，16bit，单声道)
-              const estimatedDuration = parseInt(contentLength) / (16000 * 2)
-              setAudioDuration(Math.max(estimatedDuration, 1)) // 至少1秒
-              console.log(`📊 估算音频时长: ${estimatedDuration.toFixed(1)}秒`)
-            }
+            console.log(`📊 音频文件大小: ${contentLength} bytes`)
           }
-        } catch (estimateError) {
-          console.warn('⚠️ 无法估算音频时长:', estimateError)
+        } catch (fetchError) {
+          console.warn(`⚠️ 无法验证音频文件:`, fetchError)
         }
+      } else {
+        console.error('❌ 音频生成失败:', audioResult.reason)
+        setAudioError(true)
+        setAudioDuration(null)
       }
       
-      // 验证音频文件是否可访问
-      try {
-        const response = await fetch(audioResult.audioUrl, { method: 'HEAD' })
-        console.log(`📁 音频文件检查: ${response.status} ${response.statusText}`)
-        if (response.ok) {
-          const contentLength = response.headers.get('content-length')
-          console.log(`📊 音频文件大小: ${contentLength} bytes`)
-          toast({
-            title: t("messages.audioGenerationSuccess"),
-            description: formatToastMessage("messages.audioGenerationSuccessDesc", { 
-              duration: duration ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}` : '未知'
-            }),
-          })
-        }
-      } catch (fetchError) {
-        console.warn(`⚠️ 无法验证音频文件:`, fetchError)
+      // 处理题目生成结果
+      if (questionResult.status === 'fulfilled') {
+        setQuestionGenerationError(null)
+      } else {
+        console.error('❌ 题目生成失败:', questionResult.reason)
+        const errorMessage = isError(questionResult.reason) ? questionResult.reason.message : String(questionResult.reason)
+        setQuestionGenerationError(errorMessage)
       }
+      
+      // 显示成功消息
+      const audioSuccess = audioResult.status === 'fulfilled'
+      const questionSuccess = questionResult.status === 'fulfilled'
+      
+      if (audioSuccess && questionSuccess) {
+        const audioDur = audioResult.value.duration
+        const questionCount = (questionResult.value as any).questions.length
+        toast({
+          title: t("messages.parallelGenerationSuccess"),
+          description: formatToastMessage("messages.parallelGenerationSuccessDesc", { 
+            duration: audioDur ? `${Math.floor(audioDur / 60)}:${(audioDur % 60).toString().padStart(2, '0')}` : '未知',
+            questionCount
+          }),
+        })
+      } else if (audioSuccess) {
+        const audioDur = audioResult.value.duration
+        toast({
+          title: t("messages.audioGenerationSuccess"),
+          description: formatToastMessage("messages.audioGenerationSuccessDesc", { 
+            duration: audioDur ? `${Math.floor(audioDur / 60)}:${(audioDur % 60).toString().padStart(2, '0')}` : '未知'
+          }),
+        })
+      } else if (questionSuccess) {
+        const questionCount = (questionResult.value as any).questions.length
+        toast({
+          title: t("messages.questionsGenerationSuccess"),
+          description: formatToastMessage("messages.questionsGenerationSuccessDesc", { count: questionCount }),
+        })
+      }
+      
+      // 如果有错误，显示错误消息
+      if (!audioSuccess) {
+        const errorMessage = isError(audioResult.reason) ? audioResult.reason.message : String(audioResult.reason)
+        toast({
+          title: t("messages.audioGenerationFailed"),
+          description: errorMessage,
+          variant: "destructive",
+        })
+      }
+      
+      if (!questionSuccess && !questionGenerationError) {
+        const errorMessage = isError(questionResult.reason) ? questionResult.reason.message : String(questionResult.reason)
+        toast({
+          title: t("messages.questionsGenerationFailed"),
+          description: errorMessage,
+          variant: "destructive",
+        })
+      }
+      
     } catch (error) {
-      console.error("Failed to generate audio:", error)
+      console.error('❌ 并行生成失败:', error)
       setAudioError(true)
       setAudioDuration(null)
       const errorMessage = isError(error) ? error.message : String(error)
+      setQuestionGenerationError(errorMessage)
       toast({
-        title: t("messages.audioGenerationFailed"),
+        title: t("messages.parallelGenerationFailed"),
         description: errorMessage,
         variant: "destructive",
       })
     } finally {
       setLoading(false)
       setLoadingMessage("")
+      setIsQuestionGenerationPending(false)
+      pendingQuestionPromiseRef.current = null
     }
-  }, [transcript, language, toast])
+  }, [transcript, difficulty, language, duration, isSpecializedMode, selectedFocusAreas, generateCacheKey, cachedApiCall, handleFocusCoverageResult, resetParallelGenerationState, toast, t, formatToastMessage])
 
   const handleStartQuestions = useCallback(async () => {
     if (!transcript || !difficulty) return
@@ -1192,13 +1351,61 @@ function HomePage() {
       return
     }
 
+    // 检查题目是否已经生成（并行生成或缓存）
+    if (questions.length > 0) {
+      console.log('🟢 题目已准备就绪，直接跳转答题界面')
+      setStep("questions")
+      return
+    }
+    
+    // 检查是否有正在进行的题目生成
+    if (isQuestionGenerationPending && pendingQuestionPromiseRef.current) {
+      console.log('🔄 题目生成中，等待完成...')
+      setLoading(true)
+      setLoadingMessage("题目生成中，请稍候...")
+      
+      try {
+        await pendingQuestionPromiseRef.current
+        
+        // 等待完成后检查是否成功
+        if (questions.length > 0) {
+          setStep("questions")
+          toast({
+            title: t("messages.questionsGenerationSuccess"),
+            description: formatToastMessage("messages.questionsGenerationSuccessDesc", { count: questions.length }),
+          })
+        } else if (questionGenerationError) {
+          throw new Error(questionGenerationError)
+        } else {
+          throw new Error('题目生成失败：未知错误')
+        }
+      } catch (error) {
+        console.error('❌ 等待题目生成失败:', error)
+        const errorMessage = isError(error) ? error.message : String(error)
+        toast({
+          title: t("messages.questionsGenerationFailed"),
+          description: errorMessage,
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+        setLoadingMessage("")
+      }
+      return
+    }
+    
+    // 检查之前的错误是否需要重试
+    if (questionGenerationError) {
+      console.log('🔄 检测到之前的题目生成错误，尝试重新生成')
+      setQuestionGenerationError(null)
+    }
+
     setLoading(true)
-    setLoadingMessage("Generating questions...")
+    setLoadingMessage("生成题目中...")
 
     try {
-      // Create cache key for questions generation
-      const transcriptHash = transcript.slice(0, 50) // Use first 50 chars as hash
-      const cacheKey = `questions-${difficulty}-${transcriptHash}-${language}-${duration}-${isSpecializedMode ? selectedFocusAreas.join(',') : 'normal'}`; // Removed unused cacheKey
+      // 使用统一的缓存键生成函数
+      const cacheKey = generateCacheKey('questions')
       
       const response = await cachedApiCall(
         cacheKey,
@@ -1210,45 +1417,24 @@ function HomePage() {
           undefined, 
           isSpecializedMode ? selectedFocusAreas : undefined
         ),
-        180000 // 3 minutes cache for questions
+        180000 // 3 分钟缓存
       ) as { questions: Question[]; focusCoverage?: FocusCoverage; focusMatch?: Array<{questionIndex: number; matchedTags: FocusArea[]; confidence: 'high' | 'medium' | 'low'}>; degradationReason?: string }
       
       setQuestions(response.questions)
       setAnswers({})
       setStep("questions")
       
-      // Handle focus coverage for specialized mode
-      if (isSpecializedMode && response.focusCoverage) {
-        setFocusCoverage(response.focusCoverage)
-        
-        // Check for zero coverage (AI doesn't support focus areas)
-        if (response.focusCoverage.coverage === 0) {
-          // Record user intent for future recommendations
-          recordUserIntent(selectedFocusAreas)
-          
-          toast({
-            title: t("messages.specializedModeUnavailable"),
-            description: t("messages.specializedModeUnavailableDesc"),
-            variant: "default",
-          })
-        } else if (response.focusCoverage.coverage < 0.8) {
-            toast({
-              title: t("messages.partialCoverageWarning"),
-              description: t("messages.partialCoverageWarningDesc", {
-                values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
-              }),
-              variant: "default",
-            })
-        }
-      }
+      // 处理 Focus Coverage
+      handleFocusCoverageResult(response.focusCoverage)
       
       toast({
         title: t("messages.questionsGenerationSuccess"),
         description: formatToastMessage("messages.questionsGenerationSuccessDesc", { count: response.questions.length }),
       })
     } catch (error) {
-      console.error("Failed to generate questions:", error)
+      console.error('❌ 题目生成失败:', error)
       const errorMessage = isError(error) ? error.message : String(error)
+      setQuestionGenerationError(errorMessage)
       toast({
         title: t("messages.questionsGenerationFailed"),
         description: errorMessage,
@@ -1258,7 +1444,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, difficulty, isAssessmentGateActive, language, duration, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall, t])
+  }, [transcript, difficulty, isAssessmentGateActive, questions.length, isQuestionGenerationPending, questionGenerationError, generateCacheKey, cachedApiCall, handleFocusCoverageResult, toast, t, formatToastMessage])
 
   const handleSubmitAnswers = useCallback(async () => {
     if (questions.length === 0 || !user) return
@@ -1427,7 +1613,9 @@ function HomePage() {
     setCurrentExercise(null)
     exerciseStartTimeRef.current = null
     setCanRegenerate(true)
-  }, [])
+    // 重置并行生成状态
+    resetParallelGenerationState()
+  }, [resetParallelGenerationState])
 
   const handleExport = useCallback(() => {
     if (currentExercise) {
@@ -1537,8 +1725,10 @@ function HomePage() {
       setAudioDuration(null)
       setAudioError(false)
       exerciseStartTimeRef.current = null
+      // 重置并行生成状态
+      resetParallelGenerationState()
     }
-  }, [isSpecializedMode])
+  }, [isSpecializedMode, resetParallelGenerationState])
 
   const handleFocusAreaSelection = useCallback((areas: FocusArea[]) => {
     // Use debounced selection to prevent rapid state updates
@@ -1559,7 +1749,9 @@ function HomePage() {
     setAudioDuration(null)
     setAudioError(false)
     exerciseStartTimeRef.current = null
-  }, [selectedFocusAreas, recommendedFocusAreas])
+    // 重置并行生成状态
+    resetParallelGenerationState()
+  }, [selectedFocusAreas, recommendedFocusAreas, resetParallelGenerationState])
 
   const handleSaveSpecializedPreset = useCallback(async (name: string) => {
     if (!name.trim() || selectedFocusAreas.length === 0) return false
@@ -1636,6 +1828,8 @@ function HomePage() {
       setAudioUrl("")
       setAudioDuration(null)
       setAudioError(false)
+      // 重置并行生成状态
+      resetParallelGenerationState()
       
       toast({
         title: t("messages.presetLoadSuccess"),
@@ -1644,7 +1838,7 @@ function HomePage() {
     } finally {
       updateLoadingState('loadingPreset', false)
     }
-  }, [toast, t, formatToastMessage, updateLoadingState])
+  }, [toast, t, formatToastMessage, updateLoadingState, resetParallelGenerationState])
 
   const handleDeleteSpecializedPreset = useCallback((presetId: string) => {
     try {
@@ -2601,6 +2795,9 @@ function HomePage() {
             loadingMessage={loadingMessage}
             initialDuration={audioDuration ?? undefined}
             assessmentRequired={isAssessmentGateActive}
+            isQuestionGenerationPending={isQuestionGenerationPending}
+            questionGenerationError={questionGenerationError}
+            questionsReady={questions.length > 0}
           />
           </div>
         )}
