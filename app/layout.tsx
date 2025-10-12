@@ -16,14 +16,9 @@ const RootLayout = ({
   children: React.ReactNode
 }>): React.ReactElement => {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange={false}
-        >
+        <ThemeProvider>
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

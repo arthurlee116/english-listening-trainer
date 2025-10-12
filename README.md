@@ -13,7 +13,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 - **Admin Dashboard:** Manage users and monitor performance statistics.
 - **Data Persistence:** Uses Prisma + SQLite (WAL mode enabled by default) to store exercises and user progress.
 - **Modern UI:** Built with shadcn/ui, Tailwind CSS, and bilingual text helpers.
-- **Themeing:** Supports light and dark modes with `next-themes`.
+- **Themeing:** Dark-first experience with built-in styling tokens.
 
 ## Quick Start
 

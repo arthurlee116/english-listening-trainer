@@ -10,9 +10,6 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   initialI18nLanguage?: 'en' | 'zh';
   bilingualConfig?: Partial<BilingualConfig>;
   
-  // Theme configuration
-  theme?: 'light' | 'dark' | 'system';
-  
   // Mock storage initialization
   mockStorage?: Record<string, string>;
   
@@ -34,7 +31,6 @@ export function renderWithProviders(
   const {
     initialI18nLanguage = 'en',
     bilingualConfig,
-    theme = 'light',
     mockStorage,
     skipI18nInit = false,
     wrapper: CustomWrapper,
@@ -56,12 +52,7 @@ export function renderWithProviders(
     };
 
     let content = (
-      <ThemeProvider
-        attribute="class"
-        defaultTheme={theme}
-        enableSystem={theme === 'system'}
-        disableTransitionOnChange
-      >
+      <ThemeProvider>
         {children}
       </ThemeProvider>
     );

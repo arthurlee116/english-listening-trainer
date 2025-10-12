@@ -378,7 +378,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
       case "short":
         return "bg-purple-100 text-purple-800 border-purple-300"
       default:
-        return "bg-gray-100 text-gray-800 border-emphasis-light"
+        return "bg-slate-900/60 text-slate-200 border border-slate-600"
     }
   }
 

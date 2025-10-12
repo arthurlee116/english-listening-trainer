@@ -130,7 +130,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
       {/* Header */}
       <Card className="glass-effect p-8 text-center">
         <div className="flex items-center justify-center mb-4">
-          <Trophy className="w-8 h-8 text-yellow-500 mr-3 icon-success-light" />
+          <Trophy className="w-8 h-8 text-yellow-400 mr-3" />
           <h2 className="text-2xl font-bold">{t('components.resultsDisplay.exerciseComplete')}</h2>
         </div>
         
@@ -163,12 +163,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
       {progressMetrics && (
         <Card className="glass-effect p-4">
           <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-blue-600 icon-info-light" />
+            <Zap className="w-4 h-4 text-sky-400" />
             {t('components.resultsDisplay.progressImpact')}
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-orange-500 icon-warning-light" />
+              <Trophy className="w-4 h-4 text-amber-400" />
               <div>
                 <div className="font-medium">
                   {t('components.achievementPanel.currentStreak')}: {progressMetrics.currentStreakDays} 
@@ -181,7 +181,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
             </div>
             
             <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-green-500 icon-success-light" />
+              <Star className="w-4 h-4 text-emerald-400" />
               <div>
                 <div className="font-medium">
                   {t('components.achievementPanel.averageAccuracy')}: {progressMetrics.averageAccuracy.toFixed(1)}%
@@ -193,7 +193,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
             </div>
             
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-purple-500 icon-info-light" />
+              <Zap className="w-4 h-4 text-indigo-400" />
               <div>
                 <div className="font-medium">
                   {t('components.achievementPanel.totalSessions')}: {progressMetrics.totalSessions}
@@ -211,7 +211,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
       {exercise.specializedMode && exercise.focusAreas && exercise.focusAreas.length > 0 && (
         <Card className="glass-effect p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
-            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 icon-info-light" />
+            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
             {t('components.resultsDisplay.specializedStats')}
           </h3>
           
@@ -219,7 +219,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
           {exercise.focusCoverage && exercise.focusCoverage.coverage < 1 && (
             <div className="mb-3 sm:mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0 icon-warning-light" />
+                <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-yellow-800 dark:text-yellow-200 mb-1 text-sm sm:text-base">
                     {t('components.resultsDisplay.coverageWarning')}
@@ -277,11 +277,11 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
                       {improvement !== null && (
                         <div className="flex items-center gap-1">
                           {improvement > 5 ? (
-                            <TrendingUp className="w-3 h-3 text-green-600 icon-success-light" />
+                            <TrendingUp className="w-3 h-3 text-emerald-400" />
                           ) : improvement < -5 ? (
-                            <TrendingDown className="w-3 h-3 text-red-600 icon-error-light" />
+                            <TrendingDown className="w-3 h-3 text-rose-400" />
                           ) : (
-                            <Minus className="w-3 h-3 text-gray-500 icon-tertiary-light" />
+                            <Minus className="w-3 h-3 text-slate-500" />
                           )}
                           <span className={`text-xs ${
                             improvement > 0 ? 'text-green-600' : 
@@ -370,12 +370,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
         >
           {showDetails ? (
             <>
-              <ChevronUp className="w-4 h-4 mr-2 icon-interactive-light" />
+              <ChevronUp className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
               {t('components.resultsDisplay.hideDetails')}
             </>
           ) : (
             <>
-              <ChevronDown className="w-4 h-4 mr-2 icon-interactive-light" />
+              <ChevronDown className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
               {t('components.resultsDisplay.showDetails')}
             </>
           )}
@@ -396,9 +396,9 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     {isCorrect ? (
-                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0 icon-success-light" />
+                      <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0 icon-error-light" />
+                      <XCircle className="w-5 h-5 text-rose-400 mt-0.5 flex-shrink-0" />
                     )}
                     
                     <div className="flex-1 space-y-2">
@@ -446,11 +446,11 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
       {/* Action buttons */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
         <Button onClick={onRestart} className="flex-1 sm:flex-none">
-          <RotateCcw className="w-4 h-4 mr-2 icon-button-primary-light" />
+          <RotateCcw className="w-4 h-4 mr-2 text-slate-200" />
           {t('components.resultsDisplay.startNewPractice')}
         </Button>
         <Button onClick={onExport} variant="outline" className="flex-1 sm:flex-none">
-          <Download className="w-4 h-4 mr-2 icon-button-outline-light" />
+          <Download className="w-4 h-4 mr-2 text-slate-300" />
           {t('components.resultsDisplay.exportResults')}
         </Button>
       </div>
@@ -509,12 +509,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
         >
           {showTranscript ? (
             <>
-              <ChevronUp className="w-4 h-4 mr-2 icon-interactive-light" />
+              <ChevronUp className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
               {t('components.resultsDisplay.hideTranscript')}
             </> 
           ) : (
             <>
-              <ChevronDown className="w-4 h-4 mr-2 icon-interactive-light" />
+              <ChevronDown className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
               {t('components.resultsDisplay.showTranscript')}
             </>
           )}
