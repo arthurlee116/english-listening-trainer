@@ -44,7 +44,7 @@ vi.mock('../../../hooks/use-bilingual-text', () => ({
         'components.questionInterface.audioPlayer': 'Audio Player',
         'components.questionInterface.questions': 'Questions',
         'components.questionInterface.answered': 'answered',
-        'components.questionInterface.questionNumber': 'Question ',
+        'components.questionInterface.questionNumber': 'Question {number} 第{number}题',
         'components.questionInterface.shortAnswer': 'Short Answer',
         'components.questionInterface.focusAreas': 'Focus Areas',
         'components.questionInterface.writeAnswerPlaceholder': 'Write your answer here...',
@@ -634,9 +634,9 @@ describe('QuestionInterface Integration Tests', () => {
       renderWithProviders(<QuestionInterface {...mockProps} />, { skipI18nInit: true })
 
       // Check for question numbers
-      expect(screen.getByText('Question 1')).toBeInTheDocument()
-      expect(screen.getByText('Question 2')).toBeInTheDocument()
-      expect(screen.getByText('Question 3')).toBeInTheDocument()
+      expect(screen.getByText(/Question 1.*第1题/)).toBeInTheDocument()
+      expect(screen.getByText(/Question 2.*第2题/)).toBeInTheDocument()
+      expect(screen.getByText(/Question 3.*第3题/)).toBeInTheDocument()
 
       // Check for short answer indicator
       expect(screen.getByText(/short.*answer/i)).toBeInTheDocument()

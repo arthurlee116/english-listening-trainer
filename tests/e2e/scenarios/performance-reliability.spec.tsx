@@ -713,7 +713,7 @@ describe('Performance and Reliability E2E Tests', () => {
 
       // Should handle large question set
       await waitFor(() => {
-        expect(screen.getByText(/Question 1:/)).toBeInTheDocument()
+        expect(screen.getByText(/Question 1.*第1题:/)).toBeInTheDocument()
       }, { timeout: 3000 })
 
       const endTime = performance.now()
@@ -723,7 +723,7 @@ describe('Performance and Reliability E2E Tests', () => {
       expect(totalTime).toBeLessThan(10000)
       
       // Verify UI remains responsive
-      expect(screen.getByText(/Question 1:/)).toBeInTheDocument()
+      expect(screen.getByText(/Question 1.*第1题:/)).toBeInTheDocument()
     })
   })
 })
