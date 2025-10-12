@@ -155,7 +155,9 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               <BilingualText translationKey="components.historyPanel.practiceHistory" />
             </h2>
             <Badge variant="outline">
-              {t("components.historyPanel.recordsCount").replace("{count}", filteredExercises.length.toString())}
+              {t("components.historyPanel.recordsCount", {
+                values: { count: filteredExercises.length },
+              })}
             </Badge>
           </div>
           

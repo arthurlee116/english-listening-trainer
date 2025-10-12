@@ -14,6 +14,24 @@ const componentsTranslations: Record<string, unknown> = componentsTranslationsDa
 const pagesTranslations: Record<string, unknown> = pagesTranslationsData as Record<string, unknown>;
 const translationsLoaded = true;
 
+const applyTemplateValues = (
+  text: string,
+  values?: Record<string, string | number>
+): string => {
+  if (!values) {
+    return text;
+  }
+
+  return Object.entries(values).reduce((acc, [key, value]) => {
+    if (value === undefined || value === null) {
+      return acc;
+    }
+
+    const replacement = String(value);
+    return acc.split(`{${key}}`).join(replacement);
+  }, text);
+};
+
 /**
  * Custom hook for bilingual text formatting with performance optimizations
  * Provides utilities to format text in "English 中文" format
@@ -27,8 +45,12 @@ export function useBilingualText(): UseBilingualTextReturn {
     const separator = options?.separator || bilingualConfig.separator;
     const withUnit = options?.withUnit;
     const withParentheses = options?.withParentheses;
+    const values = options?.values;
 
-    let formatted = `${en}${separator}${zh}`;
+    const formattedEn = applyTemplateValues(en, values);
+    const formattedZh = applyTemplateValues(zh, values);
+
+    let formatted = `${formattedEn}${separator}${formattedZh}`;
 
     if (withUnit) {
       if (withParentheses) {

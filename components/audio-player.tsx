@@ -418,7 +418,9 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
     }
     toast({
       title: t("components.audioPlayer.playbackRateChangedTitle"),
-      description: t("components.audioPlayer.playbackRateChangedDesc").replace('{rate}', String(next)),
+      description: t("components.audioPlayer.playbackRateChangedDesc", {
+        values: { rate: next },
+      }),
     })
   }, [setPlaybackRate, toast, t])
 

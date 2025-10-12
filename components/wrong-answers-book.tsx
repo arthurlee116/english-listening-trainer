@@ -432,7 +432,9 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
             </h2>
             <Badge variant="outline">
               {(typeof t("components.wrongAnswersBook.wrongAnswersCount") === 'string'
-                ? t("components.wrongAnswersBook.wrongAnswersCount").replace('{count}', (filteredAnswers?.length || 0).toString())
+                ? t("components.wrongAnswersBook.wrongAnswersCount", {
+                    values: { count: filteredAnswers?.length || 0 },
+                  })
                 : `${filteredAnswers?.length || 0} wrong answers`)
               }
             </Badge>
@@ -574,7 +576,9 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  {t("components.wrongAnswersBook.batchAnalysis.itemsNeedingAnalysis").replace('{count}', getItemsNeedingAnalysis().length.toString())}
+                  {t("components.wrongAnswersBook.batchAnalysis.itemsNeedingAnalysis", {
+                    values: { count: getItemsNeedingAnalysis().length },
+                  })}
                 </div>
 
                 {batchProcessor.isProcessing && (
@@ -592,11 +596,15 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
                 {batchProcessor.results && (
                   <div className="text-sm">
                     <span className="text-green-600 dark:text-green-400">
-                      {t("components.wrongAnswersBook.batchAnalysis.successCount").replace('{count}', batchProcessor.results.success.length.toString())}
+                      {t("components.wrongAnswersBook.batchAnalysis.successCount", {
+                        values: { count: batchProcessor.results.success.length },
+                      })}
                     </span>
                     {batchProcessor.results.failed.length > 0 && (
                       <span className="text-red-600 dark:text-red-400 ml-2">
-                        {t("components.wrongAnswersBook.batchAnalysis.failedCount").replace('{count}', batchProcessor.results.failed.length.toString())}
+                        {t("components.wrongAnswersBook.batchAnalysis.failedCount", {
+                          values: { count: batchProcessor.results.failed.length },
+                        })}
                       </span>
                     )}
                   </div>
@@ -632,7 +640,9 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
                         <AlertDialogDescription asChild>
                           <div className="space-y-2">
                             <p>
-                              {t("components.wrongAnswersBook.batchAnalysis.confirmDescription").replace('{count}', getItemsNeedingAnalysis().length.toString())}
+                              {t("components.wrongAnswersBook.batchAnalysis.confirmDescription", {
+                                values: { count: getItemsNeedingAnalysis().length },
+                              })}
                             </p>
                             <p className="text-sm text-orange-600 dark:text-orange-400">
                               <BilingualText translationKey="components.wrongAnswersBook.batchAnalysis.processingWarning" />
@@ -738,7 +748,9 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
                     {/* Question */}
                     <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                       <h4 className="font-medium mb-2">
-                        {t("components.wrongAnswersBook.questionNumber").replace('{number}', (item.question.index + 1).toString())}
+                        {t("components.wrongAnswersBook.questionNumber", {
+                          values: { number: item.question.index + 1 },
+                        })}
                       </h4>
                       <p className="text-gray-700 dark:text-gray-300">{questionText}</p>
                       
