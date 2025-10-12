@@ -423,7 +423,7 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("setup")}
                 >
-                  <Sparkles className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
+                  <Sparkles className="w-4 h-4 mr-1" />
                   <BilingualText translationKey="buttons.practice" />
                 </Button>
                 <Button
@@ -431,7 +431,7 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("history")}
                 >
-                  <History className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
+                  <History className="w-4 h-4 mr-1" />
                   <BilingualText translationKey="buttons.history" />
                 </Button>
                 <Button
@@ -439,7 +439,7 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("wrong-answers")}
                 >
-                  <Book className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
+                  <Book className="w-4 h-4 mr-1" />
                   <BilingualText translationKey="buttons.wrongAnswersBook" />
                 </Button>
                 <Button
@@ -447,13 +447,13 @@ export const MainApp = () => {
                   size="sm"
                   onClick={() => setStep("assessment")}
                 >
-                  <MessageSquare className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
+                  <MessageSquare className="w-4 h-4 mr-1" />
                   <BilingualText translationKey="buttons.assessment" />
                 </Button>
               </nav>
 
-              <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}>
-                <LogOut className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
+              <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}> 
+                <LogOut className="w-4 h-4 mr-1" />
                 <BilingualText translationKey="buttons.logout" />
               </Button>
             </div>
