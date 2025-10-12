@@ -145,8 +145,10 @@ ENV NODE_ENV=production \
     PYTHONPATH=/app/kokoro-main-ref:/app/kokoro-main-ref/kokoro.js \
     PYTORCH_ENABLE_MPS_FALLBACK=1 \
     NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    PATH=${KOKORO_VENV}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Ensure venv Python binaries come first (runtime uses python from this venv)
+ENV PATH="/opt/kokoro-venv/bin:${PATH}"
 
 WORKDIR ${APP_HOME}
 
