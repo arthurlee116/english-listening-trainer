@@ -171,6 +171,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/package-lock.json ./package-lock.
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/admin-server.mjs ./admin-server.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/kokoro_local ./kokoro_local
+COPY --from=builder --chown=nextjs:nodejs /app/kokoro-models ./kokoro-models
 
 # Copy essential Prisma artifacts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
