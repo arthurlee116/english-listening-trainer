@@ -142,6 +142,7 @@ FROM base AS runtime
 ENV NODE_ENV=production \
     APP_HOME=/app \
     KOKORO_VENV=/opt/kokoro-venv \
+    KOKORO_LOCAL_MODEL_PATH=/app/kokoro-models/Kokoro-82M \
     PYTHONPATH=/app/kokoro-main-ref:/app/kokoro-main-ref/kokoro.js \
     PYTORCH_ENABLE_MPS_FALLBACK=1 \
     NVIDIA_VISIBLE_DEVICES=all \
