@@ -153,11 +153,20 @@ ssh -p 60022 ubuntu@49.234.30.246 "docker system df"
 #### 2.3 备份现有数据（重要）
 
 ```bash
-# 备份数据库
+# 备份数据库（自动修复权限）
 ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && ./scripts/backup.sh --compress"
 
+# 如果备份失败，手动修复权限后重试
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && sudo mkdir -p backups && sudo chown -R \$(whoami):\$(whoami) backups && sudo chmod -R 755 backups && ./scripts/backup.sh --compress"
+
 # 备份配置文件
-ssh -p 60022 ubuntu@49.234.30.246 "cp ~/english-listening-trainer/.env.production ~/english-listening-trainer/.env.production.backup.$(date +%Y%m%d_%H%M%S)"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && cp .env.production .env.production.backup.\$(date +%Y%m%d_%H%M%S)"
+
+# 清理旧备份文件（释放磁盘空间）
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && ./scripts/backup.sh --cleanup"
+
+# 或者直接删除旧备份目录（简单粗暴）
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && rm -rf backups/* && ./scripts/backup.sh --compress"
 ```
 
 ### 阶段3：基于Docker镜像部署（推荐）
@@ -354,7 +363,23 @@ ssh -p 60022 ubuntu@49.234.30.246 "docker system prune -a"
 ssh -p 60022 ubuntu@49.234.30.246 "docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-base"
 ```
 
-#### 4. 应用启动失败
+#### 4. 备份权限问题
+
+```bash
+# 检查备份目录权限
+ssh -p 60022 ubuntu@49.234.30.246 "ls -la ~/english-listening-trainer/backups"
+
+# 手动修复权限
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && sudo mkdir -p backups && sudo chown -R \$(whoami):\$(whoami) backups && sudo chmod -R 755 backups"
+
+# 清理旧备份后重新备份
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && rm -rf backups/* && ./scripts/backup.sh --compress"
+
+# 检查磁盘空间
+ssh -p 60022 ubuntu@49.234.30.246 "df -h ~/ && du -sh ~/english-listening-trainer/backups"
+```
+
+#### 5. 应用启动失败
 
 ```bash
 # 查看详细日志
@@ -367,7 +392,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && cat .env.pr
 ssh -p 60022 ubuntu@49.234.30.246 "netstat -tlnp | grep 3000"
 ```
 
-#### 5. GPU不可用
+#### 6. GPU不可用
 
 ```bash
 # 检查NVIDIA驱动
@@ -461,9 +486,6 @@ ssh -p 60022 ubuntu@49.234.30.246 "sudo ufw enable && sudo ufw allow 3000/tcp &&
 ```bash
 # 应用健康检查
 curl -f http://49.234.30.246:3000/api/health
-
-# 数据库连接检查
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose -f docker-compose.gpu.yml exec app npm run db:check"
 ```
 
 ### 2. 日志管理

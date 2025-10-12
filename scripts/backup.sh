@@ -58,6 +58,10 @@ while [[ $# -gt 0 ]]; do
             ENABLE_REMOTE=true
             shift
             ;;
+        --compress)
+            ENABLE_COMPRESS=true
+            shift
+            ;;
         --no-compress)
             ENABLE_COMPRESS=false
             shift
@@ -70,6 +74,7 @@ while [[ $# -gt 0 ]]; do
             echo "用法: $0 [选项]"
             echo "选项:"
             echo "  --remote      启用远程备份"
+            echo "  --compress    启用压缩（默认）"
             echo "  --no-compress 不压缩备份文件"
             echo "  --cleanup     清理旧备份文件"
             echo "  --help        显示此帮助信息"
@@ -97,11 +102,33 @@ check_permissions() {
         exit 1
     fi
     
-    # 创建备份目录
-    mkdir -p "$BACKUP_DIR"
+    # 创建备份目录（如果不存在）
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo_info "创建备份目录: $BACKUP_DIR"
+        mkdir -p "$BACKUP_DIR"
+    fi
+    
+    # 检查备份目录权限
     if [ ! -w "$BACKUP_DIR" ]; then
         echo_error "无法写入备份目录: $BACKUP_DIR"
-        exit 1
+        echo_info "尝试修复权限..."
+        
+        # 尝试修复权限
+        if command -v sudo >/dev/null 2>&1; then
+            sudo mkdir -p "$BACKUP_DIR" 2>/dev/null || true
+            sudo chown -R "$(whoami):$(whoami)" "$BACKUP_DIR" 2>/dev/null || true
+            sudo chmod -R 755 "$BACKUP_DIR" 2>/dev/null || true
+        fi
+        
+        # 再次检查权限
+        if [ ! -w "$BACKUP_DIR" ]; then
+            echo_error "权限修复失败，请手动检查: $BACKUP_DIR"
+            echo_info "可以尝试以下命令："
+            echo_info "  sudo mkdir -p $BACKUP_DIR"
+            echo_info "  sudo chown -R \$(whoami):\$(whoami) $BACKUP_DIR"
+            echo_info "  sudo chmod -R 755 $BACKUP_DIR"
+            exit 1
+        fi
     fi
     
     echo_success "权限检查通过"
