@@ -274,15 +274,15 @@ jobs:
           fi
 
           if [ "$REBUILD_DEPS_CACHE" = "true" ]; then
-            cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-> ⚠️ 本次请求包含 `rebuild-deps-cache=true`，请在本次构建后手动触发 `prewarm-deps.yml` workflow 以刷新 base/python/node 缓存层。
-
-EOF
+            {
+              printf '%s\n' '> ⚠️ 本次请求包含 `rebuild-deps-cache=true`，请在本次构建后手动触发 `prewarm-deps.yml` workflow 以刷新 base/python/node 缓存层。'
+              printf '\n'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-### 📌 下一步建议
-- 关注 BuildKit 日志中是否出现 "CACHED" 标记
-- 若缓存命中偏低，可先手动触发依赖预热工作流
-EOF
+          {
+            printf '%s\n' '### 📌 下一步建议'
+            printf '%s\n' '- 关注 BuildKit 日志中是否出现 "CACHED" 标记'
+            printf '%s\n' '- 若缓存命中偏低，可先手动触发依赖预热工作流'
+          } >> "$GITHUB_STEP_SUMMARY"
       
