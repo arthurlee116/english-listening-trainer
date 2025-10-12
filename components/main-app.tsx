@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book } from "lucide-react"
+import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthDialog } from "@/components/auth-dialog"
@@ -80,7 +80,8 @@ export const MainApp = () => {
     isLoading,
     showAuthDialog,
     handleUserAuthenticated: setAuthenticatedUser,
-    handleLogout: performLogout
+    handleLogout: performLogout,
+    checkAuthStatus
   } = useAuthState()
 
   const { toast } = useToast()
@@ -127,8 +128,70 @@ export const MainApp = () => {
 
   // Assessment 相关状态
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResultData | null>(null)
+  const [assessmentCompletedAt, setAssessmentCompletedAt] = useState<string | null>(
+    user?.assessmentCompletedAt ?? null
+  )
+  const [assessmentSyncing, setAssessmentSyncing] = useState(false)
 
   const wordCount = useMemo(() => duration * 2, [duration])
+
+  useEffect(() => {
+    setAssessmentCompletedAt(user?.assessmentCompletedAt ?? null)
+  }, [user?.assessmentCompletedAt])
+
+  const hasCompletedAssessment = Boolean(assessmentCompletedAt)
+  const isAssessmentGateActive = isAuthenticated && !hasCompletedAssessment
+
+  const persistAssessmentCompletion = useCallback(async () => {
+    const completionTimestamp = new Date().toISOString()
+
+    if (!isAuthenticated) {
+      setAssessmentCompletedAt(completionTimestamp)
+      toast({
+        title: t("messages.assessmentCompleteTitle"),
+        description: t("messages.assessmentCompleteDescription"),
+      })
+      return completionTimestamp
+    }
+
+    setAssessmentSyncing(true)
+
+    try {
+      const response = await fetch("/api/assessment/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assessmentCompletedAt: completionTimestamp })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(data?.error ?? t("messages.assessmentSyncFailed"))
+      }
+
+      const data = await response.json() as { assessmentCompletedAt: string | null }
+      const serverTimestamp = data.assessmentCompletedAt ?? completionTimestamp
+      setAssessmentCompletedAt(serverTimestamp)
+
+      toast({
+        title: t("messages.assessmentCompleteTitle"),
+        description: t("messages.assessmentCompleteDescription"),
+      })
+
+      void checkAuthStatus()
+
+      return serverTimestamp
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("messages.assessmentSyncFailed")
+      toast({
+        title: t("messages.assessmentSyncFailed"),
+        description: message,
+        variant: "destructive",
+      })
+      return null
+    } finally {
+      setAssessmentSyncing(false)
+    }
+  }, [isAuthenticated, toast, t, checkAuthStatus])
 
   // 记忆化计算，避免不必要的重新渲染
   const isSetupComplete = useMemo(() => {
@@ -138,6 +201,14 @@ export const MainApp = () => {
 
   const handleGenerateTopics = useCallback(async () => {
     if (!difficulty) return
+
+    if (isAssessmentGateActive) {
+      toast({
+        title: t("messages.assessmentRequiredTitle"),
+        description: t("messages.assessmentRequiredDescription"),
+      })
+      return
+    }
 
     setLoading(true)
     setLoadingMessage(t("common.messages.processing"))
@@ -164,10 +235,18 @@ export const MainApp = () => {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, wordCount, language, toast])
+  }, [difficulty, isAssessmentGateActive, wordCount, language, toast, t])
 
   const handleGenerateTranscript = useCallback(async () => {
     if (!difficulty || !topic) return
+
+    if (isAssessmentGateActive) {
+      toast({
+        title: t("messages.assessmentRequiredTitle"),
+        description: t("messages.assessmentRequiredDescription"),
+      })
+      return
+    }
 
     setLoading(true)
     setLoadingMessage(t("common.messages.processing"))
@@ -206,7 +285,7 @@ export const MainApp = () => {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, wordCount, topic, language, toast])
+  }, [difficulty, isAssessmentGateActive, wordCount, topic, language, toast, t])
 
   const handleGenerateAudio = useCallback(async () => {
     if (!transcript) return
@@ -243,6 +322,14 @@ export const MainApp = () => {
   const handleStartQuestions = useCallback(async () => {
     if (!transcript || !difficulty) return
 
+    if (isAssessmentGateActive) {
+      toast({
+        title: t("messages.assessmentRequiredTitle"),
+        description: t("messages.assessmentRequiredDescription"),
+      })
+      return
+    }
+
     setLoading(true)
     setLoadingMessage(t("common.messages.processing"))
 
@@ -269,7 +356,7 @@ export const MainApp = () => {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, difficulty, language, duration, toast])
+  }, [transcript, difficulty, isAssessmentGateActive, language, duration, toast, t])
 
   const handleSubmitAnswers = useCallback(async () => {
     if (!questions.length || Object.keys(answers).length !== questions.length) return
@@ -500,6 +587,7 @@ export const MainApp = () => {
             onBack={() => setStep("setup")}
             onComplete={(result) => {
               setAssessmentResult(result)
+              void persistAssessmentCompletion()
               setStep("assessment-result")
             }}
           />
@@ -521,7 +609,39 @@ export const MainApp = () => {
           <>
             {/* Setup Step */}
             {step === "setup" && (
-              <div className="max-w-2xl mx-auto">
+              <div className="max-w-2xl mx-auto space-y-4">
+                {isAssessmentGateActive && (
+                  <Card className="border border-amber-400 bg-amber-50/80 dark:border-amber-500 dark:bg-amber-500/10">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-amber-900 dark:text-amber-100">
+                            <BilingualText translationKey="messages.assessmentRequiredTitle" />
+                          </h3>
+                          <p className="text-sm text-amber-800 dark:text-amber-200">
+                            <BilingualText translationKey="messages.assessmentRequiredDescription" />
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => setStep("assessment")}
+                          className="bg-amber-600 hover:bg-amber-700 text-white"
+                          disabled={assessmentSyncing}
+                        >
+                          {assessmentSyncing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              <BilingualText translationKey="messages.processing" />
+                            </>
+                          ) : (
+                            <BilingualText translationKey="buttons.assessment" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
                 <Card className="glass-effect p-8">
                   <h2 className="text-2xl font-bold text-center mb-8">创建听力练习</h2>
 
@@ -592,7 +712,7 @@ export const MainApp = () => {
                           </Label>
                           <Button
                             onClick={handleGenerateTopics}
-                            disabled={loading}
+                            disabled={loading || isAssessmentGateActive}
                             variant="outline"
                             size="sm"
                           >
@@ -647,7 +767,7 @@ export const MainApp = () => {
                     {/* Generate Exercise Button */}
                     <Button
                       onClick={handleGenerateTranscript}
-                      disabled={!isSetupComplete || loading}
+                      disabled={!isSetupComplete || loading || isAssessmentGateActive}
                       className="w-full"
                       size="lg"
                     >
@@ -684,6 +804,7 @@ export const MainApp = () => {
                   loading={loading}
                   loadingMessage={loadingMessage}
                   initialDuration={audioDuration ?? undefined}
+                  assessmentRequired={isAssessmentGateActive}
                 />
               </div>
             )}
