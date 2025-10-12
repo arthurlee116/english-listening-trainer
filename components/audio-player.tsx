@@ -9,6 +9,7 @@ import { BilingualText } from "@/components/ui/bilingual-text"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { PLAYBACK_SPEED_OPTIONS, PLAYBACK_RATE_STORAGE_KEY, DEFAULT_PLAYBACK_RATE, parsePlaybackRate } from "@/lib/constants"
+import componentsTranslationData from "@/lib/i18n/translations/components.json"
 import { useToast } from "@/hooks/use-toast"
 
 // 音频播放器控制接口
@@ -134,6 +135,39 @@ function useAudioPlayer(initialDuration?: number) {
   }
 }
 
+type TranslationLeaf = { en: string; zh: string }
+
+function isTranslationLeaf(value: unknown): value is TranslationLeaf {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "en" in value &&
+    "zh" in value &&
+    typeof (value as { en: unknown }).en === "string" &&
+    typeof (value as { zh: unknown }).zh === "string"
+  )
+}
+
+function resolveComponentsTranslation(path: string): TranslationLeaf | null {
+  const normalizedPath = path.startsWith("components.") ? path.slice("components.".length) : path
+  const segments = normalizedPath.split(".")
+
+  let current: unknown = componentsTranslationData
+  for (const segment of segments) {
+    if (typeof current === "object" && current !== null && segment in current) {
+      current = (current as Record<string, unknown>)[segment]
+    } else {
+      return null
+    }
+  }
+
+  return isTranslationLeaf(current) ? current : null
+}
+
+function formatPlaybackRateValue(rate: number): string {
+  return `${Number.isInteger(rate) ? rate.toFixed(1) : rate}×`
+}
+
 const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(({ 
   audioUrl, 
   audioError, 
@@ -148,7 +182,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
   loadingMessage = "",
   initialDuration
 }, ref) => {
-  const { t } = useBilingualText()
+  const { t, formatBilingual } = useBilingualText()
   const [internalAudioError, setInternalAudioError] = useState(false)
   const { toast } = useToast()
   const {
@@ -172,6 +206,24 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
     stopProgressLoop,
     cleanup
   } = useAudioPlayer(initialDuration)
+
+  const playbackRateLabels = useMemo(() => {
+    const labelMap = new Map<string, string>()
+
+    for (const option of PLAYBACK_SPEED_OPTIONS) {
+      const translation = resolveComponentsTranslation(option.labelKey)
+      if (translation) {
+        const { en, zh } = translation
+        labelMap.set(String(option.value), en === zh ? en : formatBilingual(en, zh))
+      } else {
+        labelMap.set(String(option.value), formatPlaybackRateValue(option.value))
+      }
+    }
+
+    return labelMap
+  }, [formatBilingual])
+
+  const selectedPlaybackRateLabel = playbackRateLabels.get(String(playbackRate)) ?? formatPlaybackRateValue(playbackRate)
 
   useEffect(() => {
     const audio = audioRef.current
@@ -601,7 +653,9 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
               </span>
               <Select value={String(playbackRate)} onValueChange={handleRateChange} disabled={!audioUrl}>
                 <SelectTrigger aria-label={t("components.audioPlayer.playbackRateAriaLabel")} className="w-28">
-                  <SelectValue placeholder={t("components.audioPlayer.playbackRatePlaceholder")} />
+                  <SelectValue placeholder={t("components.audioPlayer.playbackRatePlaceholder")}>
+                    {selectedPlaybackRateLabel}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {PLAYBACK_SPEED_OPTIONS.map(opt => (
