@@ -21,7 +21,6 @@ import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } f
 import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { AudioPlayer } from "@/components/audio-player"
 import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
@@ -1802,7 +1801,6 @@ function HomePage() {
                   <span className="sm:hidden">快捷键</span>
                 </Button>
                 
-                <ThemeToggle />
                 
                 <Button 
                   variant="outline" 

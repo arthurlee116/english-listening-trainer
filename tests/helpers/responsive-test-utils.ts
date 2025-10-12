@@ -104,30 +104,6 @@ export const hasResponsiveClasses = (element: Element, classes: string[]): boole
 }
 
 /**
- * Validates light theme specific classes
- */
-export const validateLightThemeClasses = (element: Element): boolean => {
-  const classList = Array.from(element.classList)
-  
-  // Should not have dark theme classes
-  const darkClasses = classList.filter(cls => cls.startsWith('dark:'))
-  if (darkClasses.length > 0) {
-    return false
-  }
-  
-  // Should have light theme appropriate classes
-  const lightThemeIndicators = [
-    'text-gray-900',
-    'bg-white',
-    'from-blue-50',
-    'via-indigo-50',
-    'to-purple-50'
-  ]
-  
-  return lightThemeIndicators.some(indicator => classList.includes(indicator))
-}
-
-/**
  * Gets computed styles for responsive testing
  */
 export const getResponsiveStyles = (element: Element): CSSStyleDeclaration => {

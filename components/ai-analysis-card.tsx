@@ -77,26 +77,26 @@ export function AIAnalysisCard({
   const getStateColor = () => {
     switch (state) {
       case AnalysisState.NOT_GENERATED:
-        return "border-emphasis-light bg-gray-50 dark:bg-gray-800 dark:border-gray-600"
+        return "border border-slate-700 bg-slate-900/70"
       case AnalysisState.LOADING:
-        return "border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-600"
+        return "border border-sky-700/70 bg-slate-900/70"
       case AnalysisState.SUCCESS:
-        return "border-green-300 bg-green-50 dark:bg-green-950 dark:border-green-600"
+        return "border border-emerald-600/60 bg-emerald-950/40"
       case AnalysisState.ERROR:
-        return "border-red-300 bg-red-50 dark:bg-red-950 dark:border-red-600"
+        return "border border-rose-600/60 bg-rose-950/40"
     }
   }
 
   const getConfidenceBadgeColor = (confidence: string) => {
     switch (confidence) {
       case 'high':
-        return "bg-green-100 text-green-800 border-green-300"
+        return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
       case 'medium':
-        return "bg-yellow-100 text-yellow-800 border-yellow-300"
+        return "bg-amber-500/20 text-amber-300 border border-amber-500/40"
       case 'low':
-        return "bg-red-100 text-red-800 border-red-300"
+        return "bg-rose-500/20 text-rose-300 border border-rose-500/40"
       default:
-        return "bg-gray-100 text-gray-800 border-emphasis-light"
+        return "bg-slate-700/50 text-slate-200 border border-slate-600/60"
     }
   }
 
@@ -167,7 +167,7 @@ export function AIAnalysisCard({
 
         {/* Analysis Content */}
         {isExpanded && analysis && state === AnalysisState.SUCCESS && (
-          <div className="space-y-4 pt-2 border-t separator-light dark:border-gray-700">
+          <div className="space-y-4 pt-2 border-t border-slate-700/70">
             {/* Main Analysis */}
             <div>
               <div className="flex items-center gap-2 mb-2">

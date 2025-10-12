@@ -16,7 +16,6 @@ import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } f
 import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { AudioPlayer } from "@/components/audio-player"
 import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
@@ -453,9 +452,8 @@ export const MainApp = () => {
                 </Button>
               </nav>
 
-              <ThemeToggle />
               <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}>
-                <LogOut className="w-4 h-4 mr-1 icon-nav-light" />
+                <LogOut className={combineThemeClasses("w-4 h-4 mr-1", iconClass('nav'))} />
                 <BilingualText translationKey="buttons.logout" />
               </Button>
             </div>
@@ -652,7 +650,7 @@ export const MainApp = () => {
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4 mr-2 icon-button-primary-light" />
+                          <Sparkles className={combineThemeClasses("w-4 h-4 mr-2", iconClass('primary'))} />
                           Generate Listening Exercise
                         </>
                       )}

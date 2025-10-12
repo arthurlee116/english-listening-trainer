@@ -81,7 +81,7 @@ vi.mock('../../../components/ui/bilingual-text', () => ({
   },
 }))
 
-// Mock ThemeProvider to avoid next-themes issues
+// Mock ThemeProvider to avoid provider overhead in tests
 vi.mock('../../../components/theme-provider', () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
 }))

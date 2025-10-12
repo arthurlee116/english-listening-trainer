@@ -612,7 +612,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
             </div>
           </>
         ) : (
-          <div className="bg-gray-50 border border-light rounded-lg p-8 text-center">
+          <div className="bg-slate-900/60 border border-slate-700 rounded-lg p-8 text-center">
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <Volume2 className="w-6 h-6 text-gray-400" />
             </div>
