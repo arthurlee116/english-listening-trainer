@@ -81,7 +81,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       torch==2.3.0+cu121 torchaudio==2.3.0+cu121 torchvision==0.18.0+cu121
 
 # Install Kokoro Python requirements
-COPY kokoro-local/requirements.txt /tmp/requirements.txt
+COPY kokoro_local/requirements.txt /tmp/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     ${KOKORO_VENV}/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
@@ -168,7 +168,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/package-lock.json ./package-lock.
 # Copy essential runtime files only
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/admin-server.mjs ./admin-server.mjs
-COPY --from=builder --chown=nextjs:nodejs /app/kokoro-local ./kokoro-local
+COPY --from=builder --chown=nextjs:nodejs /app/kokoro_local ./kokoro_local
 
 # Copy essential Prisma artifacts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
