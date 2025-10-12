@@ -370,12 +370,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
         >
           {showDetails ? (
             <>
-              <ChevronUp className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
+              <ChevronUp className="w-4 h-4 mr-2" />
               {t('components.resultsDisplay.hideDetails')}
             </>
           ) : (
             <>
-              <ChevronDown className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
+              <ChevronDown className="w-4 h-4 mr-2" />
               {t('components.resultsDisplay.showDetails')}
             </>
           )}
@@ -446,11 +446,11 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
       {/* Action buttons */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
         <Button onClick={onRestart} className="flex-1 sm:flex-none">
-          <RotateCcw className="w-4 h-4 mr-2 text-slate-200" />
+          <RotateCcw className="w-4 h-4 mr-2" />
           {t('components.resultsDisplay.startNewPractice')}
         </Button>
         <Button onClick={onExport} variant="outline" className="flex-1 sm:flex-none">
-          <Download className="w-4 h-4 mr-2 text-slate-300" />
+          <Download className="w-4 h-4 mr-2" />
           {t('components.resultsDisplay.exportResults')}
         </Button>
       </div>
@@ -509,12 +509,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
         >
           {showTranscript ? (
             <>
-              <ChevronUp className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
+              <ChevronUp className="w-4 h-4 mr-2" />
               {t('components.resultsDisplay.hideTranscript')}
-            </> 
+            </>
           ) : (
             <>
-              <ChevronDown className="w-4 h-4 mr-2 text-slate-300 transition-colors hover:text-white" />
+              <ChevronDown className="w-4 h-4 mr-2" />
               {t('components.resultsDisplay.showTranscript')}
             </>
           )}

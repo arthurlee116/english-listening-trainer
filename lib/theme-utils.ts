@@ -22,8 +22,9 @@ export const themeClasses = {
   },
   button: {
     primary: 'bg-slate-800 text-slate-100 hover:bg-slate-700',
-    secondary: 'bg-slate-700 text-slate-200 hover:bg-slate-600',
-    outline: 'border border-slate-600 hover:bg-slate-800/60',
+    secondary: 'bg-slate-700 text-slate-100 hover:bg-slate-600',
+    outline: 'border border-slate-600 text-slate-100 hover:bg-slate-800/60',
+    ghost: 'text-slate-100 hover:bg-slate-800/60',
     destructive: 'bg-rose-700 text-rose-50 hover:bg-rose-600',
   },
   surface: {
@@ -103,7 +104,7 @@ export function createCSSVarStyles(
 
 export const themeComponents = {
   button: (
-    variant: 'primary' | 'secondary' | 'outline' | 'destructive',
+    variant: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive',
     size: 'sm' | 'md' | 'lg' = 'md',
   ) => {
     const baseClasses = 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
@@ -116,8 +117,9 @@ export const themeComponents = {
 
     const variantClasses = {
       primary: 'bg-slate-800 text-slate-100 hover:bg-slate-700',
-      secondary: 'bg-slate-700 text-slate-200 hover:bg-slate-600',
-      outline: 'border border-slate-600 bg-transparent hover:bg-slate-800/60',
+      secondary: 'bg-slate-700 text-slate-100 hover:bg-slate-600',
+      outline: 'border border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800/60',
+      ghost: 'text-slate-100 hover:bg-slate-800/60',
       destructive: 'bg-rose-700 text-rose-50 hover:bg-rose-600',
     }
 
