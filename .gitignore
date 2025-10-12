@@ -163,3 +163,4 @@ build/
 mcp.jsonnext/
 my-v0-project@0.1.0
 
+.venv*

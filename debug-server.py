@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import subprocess
-import sys
 
 # 直接通过git拉取最新代码然后运行远程调试
 def main():
