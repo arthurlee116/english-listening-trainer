@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
         name: user.name,
         isAdmin: user.isAdmin,
         createdAt: user.createdAt.toISOString(),
-        updatedAt: lastModified
+        updatedAt: lastModified,
+        assessmentCompletedAt: user.assessmentCompletedAt
+          ? user.assessmentCompletedAt.toISOString()
+          : null
       },
       metadata: {
         cacheVersion,

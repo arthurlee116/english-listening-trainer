@@ -34,6 +34,7 @@ interface AudioPlayerProps {
   loading?: boolean
   loadingMessage?: string
   initialDuration?: number
+  assessmentRequired?: boolean
 }
 
 // 自定义Hook用于音频控制
@@ -176,11 +177,12 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
   // topic, // unused
   // wordCount, // unused
   onGenerateAudio,
-  onStartQuestions, 
-  onRegenerate, 
-  loading = false, 
+  onStartQuestions,
+  onRegenerate,
+  loading = false,
   loadingMessage = "",
-  initialDuration
+  initialDuration,
+  assessmentRequired = false
 }, ref) => {
   const { t, formatBilingual } = useBilingualText()
   const [internalAudioError, setInternalAudioError] = useState(false)
@@ -521,7 +523,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
               <Button
                 size="sm"
                 onClick={onStartQuestions}
-                disabled={loading}
+                disabled={loading || assessmentRequired}
                 className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
               >
                 <BilingualText translationKey="components.audioPlayer.skipAudioDirectQuestions" />
@@ -691,10 +693,10 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
               <BilingualText translationKey="components.audioPlayer.generateAudio" />
             </Button>
           )}
-          
+
           <Button
             onClick={onStartQuestions}
-            disabled={loading}
+            disabled={loading || assessmentRequired}
             className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 rounded-lg"
           >
             <BilingualText translationKey="components.audioPlayer.startQuestions" />

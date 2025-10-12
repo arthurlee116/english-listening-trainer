@@ -17,6 +17,7 @@ interface User {
   isAdmin: boolean
   createdAt: string
   updatedAt: string
+  assessmentCompletedAt: string | null
 }
 
 interface AuthDialogProps {

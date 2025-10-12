@@ -9,6 +9,7 @@ export interface AuthUserInfo {
   isAdmin: boolean
   createdAt: string
   updatedAt: string
+  assessmentCompletedAt: string | null
 }
 
 export interface AuthMetadata {
