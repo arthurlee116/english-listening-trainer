@@ -26,38 +26,51 @@
 - **部署**: GitHub Actions, GHCR
 - **监控**: 健康检查, 日志管理
 
-### 最近更新 (2025-10-12)
+### 最近更新
+- 2025-10-12 **Phase 4: 远程服务器缓存预热完成**
+  - 创建 `scripts/remote-cache-prewarm.sh` 和 `scripts/verify-cache-layers.sh`，实现多级缓存预热与完整性校验
+  - 更新 `scripts/deploy-from-ghcr.sh` 将缓存预热纳入标准部署流程，并统一 `Dockerfile.optimized` 的 `NODE_MAJOR=20`
+  - 在 `documents/workflow-snapshots/remote-cache-prewarm-snapshot.md` 记录执行细节与问题排查日志
+- 2025-10-07 **Phase 4: 完善部署文档与缓存管理指南**
+  - 新增《CACHE_MANAGEMENT_GUIDE.md》《SERVER_DEPLOYMENT_TEST_GUIDE.md》《WORKFLOW_TESTING_GUIDE.md》三份文档，覆盖缓存刷新策略、部署排查以及 workflow 验证流程
+  - 同步状态表、看板、快照与路线图，标记 CI 缓存优化路线图收官
 
-#### Phase 4: 远程服务器缓存预热完成 ✅
-- 创建 `scripts/remote-cache-prewarm.sh` 实现多级缓存预热
-- 创建 `scripts/verify-cache-layers.sh` 验证缓存层完整性
-- 修改 `scripts/deploy-from-ghcr.sh` 集成缓存预热步骤
-- 统一 `Dockerfile.optimized` NODE_MAJOR 版本为 20
-- 明确两个 Dockerfile 用途并添加注释
-- 创建详细的远程服务器部署指南 `documents/DEPLOYMENT.md`
+## 当前核心目标
+- [x] CI/Docker 缓存优化（详见 `documents/future-roadmap/ci-docker-cache-roadmap.md`）。负责人：Claude。进度：Phase 4 已完成 ✅
+- [x] 重构 Kokoro TTS 模块并落地自检 CLI（详见 `documents/future-roadmap/tts-refactor-roadmap.md`）。负责人：待指定。进度：全部 4 阶段已完成 ✅
 
-#### Phase 3: 调整主 workflow 使用多级 cache-from ✅
-- `.github/workflows/build-and-push.yml` 采用 GHCR `cache-base/cache-python/cache-node/cache-builder` 链
-- 移除 `actions/cache` 及本地缓存目录迁移步骤，仅推送 `cache-builder`
-- 增加 `df -h` + 4GB 阈值检查，构建日志 `CACHED` 统计写入 Summary
-- workflow_dispatch 新增 `rebuild-deps-cache` 输入，用于提醒触发 `prewarm-deps.yml`
-- Summary 输出命中行数与后续建议
+## 最近里程碑
+- 2025-10-12 **Phase 4: 远程服务器缓存预热完成**
+  - 创建 `scripts/remote-cache-prewarm.sh` 与 `scripts/verify-cache-layers.sh`，并在 `deploy-from-ghcr.sh` 集成缓存预热流程
+  - 统一 Dockerfile 说明与 NODE_MAJOR 版本，补充远程服务器部署手册（`documents/DEPLOYMENT.md`）
+- 2025-10-07 **Phase 4: 缓存与部署文档完善**
+  - 发布《CACHE_MANAGEMENT_GUIDE.md》《SERVER_DEPLOYMENT_TEST_GUIDE.md》《WORKFLOW_TESTING_GUIDE.md》
+  - 更新状态/看板/快照/路线图，完成 CI 缓存优化收尾工作
+- 2025-10-07 **Phase 3: 主构建工作流切换至多级缓存链**
+  - 更新 `.github/workflows/build-and-push.yml` 使用 GHCR `cache-base/cache-python/cache-node/cache-builder` 链
+  - 移除 `actions/cache` 与本地目录迁移逻辑，新增 4GB 磁盘阈值检查与缓存命中统计
+- 2025-10-07 **Phase 2: 依赖缓存预热工作流完成**
+  - 创建 `.github/workflows/prewarm-deps.yml`（三层缓存：base → python → node），滚动+季度标签策略
+  - 每周一 02:00 UTC 自动执行，手动触发时提醒刷新依赖层
+- 2025-10-07 **Phase 1: 基础镜像内刊化（含 cuDNN8 标签修复）**
+  - 推送 CUDA 基础镜像至 GHCR（`12.1.1-cudnn8-runtime-ubuntu22.04`，digest `sha256:b2c52e...c12faa34`）
+  - 验证 cuDNN 版本，更新 Dockerfile 引用，并配置远程服务器镜像加速器
+- 2025-10-06 **关键 Bug 修复：PR #6-9 推送**
+  - 修复 `kokoro_wrapper.py` 环境变量空字符串路径问题，重命名 `kokoro-local/` → `kokoro_local/`
+  - 补充 ImportError 捕获，避免 CI 依赖缺失导致的自检失败，并同步 30+ 文件路径
+- 2025-10-06 **阶段 4：最终文档同步**
+  - 更新 `CLAUDE.md` 与相关 TTS 文档，补充 CLI 自检命令示例和生产验证步骤
+- 2025-10-06 **阶段 3：GitHub Actions 集成自检步骤**
+  - 在 `.github/workflows/build-and-push.yml` 添加 Kokoro 自检任务，上传 JSON 报告 artifact
+- 2025-10-06 **阶段 2：CLI 自检脚本实现**
+  - 创建 `kokoro_local/selftest/` 模块与 CPU/GPU 配置，支持 Markdown/JSON 输出与性能指标
+- 2025-10-06 **阶段 1：Kokoro wrapper 重构与离线加载强化**
+  - 创建 `kokoro_local/text_chunker.py`，强化 `KOKORO_LOCAL_MODEL_PATH` 处理，迁移 legacy 脚本
+- 2025-10-06 **文档清理**
+  - 删除 33 个历史总结文件，保留状态、看板、快照与路线图核心文档
 
-#### Phase 2: 依赖缓存预热工作流 ✅
-- 创建 `prewarm-deps.yml`（三层缓存：base/python/node）
-- 季度版本标签：2025Q4（固定策略）
-- 跳过 builder 层推送（避免体积失控）
-- 每周一自动执行 + workflow_dispatch 手动触发
-- 磁盘空间监控：<4GB 时失败告警
-- Summary 报告：标签表格 + 使用指南
-
-#### Phase 1: 基础镜像内刊化（含 cuDNN8 标签修复） ✅
-- 推送 CUDA 基础镜像至 GHCR（digest: sha256:b2c52e...c12faa34）
-- **修复标签命名**：保留 `cudnn8` 后缀 → `12.1.1-cudnn8-runtime-ubuntu22.04`
-- 验证 cuDNN 版本：libcudnn8 8.9.0.131 ✅
-- 更新 `Dockerfile` 和 `Dockerfile.optimized` FROM 行使用正确标签
-- 配置远程服务器 Docker 镜像加速器
-- 更新项目文档（status/board/snapshot/roadmap）
+## 阻塞/待确认事项
+- [ ] 每季度初检查远程部署机缓存是否仍命中（参考《SERVER_DEPLOYMENT_TEST_GUIDE.md》）
 
 ### 已知问题
 - ⚠️ **GPU内存管理**: 长时间运行可能出现内存泄漏，需要定期重启
