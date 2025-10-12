@@ -169,8 +169,9 @@ describe('ResultsDisplay Integration Tests', () => {
       const recommendations = screen.getAllByText(/•/)
       expect(recommendations.length).toBeGreaterThan(0)
     })
-  })  des
-cribe('Data Persistence and Retrieval', () => {
+  })
+
+  describe('Data Persistence and Retrieval', () => {
     it('should load and display practice notes correctly', async () => {
       const { getPracticeNote } = require('../../../lib/storage')
       getPracticeNote.mockReturnValue('This is a test note for the exercise.')
@@ -183,6 +184,10 @@ cribe('Data Persistence and Retrieval', () => {
       // Check if note is loaded
       const textarea = screen.getByPlaceholderText(/notes.*placeholder/i)
       expect(textarea).toHaveValue('This is a test note for the exercise.')
+
+      const lengthHint = screen.getByText(/Length:/)
+      expect(lengthHint).toHaveTextContent('Length: 0/2000')
+      expect(lengthHint.textContent).not.toContain('{')
     })
 
     it('should save practice notes with proper validation', async () => {
@@ -354,8 +359,9 @@ cribe('Data Persistence and Retrieval', () => {
       expect(onExport).toHaveBeenCalledTimes(1)
     })
   })
-})d
-escribe('HistoryPanel Integration Tests', () => {
+})
+
+describe('HistoryPanel Integration Tests', () => {
   const user = userEvent.setup()
   
   const mockExercises = [
@@ -541,8 +547,9 @@ escribe('HistoryPanel Integration Tests', () => {
         expect(exerciseCards[0]).toHaveTextContent('Environmental Issues')
       })
     })
-  })  de
-scribe('Note Management Integration', () => {
+  })
+
+  describe('Note Management Integration', () => {
     it('should display and edit practice notes', async () => {
       const { getPracticeNote, savePracticeNote } = require('../../../lib/storage')
       getPracticeNote.mockReturnValue('Existing note for exercise 1')

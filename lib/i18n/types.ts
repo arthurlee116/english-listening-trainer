@@ -16,6 +16,7 @@ export interface FormatOptions {
   withUnit?: string;
   withParentheses?: boolean;
   separator?: string;
+  values?: Record<string, string | number>;
 }
 
 // Translation resource structure interfaces

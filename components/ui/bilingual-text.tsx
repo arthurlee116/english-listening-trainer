@@ -22,13 +22,15 @@ export function BilingualText({
   // Determine the text to display
   let displayText: string;
 
+  const mergedOptions = unit !== undefined ? { ...options, withUnit: unit } : options;
+
   if (translationKey) {
     // Use translation key with i18n system
-    displayText = t(translationKey, { ...options, withUnit: unit });
+    displayText = t(translationKey, mergedOptions);
   } else if (en && zh) {
     // Use direct English and Chinese text
     const translationObj: TranslationKey = { en, zh };
-    displayText = getBilingualValue(translationObj, { ...options, withUnit: unit });
+    displayText = getBilingualValue(translationObj, mergedOptions);
   } else {
     // Fallback to whatever text is available
     displayText = en || zh || '[Missing Translation]';

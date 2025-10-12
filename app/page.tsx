@@ -139,13 +139,11 @@ function HomePage() {
 
   // Helper function to format bilingual toast messages with parameters
   const formatToastMessage = useCallback((key: string, params?: Record<string, string | number>): string => {
-    let message = t(key)
-    if (params) {
-      Object.entries(params).forEach(([param, value]) => {
-        message = message.replace(`{${param}}`, String(value))
-      })
+    if (!params) {
+      return t(key)
     }
-    return message
+
+    return t(key, { values: params })
   }, [t])
 
   const handleUserAuthenticated = useCallback((userData: AuthUserInfo, token: string) => {
@@ -404,7 +402,7 @@ function HomePage() {
           if (attempt === 2) {
             toast({
               title: t("messages.networkRetrying"),
-              description: t("messages.networkRetryingDesc").replace('{attempt}', attempt.toString()),
+              description: t("messages.networkRetryingDesc", { values: { attempt } }),
               variant: "default",
             })
           }
@@ -465,10 +463,9 @@ function HomePage() {
     newAchievements.forEach((notification) => {
       toast({
         title: t("achievements.notifications.achievementEarned.title"),
-        description: t("achievements.notifications.achievementEarned.description").replace(
-          "{title}", 
-          t(notification.achievement.titleKey)
-        ),
+        description: t("achievements.notifications.achievementEarned.description", {
+          values: { title: t(notification.achievement.titleKey) },
+        }),
         duration: 5000,
       })
     })
@@ -840,7 +837,9 @@ function HomePage() {
         } else if (response.focusCoverage.coverage < 0.8) {
           toast({
             title: t("messages.partialCoverageWarning"),
-            description: t("messages.partialCoverageWarningDesc").replace('{coverage}', Math.round(response.focusCoverage.coverage * 100).toString()),
+            description: t("messages.partialCoverageWarningDesc", {
+              values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
+            }),
             variant: "default",
           })
         }
@@ -908,7 +907,9 @@ function HomePage() {
           } else if (response.focusCoverage.coverage < 0.8) {
             toast({
               title: t("messages.partialCoverageWarning"),
-              description: t("messages.partialCoverageWarningDesc").replace('{coverage}', Math.round(response.focusCoverage.coverage * 100).toString()),
+              description: t("messages.partialCoverageWarningDesc", {
+                values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
+              }),
               variant: "default",
             })
           }
@@ -1144,11 +1145,13 @@ function HomePage() {
             variant: "default",
           })
         } else if (response.focusCoverage.coverage < 0.8) {
-          toast({
-            title: t("messages.partialCoverageWarning"),
-            description: t("messages.partialCoverageWarningDesc").replace('{coverage}', Math.round(response.focusCoverage.coverage * 100).toString()),
-            variant: "default",
-          })
+            toast({
+              title: t("messages.partialCoverageWarning"),
+              description: t("messages.partialCoverageWarningDesc", {
+                values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
+              }),
+              variant: "default",
+            })
         }
       }
       
@@ -1252,10 +1255,9 @@ function HomePage() {
         if (achievementResult.goalProgress.daily.isCompleted) {
           toast({
             title: t("achievements.notifications.goalCompleted.title"),
-            description: t("achievements.notifications.goalCompleted.dailyGoal").replace(
-              "{target}", 
-              achievementResult.goalProgress.daily.target.toString()
-            ),
+            description: t("achievements.notifications.goalCompleted.dailyGoal", {
+              values: { target: achievementResult.goalProgress.daily.target },
+            }),
             duration: 5000,
           })
         }
@@ -1263,10 +1265,9 @@ function HomePage() {
         if (achievementResult.goalProgress.weekly.isCompleted) {
           toast({
             title: t("achievements.notifications.goalCompleted.title"),
-            description: t("achievements.notifications.goalCompleted.weeklyGoal").replace(
-              "{target}", 
-              achievementResult.goalProgress.weekly.target.toString()
-            ),
+            description: t("achievements.notifications.goalCompleted.weeklyGoal", {
+              values: { target: achievementResult.goalProgress.weekly.target },
+            }),
             duration: 5000,
           })
         }

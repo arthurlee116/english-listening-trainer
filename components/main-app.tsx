@@ -92,7 +92,9 @@ export const MainApp = () => {
     setAuthenticatedUser(userData, token)
     toast({
       title: t("common.messages.loginSuccess"),
-      description: t("common.messages.welcomeUser").replace("{name}", userData.name || userData.email),
+      description: t("common.messages.welcomeUser", {
+        values: { name: userData.name || userData.email },
+      }),
     })
   }, [setAuthenticatedUser, toast, t])
 
@@ -146,7 +148,9 @@ export const MainApp = () => {
       setSuggestedTopics(topics)
       toast({
         title: t("common.messages.topicGenerationSuccess"),
-        description: t("common.messages.topicGenerationSuccessDesc").replace("{count}", topics.length.toString()),
+        description: t("common.messages.topicGenerationSuccessDesc", {
+          values: { count: topics.length },
+        }),
       })
     } catch (error) {
       console.error("Failed to generate topics:", error)
@@ -249,7 +253,9 @@ export const MainApp = () => {
       setStep("questions")
       toast({
         title: t("common.messages.questionsGenerationSuccess"),
-        description: t("common.messages.questionsGenerationSuccessDesc").replace("{count}", generatedQuestions.length.toString()),
+        description: t("common.messages.questionsGenerationSuccessDesc", {
+          values: { count: generatedQuestions.length },
+        }),
       })
     } catch (error) {
       console.error("Failed to generate questions:", error)
@@ -298,7 +304,9 @@ export const MainApp = () => {
       const errorMessage = isError(error) ? error.message : String(error)
       toast({
         title: t("common.messages.gradingFailed"),
-        description: t("common.messages.gradingFailedDesc").replace("{error}", errorMessage),
+        description: t("common.messages.gradingFailedDesc", {
+          values: { error: errorMessage },
+        }),
         variant: "destructive",
       })
     } finally {

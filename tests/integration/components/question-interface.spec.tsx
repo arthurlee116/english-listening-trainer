@@ -38,7 +38,7 @@ vi.mock('../../../hooks/use-toast', () => ({
 // Mock the bilingual text hook
 vi.mock('../../../hooks/use-bilingual-text', () => ({
   useBilingualText: () => ({
-    t: vi.fn((key: string) => {
+    t: vi.fn((key: string, options?: { values?: Record<string, string | number> }) => {
       // Return mock translations for common keys used in tests
       const mockTranslations: Record<string, string> = {
         'components.questionInterface.audioPlayer': 'Audio Player',
@@ -64,7 +64,15 @@ vi.mock('../../../hooks/use-bilingual-text', () => ({
         'components.specializedPractice.focusAreas.inference': 'Inference',
         'components.specializedPractice.focusAreas.vocabulary': 'Vocabulary',
       }
-      return mockTranslations[key] || key
+      const translation = mockTranslations[key] || key
+
+      if (options?.values) {
+        return Object.entries(options.values).reduce((acc, [param, value]) => {
+          return acc.split(`{${param}}`).join(String(value))
+        }, translation)
+      }
+
+      return translation
     }),
     formatBilingual: vi.fn((en: string, zh: string) => `${en} ${zh}`),
   }),

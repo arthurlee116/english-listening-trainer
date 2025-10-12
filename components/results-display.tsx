@@ -90,7 +90,9 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
     if (noteText.length > MAX_NOTE_LENGTH) {
       toast({
         title: t("components.resultsDisplay.saveFailed"),
-        description: t("components.resultsDisplay.lengthExceeded").replace('{max}', String(MAX_NOTE_LENGTH)),
+        description: t("components.resultsDisplay.lengthExceeded", {
+          values: { max: MAX_NOTE_LENGTH },
+        }),
         variant: 'destructive'
       })
       return
@@ -225,7 +227,9 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
                     {t('components.resultsDisplay.coverageWarning')}
                   </div>
                   <div className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mb-2">
-                    {t('components.resultsDisplay.coverageWarningDesc').replace('{coverage}', Math.round(exercise.focusCoverage.coverage * 100).toString())}
+                    {t('components.resultsDisplay.coverageWarningDesc', {
+                      values: { coverage: Math.round(exercise.focusCoverage.coverage * 100) },
+                    })}
                   </div>
                   {exercise.focusCoverage.unmatchedTags && exercise.focusCoverage.unmatchedTags.length > 0 && (
                     <div className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mb-2 break-words">
@@ -329,9 +333,11 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
                     <div key={focusArea} className="flex items-start gap-2">
                       <span className="text-blue-500 mt-0.5">•</span>
                       <span className="flex-1">
-                        {t('components.resultsDisplay.recommendationImprove').replace('{area}', 
-                          getFocusAreaDisplayName(focusArea)
-                        )}
+                        {t('components.resultsDisplay.recommendationImprove', {
+                          values: {
+                            area: getFocusAreaDisplayName(focusArea),
+                          },
+                        })}
                       </span>
                     </div>
                   )
@@ -340,9 +346,11 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
                     <div key={focusArea} className="flex items-start gap-2">
                       <span className="text-green-500 mt-0.5">•</span>
                       <span className="flex-1">
-                        {t('components.resultsDisplay.recommendationMaster').replace('{area}', 
-                          getFocusAreaDisplayName(focusArea)
-                        )}
+                        {t('components.resultsDisplay.recommendationMaster', {
+                          values: {
+                            area: getFocusAreaDisplayName(focusArea),
+                          },
+                        })}
                       </span>
                     </div>
                   )
@@ -460,7 +468,9 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">{t("components.resultsDisplay.practiceNotes")}</h3>
           <span className="text-sm text-gray-600 dark:text-gray-300">
-            {t("components.resultsDisplay.lengthHint").replace('{current}', String(noteText.length)).replace('{max}', String(MAX_NOTE_LENGTH))}
+            {t("components.resultsDisplay.lengthHint", {
+              values: { current: noteText.length, max: MAX_NOTE_LENGTH },
+            })}
           </span>
         </div>
         <div className="space-y-3">
