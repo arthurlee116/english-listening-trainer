@@ -94,30 +94,29 @@
   - `workflow_dispatch` 新增 `rebuild-deps-cache` 输入，用于提醒手动触发预热 workflow 刷新依赖层。
   - `rebuild-cache` 描述更新为“仅重建 builder cache”，并在执行时跳过 `cache-builder` 的 `cache-from` 引用，确保 base/python/node 层仍能命中缓存。
 
-### 4. 远程服务器缓存预热
-- **一次性执行**：
-  ```bash
-  docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn-runtime-ubuntu22.04
-  docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
-  docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
-  ```
-- **部署脚本调整**：
-  - 在每次部署前先 `docker pull` 上述 cache 镜像，再 `docker pull` 最新 runtime。
-  - 部署后避免 `docker system prune -a`，只清理旧 runtime 标签 (`:sha-xxxx`)。
-  - 记录 `docker images --digests`，确认 layer 未被意外清除。
+### 4. 文档完善与远程服务器缓存预热 ✅ 已完成（2025-10-07）
+- **交付物**：
+  - `documents/CACHE_MANAGEMENT_GUIDE.md`（缓存刷新策略、季度切换、配额监控、故障恢复）
+  - `documents/SERVER_DEPLOYMENT_TEST_GUIDE.md`（远程服务器预热步骤、部署清单、常见问题排查）
+  - `documents/WORKFLOW_TESTING_GUIDE.md`（预热/主 workflow 验证流程、Summary 阅读、缓存命中率计算）
+- **远程服务器操作手册**：
+  - 首次部署或季度切换时执行：
+    ```bash
+    docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+    docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
+    docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
+    ```
+  - 部署脚本需先同步 `cache-python`、`cache-node` 后再拉取最新 runtime，禁止使用 `docker system prune -a`
+  - 通过 `docker images --digests` 验证缓存层存在，部署日志模板记录命中情况
+- **缓存治理策略**：
+  - 文档化强制刷新流程：`rebuild-cache=true` 仅跳过 `cache-builder`，其余依赖层保持命中
+  - 季度切换时复制旧标签为 `cache-*-2025Q4` 留存，再在预热 workflow 中更新默认季度
+  - 清理过期标签与 GHCR 配额监控步骤均在指南中说明
 
-### 5. 缓存刷新策略
-- **手动刷新**：
-  - 当 `Dockerfile` 或 `requirements.txt`/`package-lock.json` 变更时，运行“依赖预热” workflow 手动刷新。
-  - 如果缓存损坏，可删除对应 GHCR 标签（`cache-python` 等），再重新运行预热。
-- **版本管理**：
-  - 可按季度将 `cache-python` 复制为 `cache-python-2025Q2` 留存旧版本，确保回滚能力。
-  - 文档化“如何强制全量构建”：在主 workflow 中设置 `inputs.rebuild-cache=true` + 手动清理远端 cache。
-
-### 6. 监控与反馈
-- **CI 日志**：统计 `CACHED` vs `RUN` 数量，写入 `GITHUB_STEP_SUMMARY`。
-- **部署日志**：在脚本中 output `docker pull` 的 layer 状态，出现 `Layer already exists` 说明命中成功。
-- **磁盘告警**：在 workflow 中检测 `df -h`，低于 4 GB 时报错，提醒处理。
+### 5. 监控与反馈
+- **CI 日志**：统计 `CACHED` vs `RUN` 数量，写入 `GITHUB_STEP_SUMMARY`
+- **部署日志**：在服务器脚本中输出 `docker pull` 的 layer 状态，出现 `Layer already exists` 说明命中成功
+- **磁盘告警**：在 workflow 中检测 `df -h`，低于 4 GB 时报错；远程机遵循指南定期检查磁盘
 
 ## 风险与缓解
 | 风险 | 影响 | 缓解措施 |
