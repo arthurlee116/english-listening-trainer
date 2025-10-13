@@ -82,14 +82,6 @@
       "en": "Start Questions",
       "zh": "开始答题"
     },
-    "questionsGenerating": {
-      "en": "Questions Generating...",
-      "zh": "题目生成中..."
-    },
-    "retryQuestions": {
-      "en": "Retry Questions",
-      "zh": "重试题目"
-    },
     "regenerateListeningMaterial": {
       "en": "Regenerate Listening Material",
       "zh": "重新生成听力材料"

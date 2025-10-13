@@ -35,10 +35,6 @@ interface AudioPlayerProps {
   loadingMessage?: string
   initialDuration?: number
   assessmentRequired?: boolean
-  // 并行生成状态
-  isQuestionGenerationPending?: boolean
-  questionGenerationError?: string
-  questionsReady?: boolean
 }
 
 // 自定义Hook用于音频控制
@@ -186,11 +182,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
   loading = false,
   loadingMessage = "",
   initialDuration,
-  assessmentRequired = false,
-  // 并行生成状态
-  isQuestionGenerationPending = false,
-  questionGenerationError = null,
-  questionsReady = false
+  assessmentRequired = false
 }, ref) => {
   const { t, formatBilingual } = useBilingualText()
   const [internalAudioError, setInternalAudioError] = useState(false)
@@ -707,21 +699,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>((
             disabled={loading || assessmentRequired}
             className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 rounded-lg"
           >
-            {isQuestionGenerationPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <BilingualText translationKey="components.audioPlayer.questionsGenerating" />
-              </>
-            ) : questionsReady ? (
-              <BilingualText translationKey="components.audioPlayer.startQuestions" />
-            ) : questionGenerationError ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                <BilingualText translationKey="components.audioPlayer.retryQuestions" />
-              </>
-            ) : (
-              <BilingualText translationKey="components.audioPlayer.startQuestions" />
-            )}
+            <BilingualText translationKey="components.audioPlayer.startQuestions" />
           </Button>
 
           {onRegenerate && (
