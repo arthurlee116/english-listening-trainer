@@ -4,33 +4,38 @@ import { screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../helpers/render-utils'
 import { createMockExercise, createMockPracticeSession } from '../../helpers/mock-utils'
-import { MainApp } from '@/components/main-app'
-import type { Exercise, PracticeSessionData } from '@/lib/types'
+import { MainApp } from '../../../components/main-app'
+import type { Exercise, PracticeSessionData } from '../../../lib/types'
 
 // Mock external dependencies
-vi.mock('@/lib/ai-service', () => ({
+vi.mock('../../lib/ai-service', () => ({
   generateTopics: vi.fn(),
   generateTranscript: vi.fn(),
   generateQuestions: vi.fn(),
   gradeAnswers: vi.fn(),
 }))
 
-vi.mock('@/lib/tts-service', () => ({
+vi.mock('../../lib/tts-service', () => ({
   generateAudio: vi.fn(),
 }))
 
-vi.mock('@/lib/storage', () => ({
+vi.mock('../../lib/storage', () => ({
   saveToHistory: vi.fn(),
   getHistory: vi.fn(() => []),
 }))
 
-const useAuthStateMock = vi.fn()
-
-vi.mock('@/hooks/use-auth-state', () => ({
-  useAuthState: () => useAuthStateMock(),
+vi.mock('../../../hooks/use-auth-state', () => ({
+  useAuthState: () => ({
+    user: { id: 'test-user', name: 'Test User', email: 'test@example.com' },
+    isAuthenticated: true,
+    isLoading: false,
+    showAuthDialog: false,
+    handleUserAuthenticated: vi.fn(),
+    handleLogout: vi.fn(),
+  }),
 }))
 
-vi.mock('@/hooks/use-legacy-migration', () => ({
+vi.mock('../../../hooks/use-legacy-migration', () => ({
   useLegacyMigration: () => ({
     migrationStatus: { isComplete: false, hasError: false },
     shouldShowNotification: () => false,
@@ -39,76 +44,36 @@ vi.mock('@/hooks/use-legacy-migration', () => ({
 
 describe('MainApp Integration Tests', () => {
   const user = userEvent.setup()
-  let aiService: Awaited<typeof import('@/lib/ai-service')>
-  let ttsService: Awaited<typeof import('@/lib/tts-service')>
-  let storageModule: Awaited<typeof import('@/lib/storage')>
-  let authState: {
-    user: { id: string; name: string; email: string; assessmentCompletedAt: string | null }
-    isAuthenticated: boolean
-    isLoading: boolean
-    showAuthDialog: boolean
-    handleUserAuthenticated: ReturnType<typeof vi.fn>
-    handleLogout: ReturnType<typeof vi.fn>
-    checkAuthStatus: ReturnType<typeof vi.fn>
-  }
-
-  beforeEach(async () => {
+  
+  beforeEach(() => {
     // Clear localStorage before each test
     localStorage.clear()
-
+    
     // Reset all mocks
     vi.clearAllMocks()
-
-    authState = {
-      user: {
-        id: 'test-user',
-        name: 'Test User',
-        email: 'test@example.com',
-        assessmentCompletedAt: new Date().toISOString(),
-      },
-      isAuthenticated: true,
-      isLoading: false,
-      showAuthDialog: false,
-      handleUserAuthenticated: vi.fn(),
-      handleLogout: vi.fn(),
-      checkAuthStatus: vi.fn(),
-    }
-
-    useAuthStateMock.mockImplementation(() => authState)
-
+    
     // Mock successful API responses
-    aiService = await import('@/lib/ai-service')
-    ttsService = await import('@/lib/tts-service')
-    storageModule = await import('@/lib/storage')
-
-    const {
-      generateTopics,
-      generateTranscript,
-      generateQuestions,
-      gradeAnswers
-    } = aiService
-    const { generateAudio } = ttsService
+    const { generateTopics, generateTranscript, generateQuestions, gradeAnswers } = require('../../lib/ai-service')
+    const { generateAudio } = require('../../../lib/tts-service')
     
     generateTopics.mockResolvedValue({
       topics: ['Technology Trends', 'Business Innovation', 'Digital Transformation']
     })
     
-    generateTranscript.mockResolvedValue({
-      transcript: 'In today\'s rapidly evolving technological landscape, artificial intelligence and machine learning are transforming how we work and live.'
-    })
-
-    generateQuestions.mockResolvedValue({
-      questions: [
-        {
-          type: 'single',
-          question: 'What is the main topic discussed?',
-          options: ['Technology', 'Business', 'Education', 'Travel'],
-          answer: 'Technology',
-          focus_areas: ['main-idea'],
-          explanation: 'The passage focuses on technological advancement.'
-        }
-      ]
-    })
+    generateTranscript.mockResolvedValue(
+      'In today\'s rapidly evolving technological landscape, artificial intelligence and machine learning are transforming how we work and live.'
+    )
+    
+    generateQuestions.mockResolvedValue([
+      {
+        type: 'single',
+        question: 'What is the main topic discussed?',
+        options: ['Technology', 'Business', 'Education', 'Travel'],
+        answer: 'Technology',
+        focus_areas: ['main-idea'],
+        explanation: 'The passage focuses on technological advancement.'
+      }
+    ])
     
     gradeAnswers.mockResolvedValue([
       {
@@ -131,31 +96,6 @@ describe('MainApp Integration Tests', () => {
     vi.restoreAllMocks()
   })
 
-  it('keeps practice actions disabled until the assessment is completed', async () => {
-    authState.user.assessmentCompletedAt = null
-
-    renderWithProviders(<MainApp />)
-
-    expect(await screen.findByText(/complete the assessment/i)).toBeInTheDocument()
-
-    const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
-    await user.click(difficultySelect)
-    await user.click(screen.getByText('B1 - Intermediate'))
-
-    const topicInput = screen.getByPlaceholderText(/enter a topic/i)
-    await user.type(topicInput, 'Business Strategy')
-
-    const generateTopicsButton = await screen.findByRole('button', {
-      name: /(generate topic suggestions|生成话题)/i,
-    })
-    expect(generateTopicsButton).toBeDisabled()
-
-    const generateExerciseButton = await screen.findByRole('button', {
-      name: /(generate listening exercise|生成听力练习)/i,
-    })
-    expect(generateExerciseButton).toBeDisabled()
-  })
-
   describe('Specialized Practice Mode Integration', () => {
     it('should persist specialized practice mode settings and record duration', async () => {
       const mockExercise = createMockExercise({
@@ -167,10 +107,10 @@ describe('MainApp Integration Tests', () => {
       renderWithProviders(<MainApp />)
 
       // Navigate to setup and enable specialized mode
-      expect(await screen.findByText('创建听力练习')).toBeInTheDocument()
+      expect(screen.getByText('创建听力练习')).toBeInTheDocument()
       
       // Select difficulty
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -225,7 +165,7 @@ describe('MainApp Integration Tests', () => {
       renderWithProviders(<MainApp />)
 
       // Check if recommendations are displayed when specialized mode is enabled
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -250,7 +190,7 @@ describe('MainApp Integration Tests', () => {
       renderWithProviders(<MainApp />)
 
       // Complete setup to reach listening step
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -274,7 +214,8 @@ describe('MainApp Integration Tests', () => {
         await user.click(generateAudioButton)
         
         await waitFor(() => {
-          expect(ttsService.generateAudio).toHaveBeenCalled()
+  const { generateAudio } = require('../../lib/tts-service')
+          expect(generateAudio).toHaveBeenCalled()
         })
       }
     })
@@ -283,7 +224,7 @@ describe('MainApp Integration Tests', () => {
       renderWithProviders(<MainApp />)
 
       // Navigate through the flow to reach questions
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -328,7 +269,7 @@ describe('MainApp Integration Tests', () => {
       renderWithProviders(<MainApp />)
 
       // Complete the full flow to reach results
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -370,10 +311,12 @@ describe('MainApp Integration Tests', () => {
 
   describe('Data Flow with Specialized Fields', () => {
     it('should preserve specialized fields throughout the exercise flow', async () => {
+      const { saveToHistory } = require('../../../lib/storage')
+      
       renderWithProviders(<MainApp />)
 
       // Set up specialized exercise
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -411,8 +354,8 @@ describe('MainApp Integration Tests', () => {
 
       // Verify that saveToHistory was called with specialized fields
       await waitFor(() => {
-        if (storageModule.saveToHistory.mock.calls.length > 0) {
-          const savedExercise = storageModule.saveToHistory.mock.calls[0][0]
+        if (saveToHistory.mock.calls.length > 0) {
+          const savedExercise = saveToHistory.mock.calls[0][0]
           expect(savedExercise).toHaveProperty('topic', 'Technology Innovation')
           expect(savedExercise).toHaveProperty('difficulty', 'B1')
           expect(savedExercise).toHaveProperty('createdAt')
@@ -428,11 +371,11 @@ describe('MainApp Integration Tests', () => {
       const initialTime = Date.now()
       
       // Set up and complete an exercise
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
-      const topicInput = screen.getByPlaceholderText(/enter a topic/i)
+      const topicInput = screen.getByPlaceholderInput(/enter a topic/i)
       await user.type(topicInput, 'Technology')
 
       const generateButton = screen.getByRole('button', { name: /generate listening exercise/i })
@@ -459,8 +402,9 @@ describe('MainApp Integration Tests', () => {
       }, { timeout: 10000 })
 
       // Check if duration was recorded
-      if (storageModule.saveToHistory.mock.calls.length > 0) {
-        const savedExercise = storageModule.saveToHistory.mock.calls[0][0]
+      const { saveToHistory } = require('../../../lib/storage')
+      if (saveToHistory.mock.calls.length > 0) {
+        const savedExercise = saveToHistory.mock.calls[0][0]
         expect(savedExercise).toHaveProperty('createdAt')
         
         // Verify the timestamp is reasonable (within the last few seconds)
@@ -474,11 +418,12 @@ describe('MainApp Integration Tests', () => {
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle API failures gracefully', async () => {
-      aiService.generateTopics.mockRejectedValue(new Error('Network error'))
+      const { generateTopics } = require('../../../lib/ai-service')
+      generateTopics.mockRejectedValue(new Error('Network error'))
 
       renderWithProviders(<MainApp />)
 
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
@@ -506,7 +451,7 @@ describe('MainApp Integration Tests', () => {
       renderWithProviders(<MainApp />)
 
       // Should still render without crashing
-      expect(await screen.findByText('创建听力练习')).toBeInTheDocument()
+      expect(screen.getByText('创建听力练习')).toBeInTheDocument()
 
       // Restore localStorage
       Storage.prototype.setItem = originalSetItem
@@ -519,7 +464,7 @@ describe('MainApp Integration Tests', () => {
 
       renderWithProviders(<MainApp />)
 
-      const difficultySelect = await screen.findByRole('combobox', { name: /difficulty/i })
+      const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 

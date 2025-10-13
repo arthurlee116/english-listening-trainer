@@ -25,7 +25,6 @@ export interface ExerciseFormData {
 export interface AssessmentInfo {
   hasAssessment: boolean
   difficultyLevel: number
-  completedAt?: string | null
 }
 
 interface ExerciseState {
@@ -41,7 +40,6 @@ interface ExerciseState {
   exercise: Exercise | null
   suggestedTopics: string[]
   error: string | null
-  assessmentCompleted: boolean
 }
 
 type ExerciseAction =
@@ -57,17 +55,12 @@ type ExerciseAction =
   | { type: 'SET_EXERCISE'; payload: Exercise }
   | { type: 'SET_SUGGESTED_TOPICS'; payload: string[] }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_ASSESSMENT_COMPLETED'; payload: boolean }
   | { type: 'RESET' }
 
 function createInitialState(assessmentInfo?: AssessmentInfo): ExerciseState {
   // 根据用户评估结果设置推荐难度，如果没有评估则使用默认的B1
   let recommendedDifficulty: DifficultyLevel = 'B1'
-
-  const isAssessmentComplete = Boolean(
-    assessmentInfo?.completedAt ?? assessmentInfo?.hasAssessment
-  )
-
+  
   if (assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel) {
     recommendedDifficulty = mapDifficultyToCEFR(assessmentInfo.difficultyLevel) as DifficultyLevel
   }
@@ -90,8 +83,7 @@ function createInitialState(assessmentInfo?: AssessmentInfo): ExerciseState {
     results: null,
     exercise: null,
     suggestedTopics: [],
-    error: null,
-    assessmentCompleted: isAssessmentComplete
+    error: null
   }
 }
 
@@ -125,10 +117,8 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
       return { ...state, suggestedTopics: action.payload }
     case 'SET_ERROR':
       return { ...state, error: action.payload, isGenerating: false }
-    case 'SET_ASSESSMENT_COMPLETED':
-      return { ...state, assessmentCompleted: action.payload }
     case 'RESET':
-      return { ...createInitialState(), formData: state.formData, assessmentCompleted: state.assessmentCompleted }
+      return { ...createInitialState(), formData: state.formData }
     default:
       return state
   }
@@ -140,14 +130,6 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
 
   // 生成话题建议
   const generateTopicSuggestions = useCallback(async () => {
-    if (!state.assessmentCompleted) {
-      toast({
-        title: "请先完成评估",
-        description: "完成听力评估后即可解锁练习生成",
-      })
-      return
-    }
-
     try {
       dispatch({ type: 'SET_GENERATING', payload: true })
       dispatch({ type: 'SET_PROGRESS', payload: '正在生成话题建议...' })
@@ -171,20 +153,12 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
     } finally {
       dispatch({ type: 'SET_GENERATING', payload: false })
     }
-  }, [state.assessmentCompleted, state.formData.difficulty, state.formData.duration, toast])
+  }, [state.formData.difficulty, state.formData.duration, toast])
 
   // 开始练习
   const startExercise = useCallback(async () => {
-    if (!state.assessmentCompleted) {
-      toast({
-        title: "请先完成评估",
-        description: "完成听力评估后即可开始练习",
-      })
-      return false
-    }
-
     const selectedTopic = state.formData.topic === 'custom' ? state.formData.customTopic : state.formData.topic
-
+    
     if (!selectedTopic.trim()) {
       toast({
         title: "请选择话题",
@@ -264,21 +238,13 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
     } finally {
       dispatch({ type: 'SET_GENERATING', payload: false })
     }
-  }, [state.assessmentCompleted, state.formData, toast])
+  }, [state.formData, toast])
 
   // 开始答题
   const startQuestions = useCallback(() => {
-    if (!state.assessmentCompleted) {
-      toast({
-        title: "请先完成评估",
-        description: "完成评估后即可进入答题阶段",
-      })
-      return
-    }
-
     dispatch({ type: 'SET_STEP', payload: 'questions' })
     dispatch({ type: 'SET_USER_ANSWERS', payload: new Array(state.questions.length).fill('') })
-  }, [state.assessmentCompleted, state.questions.length, toast])
+  }, [state.questions.length])
 
   // 提交答案
   const submitAnswers = useCallback(async () => {
@@ -338,10 +304,6 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
     })
   }, [toast])
 
-  const setAssessmentCompleted = useCallback((completed: boolean) => {
-    dispatch({ type: 'SET_ASSESSMENT_COMPLETED', payload: completed })
-  }, [])
-
   // 更新表单数据
   const updateFormData = useCallback((data: Partial<ExerciseFormData>) => {
     dispatch({ type: 'SET_FORM_DATA', payload: data })
@@ -369,11 +331,7 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
   const canProceed = useMemo(() => {
     switch (state.currentStep) {
       case 'setup':
-        return (
-          state.assessmentCompleted &&
-          !state.isGenerating &&
-          (state.formData.topic !== '' || state.formData.customTopic.trim() !== '')
-        )
+        return !state.isGenerating && (state.formData.topic !== '' || state.formData.customTopic.trim() !== '')
       case 'listening':
         return !state.isGenerating && state.audioUrl !== ''
       case 'questions':
@@ -383,14 +341,12 @@ export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
       default:
         return false
     }
-  }, [state.assessmentCompleted, state.currentStep, state.isGenerating, state.formData, state.audioUrl, state.userAnswers])
+  }, [state.currentStep, state.isGenerating, state.formData, state.audioUrl, state.userAnswers])
 
   return {
     state,
     progress,
     canProceed,
-    assessmentCompleted: state.assessmentCompleted,
-    setAssessmentCompleted,
     generateTopicSuggestions,
     startExercise,
     startQuestions,

@@ -16,7 +16,6 @@ export interface User {
   isAdmin: boolean
   createdAt: Date
   updatedAt: Date
-  assessmentCompletedAt: Date | null
 }
 
 export interface JWTPayload {
@@ -52,7 +51,6 @@ const BASE_USER_SELECT = {
   isAdmin: true,
   createdAt: true,
   updatedAt: true,
-  assessmentCompletedAt: true,
 } as const
 
 export type UserWithPassword = User & { password: string }
@@ -78,9 +76,9 @@ function getNextVersion(): number {
  * 缓存用户信息，使用版本号
  */
 function cacheUser(user: User, version: number = getNextVersion()): void {
-  const { id, email, name, isAdmin, createdAt, updatedAt, assessmentCompletedAt } = user
+  const { id, email, name, isAdmin, createdAt, updatedAt } = user
   userCache.set(id, {
-    user: { id, email, name, isAdmin, createdAt, updatedAt, assessmentCompletedAt },
+    user: { id, email, name, isAdmin, createdAt, updatedAt },
     expiresAt: Date.now() + USER_CACHE_TTL,
     version,
   })

@@ -59,11 +59,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         isAdmin: user.isAdmin,
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
-        assessmentCompletedAt: user.assessmentCompletedAt
-          ? user.assessmentCompletedAt.toISOString()
-          : null
+        createdAt: user.createdAt
       }
     }, { status: 201 })
 

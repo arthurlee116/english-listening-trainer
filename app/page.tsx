@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 
-import { Loader2, Sparkles, History, User, Settings, LogOut, Book, Keyboard, AlertCircle } from "lucide-react"
+import { Loader2, Sparkles, History, User, Settings, LogOut, Book, Keyboard } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthDialog } from "@/components/auth-dialog"
@@ -125,8 +125,7 @@ function HomePage() {
     isLoading,
     showAuthDialog,
     handleUserAuthenticated: setAuthenticatedUser,
-    handleLogout: performLogout,
-    checkAuthStatus
+    handleLogout: performLogout
   } = useAuthState()
   
   const { toast } = useToast()
@@ -181,13 +180,9 @@ function HomePage() {
   const [loading, setLoading] = useState<boolean>(false)
   const [loadingMessage, setLoadingMessage] = useState<string>("")
   const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
-
+  
   // Assessment 相关状态
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResultType | null>(null)
-  const [assessmentCompletedAt, setAssessmentCompletedAt] = useState<string | null>(
-    user?.assessmentCompletedAt ?? null
-  )
-  const [assessmentSyncing, setAssessmentSyncing] = useState<boolean>(false)
   const [templates, setTemplates] = useState<PracticeTemplate[]>([])
   const [templateOpLoadingId, setTemplateOpLoadingId] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -233,67 +228,9 @@ function HomePage() {
     total: number
     message: string
   } | null>(null)
-
+  
   // 预设管理状态
   const [specializedPresets, setSpecializedPresets] = useState<SpecializedPreset[]>([])
-
-  useEffect(() => {
-    setAssessmentCompletedAt(user?.assessmentCompletedAt ?? null)
-  }, [user?.assessmentCompletedAt])
-
-  const hasCompletedAssessment = Boolean(assessmentCompletedAt)
-  const isAssessmentGateActive = isAuthenticated && !hasCompletedAssessment
-
-  const persistAssessmentCompletion = useCallback(async () => {
-    const completionTimestamp = new Date().toISOString()
-
-    if (!isAuthenticated) {
-      setAssessmentCompletedAt(completionTimestamp)
-      toast({
-        title: t("messages.assessmentCompleteTitle"),
-        description: t("messages.assessmentCompleteDescription"),
-      })
-      return completionTimestamp
-    }
-
-    setAssessmentSyncing(true)
-
-    try {
-      const response = await fetch("/api/assessment/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assessmentCompletedAt: completionTimestamp })
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null) as { error?: string } | null
-        throw new Error(data?.error ?? t("messages.assessmentSyncFailed"))
-      }
-
-      const data = await response.json() as { assessmentCompletedAt: string | null }
-      const serverTimestamp = data.assessmentCompletedAt ?? completionTimestamp
-      setAssessmentCompletedAt(serverTimestamp)
-
-      toast({
-        title: t("messages.assessmentCompleteTitle"),
-        description: t("messages.assessmentCompleteDescription"),
-      })
-
-      void checkAuthStatus()
-
-      return serverTimestamp
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("messages.assessmentSyncFailed")
-      toast({
-        title: t("messages.assessmentSyncFailed"),
-        description: message,
-        variant: "destructive",
-      })
-      return null
-    } finally {
-      setAssessmentSyncing(false)
-    }
-  }, [isAuthenticated, toast, t, checkAuthStatus])
 
   // Loading state management helpers
   const updateLoadingState = useCallback((key: keyof typeof loadingStates, value: boolean) => {
@@ -868,14 +805,6 @@ function HomePage() {
   const handleGenerateTopics = useCallback(async () => {
     if (!difficulty) return
 
-    if (isAssessmentGateActive) {
-      toast({
-        title: t("messages.assessmentRequiredTitle"),
-        description: t("messages.assessmentRequiredDescription"),
-      })
-      return
-    }
-
     setLoading(true)
     setLoadingMessage("Generating topic suggestions...")
 
@@ -932,18 +861,10 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, isAssessmentGateActive, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall, t])
+  }, [difficulty, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
 
   const handleGenerateTranscript = useCallback(async () => {
     if (!difficulty || !topic) return
-
-    if (isAssessmentGateActive) {
-      toast({
-        title: t("messages.assessmentRequiredTitle"),
-        description: t("messages.assessmentRequiredDescription"),
-      })
-      return
-    }
 
     setLoading(true)
     setLoadingMessage("Generating listening transcript...")
@@ -1023,7 +944,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, topic, isAssessmentGateActive, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall, t])
+  }, [difficulty, topic, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
 
   const handleApplyTemplate = useCallback((tpl: PracticeTemplate) => {
     let appliedLanguage: ListeningLanguage = tpl.language
@@ -1184,14 +1105,6 @@ function HomePage() {
   const handleStartQuestions = useCallback(async () => {
     if (!transcript || !difficulty) return
 
-    if (isAssessmentGateActive) {
-      toast({
-        title: t("messages.assessmentRequiredTitle"),
-        description: t("messages.assessmentRequiredDescription"),
-      })
-      return
-    }
-
     setLoading(true)
     setLoadingMessage("Generating questions...")
 
@@ -1258,7 +1171,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, difficulty, isAssessmentGateActive, language, duration, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall, t])
+  }, [transcript, difficulty, language, duration, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
 
   const handleSubmitAnswers = useCallback(async () => {
     if (questions.length === 0 || !user) return
@@ -1759,11 +1672,10 @@ function HomePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="container mx-auto px-4 py-8">
-          <AssessmentInterface
+          <AssessmentInterface 
             onBack={() => setStep("setup")}
             onComplete={(result) => {
               setAssessmentResult(result)
-              void persistAssessmentCompletion()
               setStep("assessment-result")
             }}
           />
@@ -1942,38 +1854,6 @@ function HomePage() {
         {/* Setup Step */}
         {step === "setup" && (
           <div className="max-w-2xl mx-auto space-y-4">
-            {isAssessmentGateActive && (
-              <Card className="border border-amber-400 bg-amber-50/80 dark:border-amber-500 dark:bg-amber-500/10">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                        <BilingualText translationKey="messages.assessmentRequiredTitle" />
-                      </h3>
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
-                        <BilingualText translationKey="messages.assessmentRequiredDescription" />
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => setStep("assessment")}
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
-                      disabled={assessmentSyncing}
-                    >
-                      {assessmentSyncing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          <BilingualText translationKey="messages.processing" />
-                        </>
-                      ) : (
-                        <BilingualText translationKey="buttons.assessment" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            )}
             {/* Specialized Mode Status Display */}
             {isSpecializedMode && selectedFocusAreas.length > 0 && (
               <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-4">
@@ -2489,7 +2369,7 @@ function HomePage() {
                 {difficulty && (
                   <Button
                     onClick={handleGenerateTopics}
-                    disabled={loading || isAssessmentGateActive}
+                    disabled={loading}
                     className="w-full glass-effect"
                   >
                     {loading ? (
@@ -2555,7 +2435,7 @@ function HomePage() {
                 {/* Generate Exercise Button */}
                 <Button
                   onClick={handleGenerateTranscript}
-                  disabled={!isSetupComplete || loading || isAssessmentGateActive}
+                  disabled={!isSetupComplete || loading}
                   className="w-full"
                   size="lg"
                 >
@@ -2586,22 +2466,21 @@ function HomePage() {
         {/* Listening Step */}
         {step === "listening" && (
           <div className="max-w-4xl mx-auto">
-          <AudioPlayer
-            ref={audioPlayerRef}
-            transcript={transcript}
-            difficulty={difficulty}
-            topic={topic}
-            wordCount={wordCount}
-            audioUrl={audioUrl}
-            audioError={audioError}
-            onGenerateAudio={handleGenerateAudio}
-            onStartQuestions={handleStartQuestions}
-            onRegenerate={canRegenerate ? handleGenerateTranscript : undefined}
-            loading={loading}
-            loadingMessage={loadingMessage}
-            initialDuration={audioDuration ?? undefined}
-            assessmentRequired={isAssessmentGateActive}
-          />
+            <AudioPlayer
+              ref={audioPlayerRef}
+              transcript={transcript}
+              difficulty={difficulty}
+              topic={topic}
+              wordCount={wordCount}
+              audioUrl={audioUrl}
+              audioError={audioError}
+              onGenerateAudio={handleGenerateAudio}
+              onStartQuestions={handleStartQuestions}
+              onRegenerate={canRegenerate ? handleGenerateTranscript : undefined}
+              loading={loading}
+              loadingMessage={loadingMessage}
+              initialDuration={audioDuration ?? undefined}
+            />
           </div>
         )}
 

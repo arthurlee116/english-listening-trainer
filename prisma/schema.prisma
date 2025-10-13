@@ -22,8 +22,7 @@ model User {
   isAdmin   Boolean   @default(false)
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
-  assessmentCompletedAt DateTime? @map("assessment_completed_at")
-
+  
   // 关联关系
   practiceSessions PracticeSession[]
   

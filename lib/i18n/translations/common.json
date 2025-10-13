@@ -432,26 +432,6 @@
       "en": "An error occurred during logout, please refresh the page",
       "zh": "登出时发生错误，请刷新页面"
     },
-    "assessmentRequiredTitle": {
-      "en": "Complete the assessment to unlock practice",
-      "zh": "请先完成评估以解锁练习"
-    },
-    "assessmentRequiredDescription": {
-      "en": "Take the quick listening assessment to personalise your recommendations before generating topics.",
-      "zh": "请先完成快速听力评估，再生成话题以获得个性化推荐。"
-    },
-    "assessmentCompleteTitle": {
-      "en": "Assessment complete",
-      "zh": "评估完成"
-    },
-    "assessmentCompleteDescription": {
-      "en": "You can now generate new practice exercises.",
-      "zh": "现在可以开始生成新的练习了。"
-    },
-    "assessmentSyncFailed": {
-      "en": "Unable to update assessment progress",
-      "zh": "评估进度更新失败"
-    },
     "topicGenerationSuccess": {
       "en": "Topics Generated Successfully",
       "zh": "话题生成成功"
