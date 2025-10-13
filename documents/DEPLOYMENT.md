@@ -18,6 +18,7 @@
 - Docker 20.10+
 - Docker Compose 2.0+
 - NVIDIA驱动（GPU服务器）
+- ⚠️ 如果是 Pascal 架构（例如 Tesla P40），请确保容器内的 PyTorch 构建包含 `sm_61` 支持；默认镜像会在不兼容时自动降级为 CPU，以保证服务可用。
 - 至少4GB可用磁盘空间
 
 ## 部署方式选择
