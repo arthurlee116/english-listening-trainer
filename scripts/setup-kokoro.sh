@@ -166,17 +166,40 @@ else
   case "$TORCH_VARIANT" in
     cuda)
       if [[ "$TORCH_PASCAL_BUILD" == "1" ]]; then
-        INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu121}"
+        TORCH_REPO="${KOKORO_TORCH_REPO:-https://github.com/pytorch/pytorch.git}"
+        TORCH_REF="${KOKORO_TORCH_REF:-v2.3.0}"
+        TORCHVISION_REPO="${KOKORO_TORCHVISION_REPO:-https://github.com/pytorch/vision.git}"
+        TORCHVISION_REF="${KOKORO_TORCHVISION_REF:-v0.18.0}"
+        TORCHAUDIO_REPO="${KOKORO_TORCHAUDIO_REPO:-https://github.com/pytorch/audio.git}"
+        TORCHAUDIO_REF="${KOKORO_TORCHAUDIO_REF:-v2.3.0}"
         export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-6.1;7.0;7.5;8.0;8.6;9.0}"
         export USE_CUDA=1
         export USE_CUDNN=1
         export BUILD_TEST=0
         export USE_IBVERBS=0
-        export MAX_JOBS="${MAX_JOBS:-$(nproc || sysctl -n hw.ncpu || echo 8)}"
-        log_info "Compiling PyTorch from source with sm_61 support (this may take a while)..."
-        pip install --no-binary torch,torchvision,torchaudio \
-          --extra-index-url "$INDEX" \
-          $TORCH_PACKAGES
+        export MAX_JOBS="${MAX_JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)}"
+
+        clone_and_build() {
+          local repo="$1"
+          local ref="$2"
+          local name="$3"
+          local tmp_dir
+          tmp_dir="$(mktemp -d)"
+          log_info "Cloning $name ($ref)"
+          git clone --branch "$ref" --depth 1 "$repo" "$tmp_dir"
+          if [[ "$name" == "pytorch" ]]; then
+            (cd "$tmp_dir" && git submodule sync && git submodule update --init --recursive)
+            (cd "$tmp_dir" && pip install --no-cache-dir -r requirements.txt)
+          fi
+          log_info "Building $name from source (this can take a while)..."
+          pip install --no-cache-dir --no-deps "$tmp_dir"
+          rm -rf "$tmp_dir"
+        }
+
+        clone_and_build "$TORCH_REPO" "$TORCH_REF" "pytorch"
+        clone_and_build "$TORCHVISION_REPO" "$TORCHVISION_REF" "torchvision"
+        clone_and_build "$TORCHAUDIO_REPO" "$TORCHAUDIO_REF" "torchaudio"
+
         python - <<'PY'
 import sys
 import torch

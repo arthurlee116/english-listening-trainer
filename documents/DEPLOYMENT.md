@@ -19,7 +19,7 @@
 - Docker Compose 2.0+
 - NVIDIA驱动（GPU服务器）
 - ⚠️ 如果是 Pascal 架构（例如 Tesla P40），请确保容器内的 PyTorch 构建包含 `sm_61` 支持；默认镜像会在不兼容时自动降级为 CPU，以保证服务可用。
-- 本项目 Docker 镜像在 `python-deps` 阶段会使用 CUDA 12.1 工具链从源码编译 PyTorch，并显式设置 `TORCH_CUDA_ARCH_LIST="6.1;7.0;7.5;8.0;8.6;9.0"`，构建时间较长（≈20 分钟）但可确保 Pascal GPU 可用。
+- 本项目 Docker 镜像在 `python-deps` 阶段会从 GitHub 源码构建 PyTorch/TorchVision/TorchAudio（CUDA 12.1 工具链，`TORCH_CUDA_ARCH_LIST="6.1;7.0;7.5;8.0;8.6;9.0"`），构建时间较长（≈20 分钟）但可确保 Pascal GPU 可用。
 - 至少4GB可用磁盘空间
 
 ## 部署方式选择
