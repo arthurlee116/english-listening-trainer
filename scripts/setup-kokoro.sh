@@ -178,6 +178,8 @@ else
         export BUILD_TEST=0
         export USE_IBVERBS=0
         export MAX_JOBS="${MAX_JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)}"
+        export PYTORCH_BUILD_VERSION="${KOKORO_TORCH_VERSION_OVERRIDE:-2.3.0}"
+        export PYTORCH_BUILD_NUMBER="${KOKORO_TORCH_BUILD_NUMBER:-1}"
 
         clone_and_build() {
           local repo="$1"
@@ -192,7 +194,7 @@ else
             (cd "$tmp_dir" && pip install --no-cache-dir -r requirements.txt)
           fi
           log_info "Building $name from source (this can take a while)..."
-          pip install --no-cache-dir --no-deps "$tmp_dir"
+        pip install --no-cache-dir --no-deps "$tmp_dir"
           rm -rf "$tmp_dir"
         }
 

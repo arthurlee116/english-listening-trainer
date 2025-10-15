@@ -83,7 +83,9 @@ ENV KOKORO_VENV=/opt/kokoro-venv \
     USE_CUDNN=1 \
     BUILD_TEST=0 \
     USE_IBVERBS=0 \
-    MAX_JOBS=8
+    MAX_JOBS=8 \
+    PYTORCH_BUILD_VERSION=2.3.0 \
+    PYTORCH_BUILD_NUMBER=1
 
 # Create Python virtual environment
 RUN python3 -m venv ${KOKORO_VENV} \
@@ -107,6 +109,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/git,sharing=locked \
     git clone --branch ${TORCH_GIT_REF} --depth 1 https://github.com/pytorch/pytorch.git /tmp/pytorch \
  && cd /tmp/pytorch \
+ && git fetch --tags --depth 1 \
  && git submodule sync \
  && git submodule update --init --recursive \
  && ${KOKORO_VENV}/bin/pip install --no-cache-dir -r requirements.txt \
