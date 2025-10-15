@@ -11,7 +11,6 @@ PYTHON_BIN="${KOKORO_PYTHON:-python3}"
 TORCH_VARIANT="${KOKORO_TORCH_VARIANT:-auto}"
 TORCH_INDEX_URL="${KOKORO_TORCH_INDEX_URL:-}"
 TORCH_PACKAGES="${KOKORO_TORCH_PACKAGES:-torch torchaudio torchvision}"
-TORCH_PASCAL_BUILD="${KOKORO_FORCE_PASCAL_BUILD:-0}"
 
 log_info() { printf "\033[1;34m[INFO]\033[0m %s\n" "$1"; }
 log_warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$1"; }
@@ -165,55 +164,8 @@ if python -c "import torch" >/dev/null 2>&1; then
 else
   case "$TORCH_VARIANT" in
     cuda)
-      if [[ "$TORCH_PASCAL_BUILD" == "1" ]]; then
-        TORCH_REPO="${KOKORO_TORCH_REPO:-https://github.com/pytorch/pytorch.git}"
-        TORCH_REF="${KOKORO_TORCH_REF:-v2.3.0}"
-        TORCHVISION_REPO="${KOKORO_TORCHVISION_REPO:-https://github.com/pytorch/vision.git}"
-        TORCHVISION_REF="${KOKORO_TORCHVISION_REF:-v0.18.0}"
-        TORCHAUDIO_REPO="${KOKORO_TORCHAUDIO_REPO:-https://github.com/pytorch/audio.git}"
-        TORCHAUDIO_REF="${KOKORO_TORCHAUDIO_REF:-v2.3.0}"
-        export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-6.1;7.0;7.5;8.0;8.6;9.0}"
-        export USE_CUDA=1
-        export USE_CUDNN=1
-        export BUILD_TEST=0
-        export USE_IBVERBS=0
-        export MAX_JOBS="${MAX_JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)}"
-        export PYTORCH_BUILD_VERSION="${KOKORO_TORCH_VERSION_OVERRIDE:-2.3.0}"
-        export PYTORCH_BUILD_NUMBER="${KOKORO_TORCH_BUILD_NUMBER:-1}"
-
-        clone_and_build() {
-          local repo="$1"
-          local ref="$2"
-          local name="$3"
-          local tmp_dir
-          tmp_dir="$(mktemp -d)"
-          log_info "Cloning $name ($ref)"
-          git clone --branch "$ref" --depth 1 "$repo" "$tmp_dir"
-          if [[ "$name" == "pytorch" ]]; then
-            (cd "$tmp_dir" && git submodule sync && git submodule update --init --recursive)
-            (cd "$tmp_dir" && pip install --no-cache-dir -r requirements.txt)
-          fi
-          log_info "Building $name from source (this can take a while)..."
-        pip install --no-cache-dir --no-deps "$tmp_dir"
-          rm -rf "$tmp_dir"
-        }
-
-        clone_and_build "$TORCH_REPO" "$TORCH_REF" "pytorch"
-        clone_and_build "$TORCHVISION_REPO" "$TORCHVISION_REF" "torchvision"
-        clone_and_build "$TORCHAUDIO_REPO" "$TORCHAUDIO_REF" "torchaudio"
-
-        python - <<'PY'
-import sys
-import torch
-arches = torch.cuda.get_arch_list()
-print(f"Detected CUDA arches: {arches}")
-if "sm_61" not in arches:
-    sys.exit("PyTorch build is missing sm_61 kernels required for Pascal GPUs.")
-PY
-      else
-        INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu121}"
-        pip install --index-url "$INDEX" $TORCH_PACKAGES
-      fi
+      INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
+      pip install --index-url "$INDEX" $TORCH_PACKAGES
       ;;
     mps)
       INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"

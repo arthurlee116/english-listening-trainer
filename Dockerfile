@@ -52,9 +52,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libgl1 \
     libglib2.0-0 \
     zlib1g-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libopenblas-dev \
     espeak-ng \
  && npm install -g npm@10 \
  && rm -rf /var/lib/apt/lists/*
@@ -71,89 +68,17 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ###############################################################################
 FROM base AS python-deps
 
-ENV KOKORO_VENV=/opt/kokoro-venv \
-    TORCH_VERSION=2.3.0 \
-    TORCHVISION_VERSION=0.18.0 \
-    TORCHAUDIO_VERSION=2.3.0 \
-    TORCH_GIT_REF=v2.3.0 \
-    TORCHVISION_GIT_REF=v0.18.0 \
-    TORCHAUDIO_GIT_REF=v2.3.0 \
-    TORCH_CUDA_ARCH_LIST="6.1;7.0;7.5;8.0;8.6;9.0" \
-    USE_CUDA=1 \
-    USE_CUDNN=1 \
-    BUILD_TEST=0 \
-    USE_IBVERBS=0 \
-    MAX_JOBS=8 \
-    PYTORCH_BUILD_VERSION=2.3.0 \
-    PYTORCH_BUILD_NUMBER=1
+ENV KOKORO_VENV=/opt/kokoro-venv
 
 # Create Python virtual environment
 RUN python3 -m venv ${KOKORO_VENV} \
  && ${KOKORO_VENV}/bin/pip install --upgrade pip
 
-# Preinstall build prerequisites for compiling PyTorch with Pascal (sm_61) support
+# Install PyTorch with CUDA support (largest dependency, separate layer)
 RUN --mount=type=cache,target=/root/.cache/pip \
     ${KOKORO_VENV}/bin/pip install --no-cache-dir \
-      cmake \
-      ninja \
-      wheel \
-      setuptools \
-      typing-extensions \
-      sympy \
-      filelock \
-      networkx \
-      jinja2
-
-# Build and install PyTorch from source so kernels include Pascal (sm_61)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/root/.cache/git,sharing=locked \
-    git clone --branch ${TORCH_GIT_REF} --depth 1 https://github.com/pytorch/pytorch.git /tmp/pytorch \
- && cd /tmp/pytorch \
- && git fetch --tags --depth 1 \
- && git submodule sync \
- && git submodule update --init --recursive \
- && ${KOKORO_VENV}/bin/pip install --no-cache-dir -r requirements.txt \
- && TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}" \
-    USE_CUDA=${USE_CUDA} \
-    USE_CUDNN=${USE_CUDNN} \
-    BUILD_TEST=${BUILD_TEST} \
-    USE_IBVERBS=${USE_IBVERBS} \
-    MAX_JOBS=${MAX_JOBS} \
-    ${KOKORO_VENV}/bin/pip install --no-cache-dir --no-deps . \
- && cd / \
- && rm -rf /tmp/pytorch
-
-# Build and install torchvision from source (ensures compatibility with custom torch build)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/root/.cache/git,sharing=locked \
-    git clone --branch ${TORCHVISION_GIT_REF} --depth 1 https://github.com/pytorch/vision.git /tmp/torchvision \
- && cd /tmp/torchvision \
- && ${KOKORO_VENV}/bin/python setup.py clean \
- && TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}" \
-    MAX_JOBS=${MAX_JOBS} \
-    ${KOKORO_VENV}/bin/pip install --no-cache-dir --no-deps . \
- && cd / \
- && rm -rf /tmp/torchvision
-
-# Build and install torchaudio from source (also matches custom torch build)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/root/.cache/git,sharing=locked \
-    git clone --branch ${TORCHAUDIO_GIT_REF} --depth 1 https://github.com/pytorch/audio.git /tmp/torchaudio \
- && cd /tmp/torchaudio \
- && ${KOKORO_VENV}/bin/pip install --no-cache-dir --no-deps . \
- && cd / \
- && rm -rf /tmp/torchaudio
-
-# Verify Pascal kernels are present to avoid runtime surprises on Tesla P40
-RUN ${KOKORO_VENV}/bin/python - <<'PY'
-import sys
-import torch
-
-arches = torch.cuda.get_arch_list()
-print("Detected CUDA arches:", arches)
-if "sm_61" not in arches:
-    sys.exit("PyTorch build is missing sm_61 kernels required for Pascal GPUs.")
-PY
+      --extra-index-url https://download.pytorch.org/whl/cu121 \
+      torch==2.3.0+cu121 torchaudio==2.3.0+cu121 torchvision==0.18.0+cu121
 
 # Install Kokoro Python requirements
 COPY kokoro_local/requirements.txt /tmp/requirements.txt

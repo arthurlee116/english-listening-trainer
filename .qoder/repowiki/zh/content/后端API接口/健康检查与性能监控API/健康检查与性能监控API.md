@@ -2,22 +2,14 @@
 
 <cite>
 **本文档引用的文件**
-- [health/route.ts](file://app/api/health/route.ts) - *更新了健康检查逻辑*
+- [health/route.ts](file://app/api/health/route.ts)
 - [metrics/route.ts](file://app/api/performance/metrics/route.ts)
 - [database/route.ts](file://app/api/performance/database/route.ts)
 - [auth-cache/route.ts](file://app/api/performance/auth-cache/route.ts)
 - [monitoring.ts](file://lib/monitoring.ts)
 - [performance-optimizer.ts](file://lib/performance-optimizer.ts)
 - [database.ts](file://lib/database.ts)
-- [kokoro-env.ts](file://lib/kokoro-env.ts) - *新增了TTS路径解析功能*
 </cite>
-
-## 更新摘要
-**变更内容**
-- 更新了`/health`端点的健康检查逻辑，增加了TTS服务状态检查
-- 修正了健康检查流程图，准确反映当前代码实现
-- 添加了`resolveKokoroWrapperPath`函数的引用和说明
-- 更新了相关章节的来源信息，反映最新的文件变更
 
 ## 目录
 1. [简介](#简介)
@@ -129,7 +121,6 @@ Return503 --> End
 **图表来源**
 - [health/route.ts](file://app/api/health/route.ts)
 - [database.ts](file://lib/database.ts)
-- [kokoro-env.ts](file://lib/kokoro-env.ts)
 
 **章节来源**
 - [app/api/health/route.ts](file://app/api/health/route.ts)
@@ -234,7 +225,7 @@ db --> prisma[PrismaClient]
 ```
 
 **图表来源**
-- [package.json](file://package.json)
+- [go.mod](file://package.json)
 - [health/route.ts](file://app/api/health/route.ts)
 - [metrics/route.ts](file://app/api/performance/metrics/route.ts)
 - [database.ts](file://lib/database.ts)
