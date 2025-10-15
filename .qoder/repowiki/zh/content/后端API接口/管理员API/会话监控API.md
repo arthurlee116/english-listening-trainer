@@ -1,4 +1,3 @@
-
 # 会话监控API
 
 <cite>
@@ -8,6 +7,7 @@
 - [database.ts](file://lib/database.ts)
 - [types.ts](file://lib/types.ts)
 - [migration.sql](file://prisma/migrations/20250927052831_add_wrong_answer_ai_models/migration.sql)
+- [logout/route.ts](file://app/api/auth/logout/route.ts) - *新增会话管理相关文件*
 </cite>
 
 ## 目录
@@ -169,3 +169,13 @@ E --> C
 ## 故障排除指南
 当管理员无法访问`/api/admin/sessions`时，应首先检查返回的状态码。
 - **403 Forbidden**:
+  - 检查请求是否包含有效的认证令牌
+  - 确认当前用户是否具有管理员权限
+  - 验证JWT令牌是否已过期
+- **500 Internal Server Error**:
+  - 检查数据库连接是否正常
+  - 查看服务器日志中的具体错误信息
+  - 确认Prisma客户端配置正确
+
+## 结论
+`/api/admin/sessions`端点为管理员提供了强大的会话监控能力，通过清晰的权限控制和高效的数据库查询，实现了对用户练习会话的实时管理。系统的分层架构和缓存策略确保了良好的性能和可维护性。未来可以考虑增加会话搜索、过滤和导出功能，进一步提升管理效率。

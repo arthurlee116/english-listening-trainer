@@ -11,6 +11,7 @@ PYTHON_BIN="${KOKORO_PYTHON:-python3}"
 TORCH_VARIANT="${KOKORO_TORCH_VARIANT:-auto}"
 TORCH_INDEX_URL="${KOKORO_TORCH_INDEX_URL:-}"
 TORCH_PACKAGES="${KOKORO_TORCH_PACKAGES:-torch torchaudio torchvision}"
+TORCH_PASCAL_BUILD="${KOKORO_FORCE_PASCAL_BUILD:-0}"
 
 log_info() { printf "\033[1;34m[INFO]\033[0m %s\n" "$1"; }
 log_warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$1"; }
@@ -164,8 +165,30 @@ if python -c "import torch" >/dev/null 2>&1; then
 else
   case "$TORCH_VARIANT" in
     cuda)
-      INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
-      pip install --index-url "$INDEX" $TORCH_PACKAGES
+      if [[ "$TORCH_PASCAL_BUILD" == "1" ]]; then
+        INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu121}"
+        export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-6.1;7.0;7.5;8.0;8.6;9.0}"
+        export USE_CUDA=1
+        export USE_CUDNN=1
+        export BUILD_TEST=0
+        export USE_IBVERBS=0
+        export MAX_JOBS="${MAX_JOBS:-$(nproc || sysctl -n hw.ncpu || echo 8)}"
+        log_info "Compiling PyTorch from source with sm_61 support (this may take a while)..."
+        pip install --no-binary torch,torchvision,torchaudio \
+          --extra-index-url "$INDEX" \
+          $TORCH_PACKAGES
+        python - <<'PY'
+import sys
+import torch
+arches = torch.cuda.get_arch_list()
+print(f"Detected CUDA arches: {arches}")
+if "sm_61" not in arches:
+    sys.exit("PyTorch build is missing sm_61 kernels required for Pascal GPUs.")
+PY
+      else
+        INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu121}"
+        pip install --index-url "$INDEX" $TORCH_PACKAGES
+      fi
       ;;
     mps)
       INDEX="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"

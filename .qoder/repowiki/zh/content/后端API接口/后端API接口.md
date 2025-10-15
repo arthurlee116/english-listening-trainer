@@ -3,13 +3,22 @@
 <cite>
 **本文档中引用的文件**
 - [login/route.ts](file://app/api/auth/login/route.ts)
-- [transcript/route.ts](file://app/api/ai/transcript/route.ts)
-- [tts/route.ts](file://app/api/tts/route.ts)
-- [save/route.ts](file://app/api/practice/save/route.ts)
-- [users/route.ts](file://app/api/admin/users/route.ts)
+- [me/route.ts](file://app/api/auth/me/route.ts)
+- [register/route.ts](file://app/api/auth/register/route.ts)
 - [auth.ts](file://lib/auth.ts)
-- [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 </cite>
+
+## 更新摘要
+**已更新内容**
+- 更新了认证接口部分，增加了对密码强度验证和邮箱格式验证的详细说明
+- 更新了JWT认证与会话管理机制，详细说明了缓存版本控制和refresh-once机制
+- 更新了错误响应模式，增加了密码强度验证的详细错误信息
+- 移除了关于评估进度API的过时信息，确认该功能已被回滚
+
+**文档来源更新**
+- 新增了`me/route.ts`和`register/route.ts`作为文档引用文件
+- 更新了`auth.ts`中多个函数的引用，包括`validatePasswordStrength`、`getCachedUser`等
+- 移除了已删除的`assessment/progress/route.ts`文件引用
 
 ## 目录
 1. [简介](#简介)
@@ -52,6 +61,63 @@
 
 **Section sources**
 - [login/route.ts](file://app/api/auth/login/route.ts#L1-L75)
+
+### 获取当前用户信息 (/api/auth/me)
+- **HTTP方法**: GET
+- **认证要求**: 需要有效JWT令牌
+- **成功响应**:
+```json
+{
+  "user": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "name": "用户名",
+    "isAdmin": false,
+    "createdAt": "2025-09-27T00:00:00Z",
+    "updatedAt": "2025-09-27T00:00:00Z"
+  },
+  "metadata": {
+    "cacheVersion": 1,
+    "lastModified": "2025-09-27T00:00:00Z"
+  }
+}
+```
+- **缓存机制**: 响应包含`metadata`字段，其中`cacheVersion`用于客户端检测用户信息变更，实现高效的缓存失效策略。
+- **错误码**:
+  - 401: 未登录或令牌无效
+  - 404: 用户不存在
+  - 500: 服务器内部错误
+
+**Section sources**
+- [me/route.ts](file://app/api/auth/me/route.ts#L1-L61)
+- [auth.ts](file://lib/auth.ts#L365-L379)
+
+### 注册 (/api/auth/register)
+- **HTTP方法**: POST
+- **认证要求**: 无需认证
+- **请求参数**:
+  - `email` (string, 必填): 用户邮箱
+  - `password` (string, 必填): 用户密码
+  - `name` (string, 可选): 用户名
+- **成功响应**:
+```json
+{
+  "message": "注册成功",
+  "user": { "id": "...", "email": "...", "name": "...", "isAdmin": false }
+}
+```
+- **验证规则**:
+  - 邮箱格式必须符合标准格式
+  - 密码必须满足强度要求（至少8位，包含大写字母、小写字母和数字）
+  - 邮箱必须唯一，不能重复注册
+- **错误码**:
+  - 400: 缺少必填参数、邮箱格式不正确或密码不符合要求
+  - 409: 邮箱已被注册
+  - 500: 服务器内部错误
+
+**Section sources**
+- [register/route.ts](file://app/api/auth/register/route.ts#L1-L72)
+- [auth.ts](file://lib/auth.ts#L166-L192)
 
 ## AI生成接口 (ai)
 利用Ark API调用大语言模型生成高质量的听力学习内容。
@@ -198,9 +264,17 @@
 4. **登出**: 服务器清除Cookie，客户端应丢弃本地存储的令牌。
 5. **令牌过期**: 普通用户令牌24小时过期，勾选"记住我"的令牌永不过期。
 
+### 缓存与并发控制
+系统实现了多层缓存和并发控制机制：
+- **用户信息缓存**: 使用内存缓存存储用户信息，TTL为1分钟，提高性能。
+- **全局缓存版本号**: 每次用户信息变更时递增全局版本号，实现高效的缓存失效。
+- **Refresh-once机制**: 防止并发请求导致的重复数据库查询，提高系统效率。
+- **强制刷新**: 通过`forceRefresh`参数控制是否跳过缓存直接查询数据库。
+
 **Section sources**
+- [auth.ts](file://lib/auth.ts#L89-L99)
+- [auth.ts](file://lib/auth.ts#L283-L316)
 - [auth.ts](file://lib/auth.ts#L201-L207)
-- [login/route.ts](file://app/api/auth/login/route.ts#L55-L65)
 
 ## 请求处理流程示例
 以`/api/ai/transcript`为例，展示完整的请求处理链：
@@ -241,9 +315,11 @@ Response-->>Client : 返回最终听力稿
 - **客户端错误 (4xx)**: 提供明确的中文提示，如"邮箱格式不正确"。
 - **服务端错误 (5xx)**: 对外隐藏技术细节，返回通用信息"服务器内部错误，请稍后重试"，详细日志记录在服务器端。
 - **特定服务错误**: 如TTS服务，会根据错误类型返回更具体的建议，如"GPU音频生成超时，请稍后重试"。
+- **密码强度验证**: 返回详细的密码强度验证错误信息，帮助用户创建符合要求的密码。
 
 **Section sources**
 - 所有route.ts文件中的`catch`块
+- [auth.ts](file://lib/auth.ts#L166-L192)
 
 ## API版本控制与扩展规划
 当前API为v1版本，通过URL路径直接暴露，未来将引入版本控制。

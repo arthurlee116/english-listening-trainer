@@ -68,17 +68,58 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ###############################################################################
 FROM base AS python-deps
 
-ENV KOKORO_VENV=/opt/kokoro-venv
+ENV KOKORO_VENV=/opt/kokoro-venv \
+    TORCH_VERSION=2.3.0 \
+    TORCHVISION_VERSION=0.18.0 \
+    TORCHAUDIO_VERSION=2.3.0 \
+    TORCH_CUDA_ARCH_LIST="6.1;7.0;7.5;8.0;8.6;9.0" \
+    USE_CUDA=1 \
+    USE_CUDNN=1 \
+    BUILD_TEST=0 \
+    USE_IBVERBS=0 \
+    MAX_JOBS=8
 
 # Create Python virtual environment
 RUN python3 -m venv ${KOKORO_VENV} \
  && ${KOKORO_VENV}/bin/pip install --upgrade pip
 
-# Install PyTorch with CUDA support (largest dependency, separate layer)
+# Preinstall build prerequisites for compiling PyTorch with Pascal (sm_61) support
 RUN --mount=type=cache,target=/root/.cache/pip \
     ${KOKORO_VENV}/bin/pip install --no-cache-dir \
+      cmake \
+      ninja \
+      wheel \
+      setuptools \
+      typing-extensions \
+      sympy \
+      filelock \
+      networkx \
+      jinja2
+
+# Build and install PyTorch from source so kernels include Pascal (sm_61)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}" \
+    USE_CUDA=${USE_CUDA} \
+    USE_CUDNN=${USE_CUDNN} \
+    BUILD_TEST=${BUILD_TEST} \
+    USE_IBVERBS=${USE_IBVERBS} \
+    MAX_JOBS=${MAX_JOBS} \
+    ${KOKORO_VENV}/bin/pip install --no-cache-dir --no-binary torch,torchvision,torchaudio \
       --extra-index-url https://download.pytorch.org/whl/cu121 \
-      torch==2.3.0+cu121 torchaudio==2.3.0+cu121 torchvision==0.18.0+cu121
+      torch==${TORCH_VERSION} \
+      torchvision==${TORCHVISION_VERSION} \
+      torchaudio==${TORCHAUDIO_VERSION}
+
+# Verify Pascal kernels are present to avoid runtime surprises on Tesla P40
+RUN ${KOKORO_VENV}/bin/python - <<'PY'
+import sys
+import torch
+
+arches = torch.cuda.get_arch_list()
+print("Detected CUDA arches:", arches)
+if "sm_61" not in arches:
+    sys.exit("PyTorch build is missing sm_61 kernels required for Pascal GPUs.")
+PY
 
 # Install Kokoro Python requirements
 COPY kokoro_local/requirements.txt /tmp/requirements.txt

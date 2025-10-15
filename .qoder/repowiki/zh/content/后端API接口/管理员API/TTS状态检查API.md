@@ -6,7 +6,7 @@
 - [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [device-detection.ts](file://lib/device-detection.ts)
 - [enhanced-tts-service.ts](file://lib/enhanced-tts-service.ts)
-- [kokoro_wrapper_real.py](file://kokoro_local/kokoro_wrapper_real.py)
+- [kokoro_wrapper_real.py](file://kokoro-local/kokoro_wrapper_real.py)
 </cite>
 
 ## 目录
@@ -24,7 +24,7 @@
 TTS状态检查API是系统管理员用于监控本地Python驱动的Kokoro TTS引擎运行健康状况的核心接口。该API通过`/api/admin/tts-status`端点提供全面的系统设备检测、TTS服务状态和配置建议，帮助运维人员快速诊断语音合成服务的问题并采取相应措施。
 
 ## 项目结构
-本项目的结构清晰地分离了前端界面、API路由、核心库和外部依赖。TTS相关功能主要集中在`app/api`目录下的API路由和`lib`目录中的服务实现，以及`kokoro_local`目录中的Python后端。
+本项目的结构清晰地分离了前端界面、API路由、核心库和外部依赖。TTS相关功能主要集中在`app/api`目录下的API路由和`lib`目录中的服务实现，以及`kokoro-local`目录中的Python后端。
 
 ```mermaid
 graph TB
@@ -55,7 +55,7 @@ EnhancedService --> KokoroWrapper
 - [tts-status/route.ts](file://app/api/admin/tts-status/route.ts)
 - [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [device-detection.ts](file://lib/device-detection.ts)
-- [kokoro_wrapper_real.py](file://kokoro_local/kokoro_wrapper_real.py)
+- [kokoro_wrapper_real.py](file://kokoro-local/kokoro_wrapper_real.py)
 
 **章节来源**
 - [tts-status/route.ts](file://app/api/admin/tts-status/route.ts)

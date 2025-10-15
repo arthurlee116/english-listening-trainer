@@ -1,15 +1,21 @@
-
 # 管理员API
 
 <cite>
 **本文档引用的文件**  
-- [users/route.ts](file://app/api/admin/users/route.ts)
-- [sessions/route.ts](file://app/api/admin/sessions/route.ts)
+- [users/route.ts](file://app/api/admin/users/route.ts) - *已更新*
+- [sessions/route.ts](file://app/api/admin/sessions/route.ts) - *已更新*
 - [stats/route.ts](file://app/api/admin/stats/route.ts)
-- [tts-status/route.ts](file://app/api/admin/tts-status/route.ts)
+- [tts-status/route.ts](file://app/api/admin/tts-status/route.ts) - *已更新*
 - [auth.ts](file://lib/auth.ts)
 - [device-detection.ts](file://lib/device-detection.ts)
 </cite>
+
+## 更新摘要
+**已更新内容**
+- 根据最新代码提交，更新了`users`、`sessions`和`tts-status`接口的文档说明
+- 修正了TTS状态检查接口的POST请求功能描述，明确其为配置验证而非更新
+- 更新了权限验证机制的描述，确保与`requireAdmin`中间件的实现一致
+- 优化了各接口的错误处理说明
 
 ## 目录
 1. [简介](#简介)
@@ -223,7 +229,7 @@ API-->>Admin : 200 JSON {users : [...]}
 end
 ```
 
-**图示来源**
+**章节来源**
 - [auth.ts](file://lib/auth.ts#L384-L396)
 - [users/route.ts](file://app/api/admin/users/route.ts#L1-L50)
 
@@ -263,4 +269,5 @@ end
 - **集成中间件**：创建一个`auditLog`中间件，在`requireAdmin`之后、业务逻辑之前被调用，自动记录所有管理员请求。
 
 **章节来源**
-- [users/r
+- [users/route.ts](file://app/api/admin/users/route.ts#L1-L50)
+- [auth.ts](file://lib/auth.ts#L384-L396)

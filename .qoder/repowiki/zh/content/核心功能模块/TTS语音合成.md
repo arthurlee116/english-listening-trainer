@@ -5,7 +5,7 @@
 **本文档引用的文件**
 - [route.ts](file://app/api/tts/route.ts)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)
-- [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
+- [kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py)
 - [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 - [kokoro-env.ts](file://lib/kokoro-env.ts)
@@ -72,7 +72,7 @@ OptimizedRoute --> |读写| AudioCache
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)
 - [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
-- [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
+- [kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py)
 
 ## API路径设计差异与适用场景
 系统提供了`route.ts`和`route-optimized.ts`两个API入口，分别针对GPU和CPU模式进行了优化。
@@ -164,7 +164,7 @@ Node.js后端通过创建子进程的方式与Python编写的`kokoro_wrapper.py`
 **Section sources**
 - [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
-- [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
+- [kokoro_wrapper.py](file://kokoro-local/kokoro_wrapper.py)
 - [audio-utils.ts](file://lib/audio-utils.ts)
 - [kokoro-env.ts](file://lib/kokoro-env.ts)
 
