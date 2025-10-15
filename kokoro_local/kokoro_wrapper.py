@@ -5,18 +5,15 @@ Kokoro TTS Wrapper for Apple Silicon M4/Metal Acceleration
 """
 
 import asyncio
-import io
 import json
-import logging
-import os
 import sys
-import warnings
+import os
+import logging
 from typing import Optional
-
-import soundfile as sf
 import torch
-
-from text_chunker import MAX_CHUNK_CHAR_SIZE, split_text_intelligently
+import soundfile as sf
+import io
+from text_chunker import split_text_intelligently, MAX_CHUNK_CHAR_SIZE
 
 # 设置日志
 logging.basicConfig(level=logging.WARNING)
@@ -40,40 +37,16 @@ class KokoroTTSWrapper:
         self.voice = voice
         self.current_lang_code = None
         self.current_voice = None
-        self._gpu_fallback_attempted = False
-        self._warned_about_known_warnings = False
-
-        # 仅输出一次来自上游的已知 PyTorch 警告，避免噪声
-        warnings.filterwarnings(
-            "once",
-            message="dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1",
-            category=UserWarning,
-        )
-        warnings.filterwarnings(
-            "once",
-            message="torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.",
-            category=UserWarning,
-        )
         
     def setup_device(self):
         """设置计算设备 (自动检测CUDA/Metal/CPU)"""
         try:
-            if self._gpu_fallback_attempted:
-                self.device = 'cpu'
-                print("⚠️  GPU fallback previously triggered; forcing CPU execution for stability.", file=sys.stderr)
-                return
-
             # 获取环境变量指定的设备
             device_override = os.environ.get('KOKORO_DEVICE', 'auto').lower()
             
             if device_override == 'cuda' and torch.cuda.is_available():
-                if self._is_cuda_arch_supported():
-                    self.device = 'cuda'
-                    print(f"🚀 Using CUDA acceleration (GPU: {torch.cuda.get_device_name(0)})", file=sys.stderr)
-                    return
-                print("⚠️  CUDA capability not supported by this PyTorch build, falling back to CPU.", file=sys.stderr)
-                self._gpu_fallback_attempted = True
-                self.device = 'cpu'
+                self.device = 'cuda'
+                print(f"🚀 Using CUDA acceleration (GPU: {torch.cuda.get_device_name(0)})", file=sys.stderr)
                 return
             elif device_override == 'metal' and torch.backends.mps.is_available():
                 self.device = 'mps'
@@ -88,17 +61,12 @@ class KokoroTTSWrapper:
             # 自动检测最佳设备
             if torch.cuda.is_available():
                 # NVIDIA CUDA 支持
-                if self._is_cuda_arch_supported():
-                    self.device = 'cuda'
-                    gpu_name = torch.cuda.get_device_name(0)
-                    gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-                    print(f"🚀 Using CUDA acceleration (GPU: {gpu_name}, Memory: {gpu_memory:.1f}GB)", file=sys.stderr)
-                    # 设置CUDA优化
-                    torch.backends.cudnn.benchmark = True
-                else:
-                    self._gpu_fallback_attempted = True
-                    self.device = 'cpu'
-                    print("⚠️  Detected CUDA device lacks compiled kernels in this PyTorch build; using CPU instead.", file=sys.stderr)
+                self.device = 'cuda'
+                gpu_name = torch.cuda.get_device_name(0)
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                print(f"🚀 Using CUDA acceleration (GPU: {gpu_name}, Memory: {gpu_memory:.1f}GB)", file=sys.stderr)
+                # 设置CUDA优化
+                torch.backends.cudnn.benchmark = True
             elif torch.backends.mps.is_available():
                 # Apple Silicon Metal 支持
                 self.device = 'mps'
@@ -142,7 +110,6 @@ class KokoroTTSWrapper:
             # 禁用kokoro内部日志
             import kokoro
             kokoro.logger.disable("kokoro")
-            self._log_known_warning_context()
             
             # 初始化pipeline (如果语言改变需要重新创建)
             if self.current_lang_code != self.lang_code:
@@ -238,8 +205,6 @@ class KokoroTTSWrapper:
             sys.stderr.flush()
             
         except Exception as e:
-            if self._handle_cuda_initialization_failure(e):
-                return await self.initialize(lang_code=self.lang_code, voice=self.voice)
             print(f"❌ Initialization failed: {e}", file=sys.stderr)
             raise
             
@@ -454,67 +419,6 @@ class KokoroTTSWrapper:
             import traceback
             traceback.print_exc()
             raise
-    
-    def _log_known_warning_context(self) -> None:
-        """提示用户上游PyTorch的已知警告属于预期行为"""
-        if self._warned_about_known_warnings:
-            return
-        self._warned_about_known_warnings = True
-        print(
-            "ℹ️  Kokoro uses upstream GRU/weight_norm layers that may trigger one-time PyTorch warnings. "
-            "They are benign and do not block model loading.",
-            file=sys.stderr
-        )
-
-    def _is_cuda_arch_supported(self) -> bool:
-        """检测当前CUDA设备是否被当前PyTorch构建支持"""
-        try:
-            capability = torch.cuda.get_device_capability(0)
-            arch_tag = f"sm_{capability[0]}{capability[1]}"
-            arch_list = getattr(torch.cuda, "get_arch_list", lambda: [])()
-            if arch_list and arch_tag not in arch_list:
-                print(
-                    f"⚠️  CUDA device with capability {arch_tag} is not in this PyTorch build "
-                    f"(available: {', '.join(arch_list)}).",
-                    file=sys.stderr
-                )
-                return False
-            return True
-        except Exception as exc:
-            print(f"⚠️  Unable to verify CUDA architecture compatibility: {exc}", file=sys.stderr)
-            return True
-
-    def _handle_cuda_initialization_failure(self, error: Exception) -> bool:
-        """在CUDA初始化失败时尝试降级到CPU，返回是否已处理"""
-        if self.device != 'cuda' or self._gpu_fallback_attempted:
-            return False
-
-        error_text = str(error)
-        known_markers = [
-            "no kernel image is available",
-            "is not compatible with the current PyTorch installation",
-            "SM version",
-            "CUDA error"
-        ]
-        if any(marker in error_text for marker in known_markers):
-            print(f"⚠️  CUDA initialization failed due to: {error_text}", file=sys.stderr)
-            print("🔄 Switching Kokoro TTS execution to CPU to keep the service available.", file=sys.stderr)
-            self._gpu_fallback_attempted = True
-            self.device = 'cpu'
-            try:
-                if hasattr(torch.cuda, "empty_cache"):
-                    torch.cuda.empty_cache()
-            except Exception:
-                pass
-            # 重置状态以便在CPU模式下重新初始化
-            self.pipeline = None
-            self.voice_pack = None
-            self.initialized = False
-            self.current_lang_code = None
-            self.current_voice = None
-            return True
-
-        return False
 
 async def main():
     """主函数：监听stdin输入并处理请求"""
