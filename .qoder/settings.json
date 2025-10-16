@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "ask": [
+      "Read(!/Users/arthur/english-listening-trainer/**)",
+      "Edit(!/Users/arthur/english-listening-trainer/**)"
+    ],
+    "allow": [
+      "Read(/Users/arthur/english-listening-trainer/**)",
+      "Edit(/Users/arthur/english-listening-trainer/**)"
+    ]
+  },
+  "memoryImport": {},
+  "monitoring": {}
+}

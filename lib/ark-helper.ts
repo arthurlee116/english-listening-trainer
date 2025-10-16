@@ -18,11 +18,10 @@ if (!CEREBRAS_API_KEY && !isBuildTime) {
 }
 
 // Cerebras API 代理配置：支持环境变量覆盖和自动回退
-const DEFAULT_LOCAL_PROXY = 'http://127.0.0.1:7890'
-const DEFAULT_REMOTE_PROXY = 'http://81.71.93.183:10811'
+// 业务环境固定走梯子，直接硬编码代理地址，避免环境变量缺失导致直连失败
+const HARD_CODED_PROXY = 'http://81.71.93.183:10811'
 
-const resolvedProxyUrl = process.env.CEREBRAS_PROXY_URL
-  ?? (process.env.NODE_ENV === 'production' ? DEFAULT_REMOTE_PROXY : DEFAULT_LOCAL_PROXY)
+const resolvedProxyUrl = HARD_CODED_PROXY
 
 let proxyAgent: HttpsProxyAgent<string> | undefined
 let client: Cerebras
