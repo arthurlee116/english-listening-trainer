@@ -4,6 +4,9 @@
  */
 
 import { checkDatabaseHealth } from './database'
+import type { ArkMessage } from './ark-helper'
+import { invokeStructured } from './ai/cerebras-service'
+import { healthCheckSchema, type HealthCheckStructuredResponse } from './ai/schemas'
 import path from 'path'
 import fs from 'fs'
 
@@ -567,18 +570,79 @@ export class HealthChecker {
     }
   }
 
+  private async checkCerebrasHealth(): Promise<HealthCheckResult['checks'][string]> {
+    const start = Date.now()
+    const messages: ArkMessage[] = [
+      {
+        role: 'system',
+        content: 'You are a health check assistant. Always respond with a strict JSON object.'
+      },
+      {
+        role: 'user',
+        content: 'Respond exactly with {"status":"ok"}'
+      }
+    ]
+
+    try {
+      const result = await invokeStructured<HealthCheckStructuredResponse>({
+        messages,
+        schema: healthCheckSchema,
+        schemaName: 'cerebras_health_check',
+        options: {
+          temperature: 0,
+          maxTokens: 32,
+          maxRetries: 1,
+          timeoutMs: 5000,
+          enableProxyHealthCheck: true
+        }
+      })
+
+      const duration = Date.now() - start
+      const healthy = result.status?.toLowerCase() === 'ok'
+
+      return {
+        status: healthy ? 'pass' : 'fail',
+        message: healthy ? 'Cerebras reachable' : 'Unexpected response from Cerebras health check',
+        duration,
+        details: {
+          response: result,
+          latencyMs: duration
+        }
+      }
+    } catch (error) {
+      const duration = Date.now() - start
+      return {
+        status: 'fail',
+        message: 'Cerebras health check failed',
+        duration,
+        details: {
+          error: error instanceof Error ? error.message : String(error),
+          latencyMs: duration
+        }
+      }
+    }
+  }
+
   private async checkExternalServices(): Promise<HealthCheckResult['checks'][string]> {
     try {
-      // 检查AI服务可用性
-      const checks: Array<{name: string, status: string}> = []
-      
-      // 这里可以添加对外部服务的ping检查
-      // 例如：检查Cerebras API、TTS服务等
-      
+      const cerebrasCheck = await this.checkCerebrasHealth()
+      const status = cerebrasCheck.status
+      const message =
+        status === 'pass'
+          ? 'External services accessible'
+          : 'External services degraded or unavailable'
+
       return {
-        status: 'pass',
-        message: 'External services accessible',
-        details: { checks }
+        status,
+        message,
+        duration: cerebrasCheck.duration,
+        details: {
+          cerebras: {
+            status: cerebrasCheck.status,
+            message: cerebrasCheck.message,
+            ...(cerebrasCheck.details ?? {})
+          }
+        }
       }
     } catch (error) {
       return {

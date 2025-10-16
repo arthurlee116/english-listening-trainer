@@ -9,7 +9,7 @@ This is a Next.js 15 (App Router) application for AI-powered English listening p
 **Key Technologies:**
 - **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Backend:** Next.js API routes, Prisma ORM, SQLite (WAL mode)
-- **AI:** Cerebras Cloud SDK (llama3.1-8b)
+- **AI:** Cerebras Cloud SDK (default `llama3.1-8b` via `lib/config-manager.ts`, routed through `lib/ai/cerebras-service.ts` with optional proxy health checks)
 - **TTS:** Local Kokoro engine (Python-based, supports CPU/GPU/Metal)
 - **Auth:** JWT with bcrypt, server-side caching
 - **Testing:** Vitest with jsdom, @testing-library/react
@@ -82,6 +82,8 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 ### Key Service Files
 
 - **`lib/ai-service.ts`**: Client-side API wrappers for AI endpoints
+- **`lib/ai/cerebras-service.ts`**: Structured Cerebras invoker (`invokeStructured`) shared by all AI routes
+- **`lib/ai/route-utils.ts`**: Shared AI route wrapper combining rate limiting, circuit breaker, and concurrency control
 - **`lib/kokoro-service.ts`**: CPU-based TTS service with circuit breaker pattern
 - **`lib/kokoro-service-gpu.ts`**: GPU-optimized TTS service (identical circuit breaker logic)
 - **`lib/auth.ts`**: Server-side auth helpers with caching, used via `withDatabase()` wrapper

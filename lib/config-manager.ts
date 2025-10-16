@@ -16,6 +16,8 @@ export interface AIServiceConfig {
   timeout: number
   maxRetries: number
   defaultModel: string
+  proxyUrl: string | null
+  enableProxyHealthCheck: boolean
 }
 
 export interface TTSServiceConfig {
@@ -68,6 +70,8 @@ export interface ConfigSummary {
     maxRetries: number;
     defaultModel: string;
     hasApiKey: boolean;
+    proxyUrl: string | null;
+    enableProxyHealthCheck: boolean;
   };
   tts: {
     timeout: number;
@@ -142,7 +146,12 @@ class ConfigurationManager {
         baseUrl: process.env.CEREBRAS_BASE_URL || 'https://api.cerebras.ai',
         timeout: parseInt(process.env.AI_TIMEOUT || '30000'),
         maxRetries: parseInt(process.env.AI_MAX_RETRIES || '3'),
-        defaultModel: process.env.AI_DEFAULT_MODEL || 'llama3.1-8b'
+        defaultModel: process.env.AI_DEFAULT_MODEL || 'llama3.1-8b',
+        proxyUrl: process.env.AI_PROXY_URL ? process.env.AI_PROXY_URL.trim() : null,
+        enableProxyHealthCheck: this.parseBooleanEnv(
+          process.env.AI_ENABLE_PROXY_HEALTH_CHECK,
+          true
+        )
       },
 
       tts: {
@@ -232,6 +241,20 @@ class ConfigurationManager {
     }
   }
 
+  private parseBooleanEnv(value: string | undefined, defaultValue: boolean): boolean {
+    if (typeof value === 'undefined') {
+      return defaultValue
+    }
+    const normalized = value.toLowerCase()
+    if (['false', '0', 'no', 'off'].includes(normalized)) {
+      return false
+    }
+    if (['true', '1', 'yes', 'on'].includes(normalized)) {
+      return true
+    }
+    return defaultValue
+  }
+
   // 获取配置
   getConfig(): AppConfig {
     if (!this.config) {
@@ -304,7 +327,9 @@ class ConfigurationManager {
         timeout: config.ai.timeout,
         maxRetries: config.ai.maxRetries,
         defaultModel: config.ai.defaultModel,
-        hasApiKey: !!config.ai.cerebrasApiKey
+        hasApiKey: !!config.ai.cerebrasApiKey,
+        proxyUrl: config.ai.proxyUrl,
+        enableProxyHealthCheck: config.ai.enableProxyHealthCheck
       },
       tts: {
         timeout: config.tts.timeout,

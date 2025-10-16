@@ -27,6 +27,11 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+- 2025-10-15 **AI 调用层统一与探活强化**
+  - 新增 `lib/ai/cerebras-service.ts` 与 `lib/ai/route-utils.ts`，统一 Cerebras 结构化调用、限流与熔断封装
+  - `/api/ai/topics|questions|transcript|grade|expand` 全面迁移至 `invokeStructured<T>()`，复用集中式 JSON Schema
+  - `lib/monitoring.ts` 接入 Cerebras 实际健康探活，`/api/health` 返回代理状态与延迟信息
+  - 配置中心新增 `AI_PROXY_URL`、`AI_ENABLE_PROXY_HEALTH_CHECK`，支持按环境切换代理与探活策略
 - 2025-10-13 **Scripts 目录精简**
   - 删除历史远程部署脚本，保留 `backup.sh`、`restore.sh`、`setup-kokoro.sh`
   - 更新 `package.json`、Docker Compose、部署文档改用手动命令

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { callArkAPI, ArkMessage } from '@/lib/ark-helper'
-import type { ListeningLanguage, FocusArea, QuestionGenerationResponse, FocusCoverage } from '@/lib/types'
-import { 
-  validateFocusAreas, 
-  calculateFocusCoverage, 
+import type { ArkMessage } from '@/lib/ark-helper'
+import type {
+  ListeningLanguage,
+  FocusArea,
+  QuestionGenerationResponse,
+  FocusCoverage,
+  Question
+} from '@/lib/types'
+import {
+  validateFocusAreas,
+  calculateFocusCoverage,
   generateFocusAreasPrompt,
   extractProvidedFocusAreas,
   analyzeCoverageQuality,
@@ -11,65 +17,54 @@ import {
   logDegradationEvent,
   validateQuestionTagging
 } from '@/lib/focus-area-utils'
+import { invokeStructured } from '@/lib/ai/cerebras-service'
+import {
+  questionsSchema,
+  type QuestionsStructuredResponse,
+  type QuestionsSchemaQuestion
+} from '@/lib/ai/schemas'
+import { createAiRoute } from '@/lib/ai/route-utils'
+import { RateLimitConfigs } from '@/lib/rate-limiter'
+import { getLanguageDisplayName } from '@/lib/language-config'
 
-interface GeneratedQuestion {
-  type: 'single' | 'short'
-  question: string
-  options: string[] | null
-  answer: string
-  focus_areas: FocusArea[]
-  explanation: string
-}
-
-interface QuestionsResponse {
-  questions: GeneratedQuestion[]
-}
-
-// 语言名称映射
-const LANGUAGE_NAMES: Record<ListeningLanguage, string> = {
-  'en-US': 'American English',
-  'en-GB': 'British English', 
-  'es': 'Spanish',
-  'fr': 'French',
-  'ja': 'Japanese',
-  'it': 'Italian',
-  'pt-BR': 'Portuguese',
-  'hi': 'Hindi'
-}
-
-export async function POST(request: NextRequest) {
+async function handleQuestions(request: NextRequest): Promise<NextResponse> {
   try {
-    const { difficulty, transcript, duration, language = 'en-US', difficultyLevel, focusAreas } = await request.json()
+    const {
+      difficulty,
+      transcript,
+      duration,
+      language = 'en-US',
+      difficultyLevel,
+      focusAreas
+    } = await request.json()
 
     if (!difficulty || !transcript) {
       return NextResponse.json({ error: '参数缺失' }, { status: 400 })
     }
 
-    // 验证和处理 focusAreas 参数
     const validatedFocusAreas = validateFocusAreas(focusAreas)
+    const languageName = getLanguageDisplayName(language as ListeningLanguage)
 
-    const languageName = LANGUAGE_NAMES[language as ListeningLanguage] || 'English'
-
-    // 计算建议题目数量
-    const suggestedCount = duration ? (duration <= 120 ? Math.max(1, Math.floor(duration / 60)) : Math.min(10, Math.floor(duration / 60))) : 10
+    const suggestedCount = duration
+      ? duration <= 120
+        ? Math.max(1, Math.floor(duration / 60))
+        : Math.min(10, Math.floor(duration / 60))
+      : 10
     const targetCount = Math.min(10, Math.max(8, suggestedCount))
 
-    // 如果提供了数字难度等级，使用更精确的难度描述
     let difficultyDescription = `Difficulty level: ${difficulty}`
     if (difficultyLevel && typeof difficultyLevel === 'number') {
       const { getDifficultyPromptModifier } = await import('@/lib/difficulty-service')
       difficultyDescription = getDifficultyPromptModifier(difficultyLevel, language)
     }
 
-    // 生成专项练习提示词
     const focusAreasPrompt = generateFocusAreasPrompt(validatedFocusAreas, languageName)
-    
-    // 构建专项练习的分布要求
+
     let distributionRequirement = `5. Multiple choice distribution:
    - First 2: Test main idea comprehension
    - Middle 4-6: Test detail comprehension  
    - Last 2-3: Test inference and analysis`
-   
+
     if (validatedFocusAreas.length > 0) {
       distributionRequirement = `5. Multiple choice distribution (PRIORITIZE SELECTED FOCUS AREAS):
    - Ensure at least 70% of questions target the selected focus areas: ${validatedFocusAreas.join(', ')}
@@ -102,101 +97,72 @@ ${distributionRequirement}
 
 Ensure high quality questions with accurate tags that effectively test ${languageName} listening comprehension skills.`
 
-    const schema = {
-      type: 'object',
-      properties: {
-        questions: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              type: { type: 'string', enum: ['single', 'short'] },
-              question: { type: 'string' },
-              options: {
-                anyOf: [
-                  { type: 'array', items: { type: 'string' } },
-                  { type: 'null' },
-                ],
-              },
-              answer: { type: 'string' },
-              focus_areas: {
-                type: 'array',
-                items: { 
-                  type: 'string',
-                  enum: ['main-idea', 'detail-comprehension', 'inference', 'vocabulary', 'cause-effect', 'sequence', 'speaker-attitude', 'comparison', 'number-information', 'time-reference']
-                }
-              },
-              explanation: { type: 'string' },
-            },
-            required: ['type', 'question', 'options', 'answer', 'focus_areas', 'explanation'],
-            additionalProperties: false,
-          },
-        },
-      },
-      required: ['questions'],
-      additionalProperties: false,
-    }
-
     let attempts = 0
     const maxAttempts = validatedFocusAreas.length > 0 ? 2 : 1
     let currentPrompt = prompt
-    let bestResult: { 
-      questions: GeneratedQuestion[], 
-      coverage: FocusCoverage,
-      match: Array<{
-        questionIndex: number
-        matchedTags: FocusArea[]
-        confidence: 'high' | 'medium' | 'low'
-      }>
-    } | null = null
+    let bestResult:
+      | {
+          questions: QuestionsSchemaQuestion[]
+          coverage: FocusCoverage
+          match: Array<{
+            questionIndex: number
+            matchedTags: FocusArea[]
+            confidence: 'high' | 'medium' | 'low'
+          }>
+        }
+      | null = null
 
     while (attempts < maxAttempts) {
-      attempts++
-      
+      attempts += 1
+
       const messages: ArkMessage[] = [{ role: 'user', content: currentPrompt }]
-      const result = await callArkAPI(messages, schema, 'questions_response') as QuestionsResponse
+      const result = await invokeStructured<QuestionsStructuredResponse>({
+        messages,
+        schema: questionsSchema,
+        schemaName: 'questions_response',
+        options: {
+          temperature: 0.5,
+          maxTokens: 4096
+        }
+      })
 
       if (result && Array.isArray(result.questions)) {
-        // 计算覆盖率和匹配度
         const providedAreas = extractProvidedFocusAreas(result.questions, validatedFocusAreas)
         const focusCoverage = calculateFocusCoverage(validatedFocusAreas, providedAreas)
-        
-        // 验证题目标签质量
-        const taggingValidation = validateQuestionTagging(result.questions, validatedFocusAreas)
-        
-        // 计算每个题目的匹配度
+
+        const taggingValidation = validateQuestionTagging(
+          result.questions as unknown as Question[],
+          validatedFocusAreas
+        )
+
         const focusMatch = result.questions.map((question, index) => {
           const questionAreas = question.focus_areas || []
-          const matchedTags = questionAreas.filter(area => 
+          const matchedTags = questionAreas.filter((area) =>
             validatedFocusAreas.includes(area as FocusArea)
           )
-          
+
           let confidence: 'high' | 'medium' | 'low' = 'low'
           if (matchedTags.length >= 2) confidence = 'high'
           else if (matchedTags.length === 1) confidence = 'medium'
-          
+
           return {
             questionIndex: index,
             matchedTags: matchedTags as FocusArea[],
             confidence
           }
         })
-        
-        // 分析覆盖质量
+
         const qualityAnalysis = analyzeCoverageQuality(focusCoverage, attempts)
-        
-        // 保存最佳结果
+
         if (!bestResult || focusCoverage.coverage > bestResult.coverage.coverage) {
-          bestResult = { 
-            questions: result.questions, 
+          bestResult = {
+            questions: result.questions,
             coverage: focusCoverage,
             match: focusMatch
           }
         }
-        
-        // 如果质量足够或不应继续，返回结果
+
         if (!qualityAnalysis.shouldContinue || attempts >= maxAttempts) {
-          // 记录降级事件
           if (qualityAnalysis.degradationReason) {
             logDegradationEvent({
               type: 'questions',
@@ -206,7 +172,7 @@ Ensure high quality questions with accurate tags that effectively test ${languag
               reason: qualityAnalysis.degradationReason
             })
           }
-          
+
           const response: QuestionGenerationResponse = {
             success: true,
             questions: bestResult.questions,
@@ -215,19 +181,21 @@ Ensure high quality questions with accurate tags that effectively test ${languag
             attempts,
             degradationReason: qualityAnalysis.degradationReason
           }
-          
+
           return NextResponse.json(response)
         }
-        
-        // 需要重试，生成改进的提示词
-        const retryPromptAddition = taggingValidation.recommendations.length > 0 
-          ? `\n\nIMPROVEMENT NEEDED: ${taggingValidation.recommendations.join('; ')}`
-          : ''
-        
+
+        const retryPromptAddition =
+          taggingValidation.recommendations.length > 0
+            ? `\n\nIMPROVEMENT NEEDED: ${taggingValidation.recommendations.join('; ')}`
+            : ''
+
         currentPrompt = generateRetryPrompt(prompt, focusCoverage, attempts + 1) + retryPromptAddition
-        console.log(`Questions generation attempt ${attempts}: coverage ${focusCoverage.coverage}, retrying with improved prompt...`)
+        console.log(
+          `Questions generation attempt ${attempts}: coverage ${focusCoverage.coverage}, retrying with improved prompt...`
+        )
       } else {
-        break // AI响应格式异常，退出重试循环
+        break
       }
     }
 
@@ -237,4 +205,10 @@ Ensure high quality questions with accurate tags that effectively test ${languag
     const msg = error instanceof Error ? error.message : '未知错误'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
-} 
+}
+
+export const POST = createAiRoute(handleQuestions, {
+  label: 'questions',
+  rateLimitConfig: RateLimitConfigs.GENERAL_API,
+  useCircuitBreaker: true
+})

@@ -50,12 +50,25 @@ export const LANGUAGE_OPTIONS = Object.entries(LANGUAGE_CONFIG).map(([key, confi
   label: config.displayName
 }))
 
+export const LANGUAGE_DISPLAY_NAMES: Record<ListeningLanguage, string> = Object.keys(LANGUAGE_CONFIG).reduce(
+  (acc, key) => {
+    const language = key as ListeningLanguage
+    acc[language] = LANGUAGE_CONFIG[language].displayName
+    return acc
+  },
+  {} as Record<ListeningLanguage, string>
+)
+
 // 默认语言
 export const DEFAULT_LANGUAGE: ListeningLanguage = 'en-US'
 
 // 获取语言配置的辅助函数
 export function getLanguageConfig(language: ListeningLanguage): LanguageConfig {
   return LANGUAGE_CONFIG[language]
+}
+
+export function getLanguageDisplayName(language: ListeningLanguage): string {
+  return LANGUAGE_DISPLAY_NAMES[language] ?? LANGUAGE_CONFIG['en-US'].displayName
 }
 
 // 检查语言是否支持的辅助函数

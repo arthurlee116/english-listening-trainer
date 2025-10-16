@@ -33,7 +33,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
     ```bash
     cp .env.example .env.local
     ```
-    Update the file with your Cerebras API key and a secure `JWT_SECRET` (see `CLAUDE.md` or `documents/CODEX.md` for the full list).
+    Update the file with your Cerebras API key and a secure `JWT_SECRET` (see `CLAUDE.md` or `documents/CODEX.md` for the full list). Optional overrides include `AI_PROXY_URL` for outbound requests and `AI_ENABLE_PROXY_HEALTH_CHECK` (`true`/`false`) when running behind custom proxies.
 
 3.  **Initialize Kokoro TTS (first time only):**
     ```bash
@@ -64,7 +64,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 
 ## Key Workflows
 
-- **Content Generation:** The AI service generates topics, transcripts, and questions (see `lib/ai-service.ts` and `app/api/ai/*`).
+- **Content Generation:** The AI service generates topics, transcripts, and questions (see `lib/ai-service.ts`, `lib/ai/cerebras-service.ts`, and `app/api/ai/*`).
 - **Audio Generation:** `lib/kokoro-service.ts` (CPU) and `lib/kokoro-service-gpu.ts` (GPU) orchestrate Kokoro Python workers. `/api/tts` now returns metadata (`duration`, `byteLength`) consumed by `components/audio-player.tsx`.
 - **Authentication:** `hooks/use-auth-state.ts` hydrates auth state from localStorage and refreshes via `/api/auth/me`. Server-side helpers in `lib/auth.ts` use TTL caches and refresh-once logic to reduce DB load.
 - **Audio Clean-up:** `lib/audio-cleanup-service.ts` is started automatically (see `lib/kokoro-init.ts`) to purge stale WAV files under `public/`.

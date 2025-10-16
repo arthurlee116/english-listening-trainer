@@ -1,6 +1,12 @@
 // Server-side AI Analysis Service for Wrong Answers
-import "server-only"
-import { callArkAPI, type ArkMessage } from './ark-helper'
+import 'server-only'
+import type { ArkMessage } from './ark-helper'
+import { invokeStructured } from './ai/cerebras-service'
+import {
+  analysisSchema,
+  type AnalysisStructuredResponse,
+  type AnalysisRelatedSentence
+} from './ai/schemas'
 
 // Types for AI Analysis
 export interface AnalysisRequest {
@@ -16,87 +22,8 @@ export interface AnalysisRequest {
   attemptedAt: string
 }
 
-export interface RelatedSentence {
-  quote: string
-  comment: string
-}
-
-export interface AnalysisResponse {
-  analysis: string
-  key_reason: string
-  ability_tags: string[]
-  signal_words: string[]
-  strategy: string
-  related_sentences: RelatedSentence[]
-  confidence: 'high' | 'medium' | 'low'
-}
-
-// JSON Schema for structured AI response validation
-const ANALYSIS_SCHEMA = {
-  type: "object",
-  properties: {
-    analysis: {
-      type: "string",
-      description: "详尽的中文解析，至少150字，包含错误原因分析、知识点解释和改进建议"
-    },
-    key_reason: {
-      type: "string",
-      description: "简述主要错误原因，如'细节理解缺失'或'推理判断错误'"
-    },
-    ability_tags: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "相关能力标签，如听力细节捕捉、推理判断、词汇理解等"
-    },
-    signal_words: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "听力材料中的关键提示词和信号词"
-    },
-    strategy: {
-      type: "string",
-      description: "针对该题型的作答策略和技巧建议"
-    },
-    related_sentences: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          quote: {
-            type: "string",
-            description: "听力材料中的原句片段"
-          },
-          comment: {
-            type: "string",
-            description: "该句与正确答案的关系说明"
-          }
-        },
-        required: ["quote", "comment"],
-        additionalProperties: false
-      },
-      description: "相关句子引用和解释"
-    },
-    confidence: {
-      type: "string",
-      enum: ["high", "medium", "low"],
-      description: "分析结果的置信度"
-    }
-  },
-  required: [
-    "analysis",
-    "key_reason", 
-    "ability_tags",
-    "signal_words",
-    "strategy",
-    "related_sentences",
-    "confidence"
-  ],
-  additionalProperties: false
-} as const
+export type RelatedSentence = AnalysisRelatedSentence
+export type AnalysisResponse = AnalysisStructuredResponse
 
 /**
  * Create comprehensive Chinese analysis prompt for wrong answers
@@ -194,21 +121,22 @@ export async function analyzeWrongAnswer(request: AnalysisRequest): Promise<Anal
   ]
 
   try {
-    const result = await callArkAPI(
+    const result = await invokeStructured<AnalysisResponse>({
       messages,
-      ANALYSIS_SCHEMA,
-      "wrong_answer_analysis",
-      3 // Max retries for analysis
-    )
+      schema: analysisSchema,
+      schemaName: 'wrong_answer_analysis',
+      options: {
+        maxRetries: 3
+      }
+    })
 
-    // Validate the response structure
     if (!isValidAnalysisResponse(result)) {
-      throw new Error("Invalid analysis response structure")
+      throw new Error('Invalid analysis response structure')
     }
 
-    return result as AnalysisResponse
+    return result
   } catch (error) {
-    console.error("AI analysis failed:", error)
+    console.error('AI analysis failed:', error)
     throw new Error(`AI分析失败: ${error instanceof Error ? error.message : '未知错误'}`)
   }
 }

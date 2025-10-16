@@ -1,220 +1,175 @@
 // 该文件仅在服务端运行
-import "server-only"
+import 'server-only'
+import { Agent as NodeHttpsAgent } from 'https'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import Cerebras from '@cerebras/cerebras_cloud_sdk'
+import { configManager, type AIServiceConfig } from './config-manager'
 
 export interface ArkMessage {
-  role: "system" | "user" | "assistant"
+  role: 'system' | 'user' | 'assistant'
   content: string
 }
 
-const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY
-
-// 在构建时允许使用占位符，运行时才检查真实值
-const isBuildTime = process.env.CEREBRAS_API_KEY === 'placeholder_for_build'
-
-if (!CEREBRAS_API_KEY && !isBuildTime) {
-  throw new Error("CEREBRAS_API_KEY 环境变量未设置")
+export interface ArkCallOptions<T> {
+  messages: ArkMessage[]
+  model?: string
+  temperature?: number
+  maxTokens?: number
+  responseFormat?: Cerebras.ChatCompletionCreateParams['response_format']
+  parser?: (payload: string) => T
+  maxRetries?: number
+  timeoutMs?: number
+  disableProxy?: boolean
+  enableProxyHealthCheck?: boolean
+  signal?: AbortSignal
 }
 
-// Cerebras API 代理配置：支持环境变量覆盖和自动回退
-// 业务环境固定走梯子，直接硬编码代理地址，避免环境变量缺失导致直连失败
-const HARD_CODED_PROXY = 'http://81.71.93.183:10811'
+type ClientVariant = 'direct' | 'proxy'
 
-const resolvedProxyUrl = HARD_CODED_PROXY
+let cachedDirectClient: Cerebras | null = null
+let cachedProxyClient: Cerebras | null = null
+let directAgent: NodeHttpsAgent | null = null
+let proxyAgent: HttpsProxyAgent<string> | null = null
+let cachedConfigFingerprint: string | null = null
 
-let proxyAgent: HttpsProxyAgent<string> | undefined
-let client: Cerebras
-
-// 初始化代理和客户端
-function initializeClient() {
-  try {
-    if (resolvedProxyUrl) {
-      console.log(`Initializing Cerebras client with proxy: ${resolvedProxyUrl}`)
-      proxyAgent = new HttpsProxyAgent(resolvedProxyUrl)
-
-      client = new Cerebras({
-        apiKey: CEREBRAS_API_KEY,
-        httpAgent: proxyAgent,
-      })
-    } else {
-      console.log('Initializing Cerebras client without proxy')
-      client = new Cerebras({
-        apiKey: CEREBRAS_API_KEY,
-      })
-    }
-  } catch (error) {
-    console.error('Failed to initialize Cerebras client with proxy, falling back to direct connection:', error)
-    client = new Cerebras({
-      apiKey: CEREBRAS_API_KEY,
-    })
-  }
+const defaultParser = <T>(payload: string): T => {
+  return JSON.parse(payload) as T
 }
 
-// 初始化客户端（构建时跳过）
-if (!isBuildTime) {
-  initializeClient()
-}
-
-// 代理健康检查和自动回退
+const PROXY_CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
 let proxyHealthy = true
 let lastProxyCheck = 0
-const PROXY_CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
+let proxyCheckInFlight: Promise<boolean> | null = null
 
-async function checkProxyHealth(): Promise<boolean> {
+function ensureClientsForConfig(config: AIServiceConfig): void {
+  const fingerprint = [
+    config.baseUrl,
+    config.timeout,
+    config.maxRetries,
+    config.proxyUrl ?? '',
+    config.enableProxyHealthCheck ? '1' : '0'
+  ].join('|')
+
+  if (fingerprint === cachedConfigFingerprint) {
+    return
+  }
+
+  cachedConfigFingerprint = fingerprint
+  cachedDirectClient = null
+  cachedProxyClient = null
+  directAgent = null
+  proxyAgent = null
+}
+
+function getHttpsAgent(): NodeHttpsAgent {
+  if (!directAgent) {
+    directAgent = new NodeHttpsAgent({
+      keepAlive: true,
+      maxSockets: 32
+    })
+  }
+  return directAgent
+}
+
+function getProxyAgent(config: AIServiceConfig): HttpsProxyAgent<string> | null {
+  if (!config.proxyUrl) {
+    return null
+  }
+  if (!proxyAgent) {
+    try {
+      proxyAgent = new HttpsProxyAgent(config.proxyUrl)
+    } catch (error) {
+      console.error('Failed to initialize proxy agent, disabling proxy usage:', error)
+      proxyAgent = null
+    }
+  }
+  return proxyAgent
+}
+
+function createClient(variant: ClientVariant, config: AIServiceConfig): Cerebras | null {
+  const baseOptions = {
+    apiKey: config.cerebrasApiKey,
+    baseURL: config.baseUrl,
+    timeout: config.timeout,
+    maxRetries: config.maxRetries,
+    warmTCPConnection: false
+  }
+
+  if (variant === 'proxy') {
+    const agent = getProxyAgent(config)
+    if (!agent) {
+      return null
+    }
+    return new Cerebras({
+      ...baseOptions,
+      httpAgent: agent
+    })
+  }
+
+  return new Cerebras({
+    ...baseOptions,
+    httpAgent: getHttpsAgent()
+  })
+}
+
+function getClient(variant: ClientVariant, config: AIServiceConfig): Cerebras | null {
+  ensureClientsForConfig(config)
+
+  if (variant === 'proxy') {
+    if (!cachedProxyClient) {
+      cachedProxyClient = createClient('proxy', config)
+    }
+    return cachedProxyClient
+  }
+
+  if (!cachedDirectClient) {
+    cachedDirectClient = createClient('direct', config)
+  }
+  return cachedDirectClient
+}
+
+async function ensureProxyHealthy(config: AIServiceConfig): Promise<boolean> {
+  if (!config.proxyUrl || !config.enableProxyHealthCheck) {
+    return true
+  }
+
   const now = Date.now()
+  if (proxyCheckInFlight) {
+    return proxyCheckInFlight
+  }
+
   if (now - lastProxyCheck < PROXY_CHECK_INTERVAL) {
     return proxyHealthy
   }
 
-  lastProxyCheck = now
-
-  if (!proxyAgent) {
-    proxyHealthy = true
-    return true
+  const proxyClient = getClient('proxy', config)
+  if (!proxyClient) {
+    proxyHealthy = false
+    lastProxyCheck = now
+    return proxyHealthy
   }
 
-  try {
-    // Simple health check - try to make a minimal request
-    const testClient = new Cerebras({
-      apiKey: CEREBRAS_API_KEY,
-      httpAgent: proxyAgent,
-    })
+  proxyCheckInFlight = (async () => {
+    try {
+      await proxyClient.models.list({}, { timeout: Math.min(5000, config.timeout) })
+      proxyHealthy = true
+    } catch (error) {
+      console.warn('Proxy health check failed:', error)
+      proxyHealthy = false
+    } finally {
+      lastProxyCheck = Date.now()
+      proxyCheckInFlight = null
+    }
+    return proxyHealthy
+  })()
 
-    // Make a minimal request to test connectivity
-    await testClient.chat.completions.create({
-      model: CEREBRAS_MODEL_ID,
-      messages: [{ role: 'user', content: 'test' }],
-      max_tokens: 1,
-      temperature: 0
-    })
+  return proxyCheckInFlight
+}
 
-    proxyHealthy = true
-    return true
-  } catch (error) {
-    console.warn('Proxy health check failed:', error)
-    proxyHealthy = false
+function isProxyError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
     return false
   }
-}
-
-// 创建回退客户端（无代理）
-function createFallbackClient(): Cerebras {
-  return new Cerebras({
-    apiKey: CEREBRAS_API_KEY,
-  })
-}
-
-// Cerebras 模型 ID
-const CEREBRAS_MODEL_ID = "qwen-3-235b-a22b-instruct-2507"
-
-/**
- * 调用 Cerebras 大模型 API，支持代理回退和增强错误处理
- * @param messages 聊天上下文
- * @param schema JSON Schema 用于结构化输出
- * @param schemaName Schema 名称
- * @param maxRetries 最大重试次数，默认 3
- */
-export async function callArkAPI(
-  messages: ArkMessage[],
-  schema: Record<string, unknown>,
-  schemaName: string,
-  maxRetries = 3,
-): Promise<unknown> {
-  // 构建时不应该调用此函数
-  if (isBuildTime) {
-    throw new Error("callArkAPI should not be called during build time")
-  }
-
-  let currentClient = client
-  let triedFallback = false
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // Check proxy health on first attempt
-      if (attempt === 1 && proxyAgent) {
-        const isHealthy = await checkProxyHealth()
-        if (!isHealthy && !triedFallback) {
-          console.log('Proxy unhealthy, switching to fallback client')
-          currentClient = createFallbackClient()
-          triedFallback = true
-        }
-      }
-
-      const response = await currentClient.chat.completions.create({
-        model: CEREBRAS_MODEL_ID,
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: schemaName,
-            strict: true,
-            schema,
-          },
-        },
-        temperature: 0.3,
-        max_tokens: 8192,
-      })
-
-      if (!response || !response.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
-        throw new Error("Invalid response structure from Cerebras API")
-      }
-
-      const content = response.choices[0]?.message?.content
-      if (!content) {
-        throw new Error("No content in Cerebras API response")
-      }
-
-      // Parse JSON response
-      let parsedContent
-      try {
-        parsedContent = typeof content === "string" ? JSON.parse(content) : content
-      } catch (parseError) {
-        throw new Error(`Failed to parse API response as JSON: ${parseError}`)
-      }
-
-      return parsedContent
-
-    } catch (error) {
-      console.error(`Cerebras API attempt ${attempt} failed:`, error)
-
-      // If this is a proxy-related error and we haven't tried fallback yet
-      if (!triedFallback && proxyAgent && isProxyError(error)) {
-        console.log('Proxy error detected, switching to fallback client')
-        currentClient = createFallbackClient()
-        triedFallback = true
-        // Don't count this as a retry attempt
-        attempt--
-        continue
-      }
-
-      // If this is the last attempt, throw the error
-      if (attempt === maxRetries) {
-        throw new Error(`Cerebras API failed after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
-
-      // Exponential backoff with jitter
-      const baseDelay = Math.pow(2, attempt) * 1000
-      const jitter = Math.random() * 1000
-      const delay = baseDelay + jitter
-
-      console.log(`Retrying in ${delay}ms...`)
-      await new Promise((r) => setTimeout(r, delay))
-    }
-  }
-
-  throw new Error("Cerebras API failed after max retries")
-}
-
-/**
- * 检查是否为代理相关错误
- */
-function isProxyError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-
   const message = error.message.toLowerCase()
   return (
     message.includes('proxy') ||
@@ -226,17 +181,142 @@ function isProxyError(error: unknown): boolean {
   )
 }
 
-/**
- * 获取当前代理状态信息
- */
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return typeof error === 'string' ? error : 'Unknown error'
+}
+
+function getContentString(content: unknown): string {
+  if (content == null) {
+    throw new Error('No content in Cerebras API response')
+  }
+  if (typeof content === 'string') {
+    return content
+  }
+  try {
+    return JSON.stringify(content)
+  } catch (err) {
+    throw new Error(`Failed to serialize response content: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+function buildPayload(
+  options: ArkCallOptions<unknown>,
+  config: AIServiceConfig
+): Cerebras.ChatCompletionCreateParams {
+  const payload: Cerebras.ChatCompletionCreateParams = {
+    model: options.model || config.defaultModel,
+    messages: options.messages.map((message) => ({
+      role: message.role,
+      content: message.content
+    })),
+    temperature: options.temperature ?? 0.3,
+    max_tokens: options.maxTokens ?? 8192
+  }
+
+  if (options.responseFormat) {
+    payload.response_format = options.responseFormat
+  }
+
+  return payload
+}
+
+function computeBackoffDelay(attempt: number): number {
+  const baseDelay = Math.pow(2, attempt) * 250
+  const jitter = Math.random() * 250
+  return Math.min(baseDelay + jitter, 8000)
+}
+
+export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
+  const config = configManager.getAIConfig()
+
+  const disableProxy = options.disableProxy === true
+  const allowProxy = !disableProxy && !!config.proxyUrl
+  const proxyHealthChecksEnabled = options.enableProxyHealthCheck ?? config.enableProxyHealthCheck
+  const maxAttempts = Math.max(1, options.maxRetries ?? config.maxRetries)
+  const timeoutMs = options.timeoutMs ?? config.timeout
+  const parser = options.parser ?? defaultParser<T>
+
+  const payload = buildPayload(options, config)
+
+  let attempt = 0
+  let useProxy = allowProxy
+  let lastError: unknown = null
+  let proxyMarkedUnavailable = !allowProxy
+
+  while (attempt < maxAttempts) {
+    attempt += 1
+
+    if (useProxy && proxyHealthChecksEnabled) {
+      const healthy = await ensureProxyHealthy(config)
+      if (!healthy) {
+        useProxy = false
+        proxyMarkedUnavailable = true
+        attempt -= 1
+        continue
+      }
+    }
+
+    const client = getClient(useProxy ? 'proxy' : 'direct', config)
+
+    if (!client) {
+      useProxy = false
+      proxyMarkedUnavailable = true
+      attempt -= 1
+      continue
+    }
+
+    try {
+      const response = await client.chat.completions.create(
+        payload,
+        {
+          timeout: timeoutMs,
+          signal: options.signal
+        }
+      )
+
+      // 确保响应不是 Stream 类型
+      if ('choices' in response && Array.isArray(response.choices)) {
+        const choice = response.choices[0]?.message?.content
+        const contentString = getContentString(choice)
+        return parser(contentString)
+      }
+      
+      throw new Error('Unexpected response format from Cerebras API')
+    } catch (error) {
+      lastError = error
+
+      if (useProxy && allowProxy && !proxyMarkedUnavailable && isProxyError(error)) {
+        console.warn('Proxy error detected, switching to direct client')
+        useProxy = false
+        proxyMarkedUnavailable = true
+        attempt -= 1
+        continue
+      }
+
+      if (attempt >= maxAttempts) {
+        break
+      }
+
+      const delay = computeBackoffDelay(attempt)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+
+  throw new Error(`Cerebras API failed after ${maxAttempts} attempts: ${formatError(lastError)}`)
+}
+
 export function getProxyStatus(): {
   proxyUrl: string | null
   proxyHealthy: boolean
   lastCheck: number
 } {
+  const config = configManager.getAIConfig()
   return {
-    proxyUrl: resolvedProxyUrl || null,
+    proxyUrl: config.proxyUrl,
     proxyHealthy,
     lastCheck: lastProxyCheck
   }
-} 
+}
