@@ -5,7 +5,7 @@ import { configManager, type AIServiceConfig } from './config-manager'
 import { getCerebrasClientManager, type ProxyStatusSnapshot } from './ai/cerebras-client-manager'
 import { RetryPolicy } from './ai/retry-strategy'
 import { createStructuredJsonParser } from './ai/parsers'
-import { emitAiTelemetry, type TelemetryClientVariant } from './ai/telemetry'
+import { emitAiTelemetry } from './ai/telemetry'
 
 export interface ArkMessage {
   role: 'system' | 'user' | 'assistant'
@@ -23,8 +23,6 @@ export interface ArkCallOptions<T> {
   label?: string
   maxRetries?: number
   timeoutMs?: number
-  disableProxy?: boolean
-  enableProxyHealthCheck?: boolean
   signal?: AbortSignal
 }
 
@@ -78,21 +76,6 @@ function getContentString(content: unknown): string {
       `Failed to serialize response content (type: ${typeof content}): ${reason}. Payload preview: ${preview}`
     )
   }
-}
-
-function isProxyError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false
-  }
-  const message = error.message.toLowerCase()
-  return (
-    message.includes('proxy') ||
-    message.includes('econnrefused') ||
-    message.includes('enotfound') ||
-    message.includes('timeout') ||
-    message.includes('network') ||
-    message.includes('connection')
-  )
 }
 
 function formatError(error: unknown): string {
@@ -164,47 +147,23 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
   const timeoutMs = options.timeoutMs ?? config.timeout
   const retryPolicy = new RetryPolicy()
 
-  const disableProxy = options.disableProxy === true
-  const allowProxy = !disableProxy && !!config.proxyUrl
-  const enableProxyHealthCheck = options.enableProxyHealthCheck ?? config.enableProxyHealthCheck
   const maxAttempts = Math.max(1, options.maxRetries ?? config.maxRetries)
 
   const attemptRecords: Array<{
     attempt: number
-    variant: TelemetryClientVariant
     durationMs: number
     success: boolean
     error?: string
   }> = []
-  const attemptedVariants = new Set<TelemetryClientVariant>()
 
   let attempts = 0
-  let useProxy = allowProxy
   let lastError: unknown = null
   let totalBackoffMs = 0
   let responseUsage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | undefined
 
+  const client = manager.getClient(config)
+
   while (attempts < maxAttempts) {
-    const variant: TelemetryClientVariant = useProxy ? 'proxy' : 'direct'
-    attemptedVariants.add(variant)
-
-    if (variant === 'proxy' && enableProxyHealthCheck) {
-      const healthy = await manager.isProxyHealthy(config)
-      if (!healthy) {
-        useProxy = false
-        continue
-      }
-    }
-
-    const client = manager.getClient(variant, config)
-    if (!client) {
-      if (variant === 'proxy') {
-        useProxy = false
-        continue
-      }
-      break
-    }
-
     attempts += 1
     const startTime = Date.now()
 
@@ -226,7 +185,6 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
       const durationMs = Date.now() - startTime
       attemptRecords.push({
         attempt: attempts,
-        variant,
         durationMs,
         success: true
       })
@@ -235,10 +193,13 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
       emitAiTelemetry({
         label: options.label ?? options.schemaName,
         success: true,
-        attempts: attemptRecords,
+        attempts: attemptRecords.map(r => ({
+          ...r,
+          variant: 'proxy' as const
+        })),
         totalBackoffMs,
-        fallbackPath: buildFallbackPath(attemptedVariants),
-        proxyEnabled: allowProxy,
+        fallbackPath: 'proxy-only',
+        proxyEnabled: true,
         timestamp: Date.now(),
         usage: responseUsage
       })
@@ -251,16 +212,10 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
 
       attemptRecords.push({
         attempt: attempts,
-        variant,
         durationMs,
         success: false,
         error: formattedError
       })
-
-      if (variant === 'proxy' && allowProxy && isProxyError(error)) {
-        manager.markProxyFailure(error)
-        useProxy = false
-      }
 
       if (attempts >= maxAttempts) {
         break
@@ -272,37 +227,25 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
     }
   }
 
-  const fallbackPath = buildFallbackPath(attemptedVariants)
-  const failureMessage = `Cerebras API failed after ${attempts} attempts (path: ${fallbackPath}): ${formatError(lastError)}`
+  const failureMessage = `Cerebras API failed after ${attempts} attempts (proxy-only): ${formatError(lastError)}`
 
   emitAiTelemetry({
     label: options.label ?? options.schemaName,
     success: false,
-    attempts: attemptRecords,
+    attempts: attemptRecords.map(r => ({
+      ...r,
+      variant: 'proxy' as const
+    })),
     totalBackoffMs,
-    fallbackPath,
+    fallbackPath: 'proxy-only',
     finalError: formatError(lastError),
-    proxyEnabled: allowProxy,
+    proxyEnabled: true,
     timestamp: Date.now()
   })
 
   throw new Error(failureMessage)
 }
 
-function buildFallbackPath(attemptedVariants: Set<TelemetryClientVariant>): string {
-  const attempted = Array.from(attemptedVariants)
-  if (attempted.length === 0) {
-    return 'none'
-  }
-
-  if (attempted.length === 1) {
-    return attempted[0] === 'proxy' ? 'proxy-only' : 'direct-only'
-  }
-
-  return 'proxy->direct'
-}
-
 export function getProxyStatus(): ProxyStatusSnapshot {
-  const config = configManager.getAIConfig()
-  return getCerebrasClientManager().getProxyStatus(config)
+  return getCerebrasClientManager().getProxyStatus()
 }

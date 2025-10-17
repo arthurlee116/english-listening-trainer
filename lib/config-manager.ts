@@ -18,8 +18,6 @@ export interface AIServiceConfig {
   defaultModel: string
   defaultTemperature: number
   defaultMaxTokens: number
-  proxyUrl: string | null
-  enableProxyHealthCheck: boolean
 }
 
 export interface TTSServiceConfig {
@@ -74,8 +72,6 @@ export interface ConfigSummary {
     defaultTemperature: number;
     defaultMaxTokens: number;
     hasApiKey: boolean;
-    proxyUrl: string | null;
-    enableProxyHealthCheck: boolean;
   };
   tts: {
     timeout: number;
@@ -158,12 +154,7 @@ class ConfigurationManager {
         maxRetries: parseInt(process.env.AI_MAX_RETRIES || '3'),
         defaultModel: process.env.AI_DEFAULT_MODEL || 'llama3.1-8b',
         defaultTemperature,
-        defaultMaxTokens,
-        proxyUrl: process.env.AI_PROXY_URL ? process.env.AI_PROXY_URL.trim() : null,
-        enableProxyHealthCheck: this.parseBooleanEnv(
-          process.env.AI_ENABLE_PROXY_HEALTH_CHECK,
-          true
-        )
+        defaultMaxTokens
       },
 
       tts: {
@@ -349,9 +340,7 @@ class ConfigurationManager {
         defaultModel: config.ai.defaultModel,
         defaultTemperature: config.ai.defaultTemperature,
         defaultMaxTokens: config.ai.defaultMaxTokens,
-        hasApiKey: !!config.ai.cerebrasApiKey,
-        proxyUrl: config.ai.proxyUrl,
-        enableProxyHealthCheck: config.ai.enableProxyHealthCheck
+        hasApiKey: !!config.ai.cerebrasApiKey
       },
       tts: {
         timeout: config.tts.timeout,

@@ -102,10 +102,10 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 
 ### AI Infrastructure
 
-- `lib/ark-helper.ts` coordinates Ark/Cerebras invocations, applying retry policy, proxy failover, timeout control, and JSON parsing
-- `lib/ai/cerebras-client-manager.ts` keeps long-lived SDK clients, probes proxy health (`AI_ENABLE_PROXY_HEALTH_CHECK`), and feeds snapshots to monitoring
+- `lib/ark-helper.ts` coordinates Ark/Cerebras invocations, applying retry policy, timeout control, and JSON parsing (always routes through hardcoded proxy)
+- `lib/ai/cerebras-client-manager.ts` keeps long-lived SDK clients and always uses the production proxy (`http://81.71.93.183:10811`)
 - `lib/ai/telemetry.ts` emits structured attempt metrics; `lib/monitoring.ts` captures the last call for `/api/health` reporting and performance metrics
-- `lib/config-manager.ts` loads AI defaults (`AI_DEFAULT_MODEL`, `AI_DEFAULT_TEMPERATURE`, `AI_DEFAULT_MAX_TOKENS`, `AI_TIMEOUT`, `AI_MAX_RETRIES`, `AI_PROXY_URL`)
+- `lib/config-manager.ts` loads AI defaults (`AI_DEFAULT_MODEL`, `AI_DEFAULT_TEMPERATURE`, `AI_DEFAULT_MAX_TOKENS`, `AI_TIMEOUT`, `AI_MAX_RETRIES`)
 - `lib/ai/route-utils.ts` wraps AI routes with shared rate limiting, concurrency guard, and circuit breaker (`aiServiceCircuitBreaker`)
 - Focus coverage utilities plus `executeWithCoverageRetry()` ensure topics/questions retry up to 2 times with degradation logging via `logDegradationEvent()`
 
@@ -221,8 +221,8 @@ TTS API returns metadata for instant UI feedback:
 - `AI_DEFAULT_MAX_TOKENS`: Max tokens per completion (default `8192`)
 - `AI_TIMEOUT`: Request timeout in ms (default `30000`)
 - `AI_MAX_RETRIES`: Max retry attempts (default `3`)
-- `AI_PROXY_URL`: Optional HTTPS proxy for Cerebras traffic
-- `AI_ENABLE_PROXY_HEALTH_CHECK`: `true`/`false`, determines if proxy health probe runs (default `true`)
+
+**Note:** AI service always uses hardcoded production proxy (`http://81.71.93.183:10811`)
 
 **Optional:**
 - `NEXT_PUBLIC_APP_URL`: Public app URL for production

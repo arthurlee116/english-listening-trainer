@@ -7,8 +7,6 @@ export interface StructuredCallOverrides {
   maxTokens?: number
   maxRetries?: number
   timeoutMs?: number
-  disableProxy?: boolean
-  enableProxyHealthCheck?: boolean
   signal?: AbortSignal
 }
 
@@ -48,8 +46,6 @@ export async function invokeStructured<T>(params: InvokeStructuredParams): Promi
     responseFormat: buildResponseFormat(schemaName, schema),
     maxRetries: options?.maxRetries,
     timeoutMs: options?.timeoutMs,
-    disableProxy: options?.disableProxy,
-    enableProxyHealthCheck: options?.enableProxyHealthCheck,
     signal: options?.signal
   }
 

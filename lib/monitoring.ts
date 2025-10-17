@@ -596,8 +596,7 @@ export class HealthChecker {
           temperature: 0,
           maxTokens: 32,
           maxRetries: 1,
-          timeoutMs: 5000,
-          enableProxyHealthCheck: true
+          timeoutMs: 5000
         }
       })
 

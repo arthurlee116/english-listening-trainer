@@ -33,7 +33,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
     ```bash
     cp .env.example .env.local
     ```
-    Update the file with your Cerebras API key and a secure `JWT_SECRET` (see `CLAUDE.md` or `documents/CODEX.md` for the full list). Optional overrides include `AI_PROXY_URL` for outbound requests and `AI_ENABLE_PROXY_HEALTH_CHECK` (`true`/`false`) when running behind custom proxies.
+    Update the file with your Cerebras API key and a secure `JWT_SECRET` (see `CLAUDE.md` or `documents/CODEX.md` for the full list). The system uses a hardcoded production proxy for all AI requests.
 
 3.  **Initialize Kokoro TTS (first time only):**
     ```bash

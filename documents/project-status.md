@@ -31,7 +31,7 @@
   - 创建 `lib/ark-helper.ts`、`lib/ai/cerebras-client-manager.ts`、`lib/ai/telemetry.ts`，集中处理 Cerebras/Ark 调用、代理可用性探活、调用遥测与回退链路
   - 新增 `lib/ai/request-preprocessor.ts`、`lib/ai/retry-strategy.ts`、`lib/ai/prompt-templates.ts`、`lib/ai/schemas.ts`、`lib/ai/transcript-expansion.ts`，实现难度/语言预处理、指数退避重试、统一 Prompt 模板与 JSON Schema 解析
   - `/api/ai/topics|questions|transcript|grade|expand` 全面迁移至 `invokeStructured()` 管道，内置限流熔断、焦点标签覆盖率评估、扩写回退与降级日志
-  - `lib/monitoring.ts` 接入最新 AI 遥测与 Cerebras 健康检查快照，`lib/config-manager.ts` 支持 `AI_PROXY_URL`、`AI_ENABLE_PROXY_HEALTH_CHECK`、`AI_DEFAULT_MAX_TOKENS` 等配置
+  - `lib/monitoring.ts` 接入最新 AI 遥测与 Cerebras 健康检查快照，`lib/config-manager.ts` 支持 `AI_DEFAULT_MAX_TOKENS` 等配置
 - 2025-10-13 **Scripts 目录精简**
   - 删除历史远程部署脚本，保留 `backup.sh`、`restore.sh`、`setup-kokoro.sh`
   - 更新 `package.json`、Docker Compose、部署文档改用手动命令
