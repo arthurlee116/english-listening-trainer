@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile } from 'fs/promises'
+import { readFile, stat } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
 
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const filename = params.filename
-    
+
     // 安全检查：只允许访问 tts_audio_ 开头的 .wav 文件
     if (!filename.startsWith('tts_audio_') || !filename.endsWith('.wav')) {
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
@@ -24,10 +24,42 @@ export async function GET(
       return NextResponse.json({ error: 'Audio file not found' }, { status: 404 })
     }
     
-    // 读取文件
+    const range = request.headers.get('range')
+    const { size: fileSize } = await stat(filePath)
+
+    if (range) {
+      const matches = range.match(/bytes=(\d*)-(\d*)/)
+      if (!matches) {
+        return NextResponse.json({ error: 'Invalid Range header' }, { status: 416 })
+      }
+
+      const start = matches[1] ? Number(matches[1]) : 0
+      const end = matches[2] ? Number(matches[2]) : fileSize - 1
+
+      if (Number.isNaN(start) || Number.isNaN(end) || start > end || end >= fileSize) {
+        return NextResponse.json({ error: 'Requested range not satisfiable' }, { status: 416 })
+      }
+
+      const chunk = await readFile(filePath)
+      const sliced = chunk.subarray(start, end + 1)
+
+      return new NextResponse(sliced, {
+        status: 206,
+        headers: {
+          'Content-Type': 'audio/wav',
+          'Content-Length': String(sliced.length),
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Range, Content-Type',
+        },
+      })
+    }
+
     const fileBuffer = await readFile(filePath)
-    
-    // 返回音频文件，设置正确的 headers
+
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {

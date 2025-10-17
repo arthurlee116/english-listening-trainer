@@ -10,6 +10,10 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-16 **音频播放与分块体验优化**
+  - `app/api/audio/[filename]/route.ts` 支持 HTTP Range 请求，播放器拖拽后可无缝续播
+  - `lib/audio-utils.ts` 调整 WAV chunk 解析逻辑，移除 10MB 上限并校准大文件元数据
+  - `kokoro_local/text_chunker.py` 引入按单词优先的分块策略，避免长词被硬性截断
 - [x] 2025-10-15 **AI 生成服务结构化与代理容错上线**
   - 创建 `lib/ark-helper.ts`、`lib/ai/cerebras-client-manager.ts`、`lib/ai/telemetry.ts`，集中管理 Cerebras/Ark 调用、代理探活与重试遥测
   - 新增 `lib/ai/request-preprocessor.ts`、`lib/ai/retry-strategy.ts`、`lib/ai/prompt-templates.ts`、`lib/ai/schemas.ts`、`lib/ai/transcript-expansion.ts`，支撑覆盖率自适应重试与 JSON Schema 解析

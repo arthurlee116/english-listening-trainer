@@ -56,17 +56,24 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
       if (offset + 8 > buffer.length) break
 
       const chunkId = buffer.toString('ascii', offset, offset + 4)
-      const chunkSize = buffer.readUInt32LE(offset + 4)
+      const declaredChunkSize = buffer.readUInt32LE(offset + 4)
+      const remaining = buffer.length - (offset + 8)
 
-      if (chunkSize < 0 || chunkSize > 10000000) { // 10MB上限制
-        console.warn(`Invalid chunk size: ${chunkSize}`)
+      if (remaining < 0) {
+        console.warn('Invalid WAV buffer: chunk header exceeds buffer length')
         break
       }
 
-      const nextOffset = offset + 8 + chunkSize
+      const safeChunkSize = Math.min(declaredChunkSize, Math.max(remaining, 0))
+
+      if (declaredChunkSize > remaining) {
+        console.warn(`Chunk size ${declaredChunkSize} exceeds remaining bytes ${remaining}, clamping to available data`)
+      }
+
+      const nextOffset = offset + 8 + safeChunkSize
 
       if (chunkId === 'fmt ') {
-        if (chunkSize >= 16) {
+        if (safeChunkSize >= 16) {
           // AudioFormat (uint16) - 通常是1 (PCM)
           const audioFormat = buffer.readUInt16LE(offset + 8)
           if (audioFormat !== 1) {
@@ -95,9 +102,12 @@ export function getWavAudioMetadata(buffer: Buffer): AudioMetadata {
           }
 
           formatFound = true
+        } else {
+          console.warn(`fmt chunk too small: ${safeChunkSize} bytes`)
+          return fallback
         }
       } else if (chunkId === 'data') {
-        dataChunkSize = chunkSize
+        dataChunkSize = declaredChunkSize
         dataStartOffset = offset + 8
         // 继续处理可能存在的其他chunks
       }

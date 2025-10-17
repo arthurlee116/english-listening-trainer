@@ -2,7 +2,7 @@
 
 ### 当前版本
 - **版本号**: v1.3.0
-- **最后更新**: 2025-10-15
+- **最后更新**: 2025-10-16
 - **状态**: 稳定版本，生产就绪
 
 ### 核心功能状态
@@ -27,6 +27,10 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+- 2025-10-16 **音频播放与分块体验优化**
+  - `app/api/audio/[filename]/route.ts` 增加 HTTP Range 支持，拖拽进度条时播放器可立即续播
+  - `lib/audio-utils.ts` 修复大于 10MB WAV 的 chunk 解析，准确回传持续时间与采样信息
+  - `kokoro_local/text_chunker.py` 优化长文本分块，优先按单词切分并对极端长词安全回退
 - 2025-10-15 **AI 调用层统一、结构化输出与代理容错强化**
   - 创建 `lib/ark-helper.ts`、`lib/ai/cerebras-client-manager.ts`、`lib/ai/telemetry.ts`，集中处理 Cerebras/Ark 调用、代理可用性探活、调用遥测与回退链路
   - 新增 `lib/ai/request-preprocessor.ts`、`lib/ai/retry-strategy.ts`、`lib/ai/prompt-templates.ts`、`lib/ai/schemas.ts`、`lib/ai/transcript-expansion.ts`，实现难度/语言预处理、指数退避重试、统一 Prompt 模板与 JSON Schema 解析
@@ -116,4 +120,4 @@
 
 ---
 
-*最后更新: 2025-10-15 18:20 UTC*
+*最后更新: 2025-10-16 10:05 UTC*

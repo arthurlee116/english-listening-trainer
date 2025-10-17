@@ -5,6 +5,7 @@ Kokoro TTS Text Chunking Module
 """
 
 import re
+import textwrap
 from typing import List
 
 # Kokoro phoneme 限制，保持 chunk 大小较小
@@ -49,7 +50,17 @@ def split_text_intelligently(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZ
     if current_chunk.strip():
         chunks.append(current_chunk.strip())
 
-    return chunks
+    normalized_chunks: List[str] = []
+    for chunk in chunks:
+        cleaned = chunk.strip()
+        if not cleaned:
+            continue
+        if len(cleaned) <= max_chunk_size:
+            normalized_chunks.append(cleaned)
+        else:
+            normalized_chunks.extend(chunk_by_words(cleaned, max_chunk_size))
+
+    return normalized_chunks
 
 
 def split_by_sentences(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> List[str]:
@@ -114,11 +125,13 @@ def split_by_commas(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> Lis
 
             # 如果单个部分还是太长，强制分割
             if len(part) > max_chunk_size:
-                while len(part) > max_chunk_size:
-                    chunks.append(part[:max_chunk_size])
-                    part = part[max_chunk_size:]
-                if part:
-                    current_chunk = part + ", "
+                sub_chunks = chunk_by_words(part, max_chunk_size)
+                if sub_chunks:
+                    chunks.extend(sub_chunks[:-1])
+                    last_chunk = sub_chunks[-1]
+                    current_chunk = (last_chunk + ", ") if last_chunk else ""
+                else:
+                    current_chunk = ""
             else:
                 current_chunk = part + ", "
 
@@ -126,3 +139,31 @@ def split_by_commas(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> Lis
         chunks.append(current_chunk.rstrip(', '))
 
     return chunks
+
+
+def chunk_by_words(text: str, max_chunk_size: int = MAX_CHUNK_CHAR_SIZE) -> List[str]:
+    """确保在单词边界进行硬分割的兜底策略"""
+    normalized = text.strip()
+    if not normalized:
+        return []
+
+    if len(normalized) <= max_chunk_size:
+        return [normalized]
+
+    wrapped = textwrap.wrap(
+        normalized,
+        max_chunk_size,
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+
+    if wrapped:
+        chunks = [chunk.strip() for chunk in wrapped if chunk.strip()]
+        if chunks:
+            return chunks
+
+    # 仍然存在超长连续字符串（如URL），退回到字符级别切分
+    return [
+        normalized[i:i + max_chunk_size]
+        for i in range(0, len(normalized), max_chunk_size)
+    ]
