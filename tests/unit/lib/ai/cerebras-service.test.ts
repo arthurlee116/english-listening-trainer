@@ -19,7 +19,7 @@ describe('invokeStructured', () => {
     callArkAPIMock.mockReset()
   })
 
-  it('builds structured request payload and returns parsed result', async () => {
+  it('forwards structured metadata and overrides to callArkAPI', async () => {
     callArkAPIMock.mockImplementation(async (options) => {
       expect(options.responseFormat).toEqual({
         type: 'json_schema',
@@ -29,9 +29,11 @@ describe('invokeStructured', () => {
           schema: topicsSchema
         }
       })
+      expect(options.schemaName).toBe('topics_test')
+      expect(options.label).toBe('topics_test')
       expect(options.temperature).toBe(0.55)
       expect(options.maxTokens).toBe(256)
-      return options.parser('{"topics":["A","B"]}')
+      return { topics: ['A', 'B'] }
     })
 
     const result = await invokeStructured({
@@ -48,17 +50,15 @@ describe('invokeStructured', () => {
     expect(callArkAPIMock).toHaveBeenCalledTimes(1)
   })
 
-  it('throws enriched error when parser fails to decode JSON', async () => {
-    callArkAPIMock.mockImplementation(async (options) => {
-      return options.parser('not json')
-    })
+  it('propagates callArkAPI failures', async () => {
+    callArkAPIMock.mockRejectedValue(new Error('callArk failed'))
 
     await expect(
       invokeStructured({
         messages: baseMessages,
         schema: topicsSchema,
-        schemaName: 'topics_health'
+        schemaName: 'topics_failure'
       })
-    ).rejects.toThrow(/Failed to parse structured response \(topics_health\)/)
+    ).rejects.toThrow('callArk failed')
   })
 })

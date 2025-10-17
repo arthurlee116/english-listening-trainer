@@ -2,9 +2,6 @@ import 'server-only'
 import type { ArkMessage, ArkCallOptions } from '../ark-helper'
 import { callArkAPI } from '../ark-helper'
 
-const DEFAULT_TEMPERATURE = 0.3
-const DEFAULT_MAX_TOKENS = 8192
-
 export interface StructuredCallOverrides {
   temperature?: number
   maxTokens?: number
@@ -34,21 +31,6 @@ function buildResponseFormat(schemaName: string, schema: Record<string, unknown>
   }
 }
 
-function createParser<T>(schemaName: string) {
-  return (payload: string): T => {
-    try {
-      return JSON.parse(payload) as T
-    } catch (error) {
-      const snippet = payload.slice(0, 200)
-      throw new Error(
-        `Failed to parse structured response (${schemaName}): ${
-          error instanceof Error ? error.message : String(error)
-        }\nPayload preview: ${snippet}${payload.length > 200 ? '…' : ''}`
-      )
-    }
-  }
-}
-
 export async function invokeStructured<T>(params: InvokeStructuredParams): Promise<T> {
   const {
     messages,
@@ -61,15 +43,22 @@ export async function invokeStructured<T>(params: InvokeStructuredParams): Promi
   const arkOptions: ArkCallOptions<T> = {
     messages,
     model,
-    temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-    maxTokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+    schemaName,
+    label: schemaName,
     responseFormat: buildResponseFormat(schemaName, schema),
-    parser: createParser<T>(schemaName),
     maxRetries: options?.maxRetries,
     timeoutMs: options?.timeoutMs,
     disableProxy: options?.disableProxy,
     enableProxyHealthCheck: options?.enableProxyHealthCheck,
     signal: options?.signal
+  }
+
+  if (typeof options?.temperature === 'number') {
+    arkOptions.temperature = options.temperature
+  }
+
+  if (typeof options?.maxTokens === 'number') {
+    arkOptions.maxTokens = options.maxTokens
   }
 
   return callArkAPI<T>(arkOptions)

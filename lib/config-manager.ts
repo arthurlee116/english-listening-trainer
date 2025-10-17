@@ -16,6 +16,8 @@ export interface AIServiceConfig {
   timeout: number
   maxRetries: number
   defaultModel: string
+  defaultTemperature: number
+  defaultMaxTokens: number
   proxyUrl: string | null
   enableProxyHealthCheck: boolean
 }
@@ -69,6 +71,8 @@ export interface ConfigSummary {
     timeout: number;
     maxRetries: number;
     defaultModel: string;
+    defaultTemperature: number;
+    defaultMaxTokens: number;
     hasApiKey: boolean;
     proxyUrl: string | null;
     enableProxyHealthCheck: boolean;
@@ -136,6 +140,12 @@ class ConfigurationManager {
     const defaultPythonPath = resolveKokoroPythonExecutable()
     const defaultVenvPath = path.join(resolveKokoroWorkingDirectory(), 'venv')
 
+    const parsedTemperature = Number(process.env.AI_DEFAULT_TEMPERATURE)
+    const defaultTemperature = Number.isFinite(parsedTemperature) ? parsedTemperature : 0.3
+
+    const parsedMaxTokens = parseInt(process.env.AI_DEFAULT_MAX_TOKENS || '', 10)
+    const defaultMaxTokens = Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0 ? parsedMaxTokens : 8192
+
     return {
       environment: env as 'development' | 'production' | 'test',
       port: parseInt(process.env.PORT || '3000'),
@@ -147,6 +157,8 @@ class ConfigurationManager {
         timeout: parseInt(process.env.AI_TIMEOUT || '30000'),
         maxRetries: parseInt(process.env.AI_MAX_RETRIES || '3'),
         defaultModel: process.env.AI_DEFAULT_MODEL || 'llama3.1-8b',
+        defaultTemperature,
+        defaultMaxTokens,
         proxyUrl: process.env.AI_PROXY_URL ? process.env.AI_PROXY_URL.trim() : null,
         enableProxyHealthCheck: this.parseBooleanEnv(
           process.env.AI_ENABLE_PROXY_HEALTH_CHECK,
@@ -206,6 +218,14 @@ class ConfigurationManager {
     
     if (config.ai.timeout < 1000 || config.ai.timeout > 120000) {
       errors.push('AI timeout must be between 1000 and 120000 ms')
+    }
+
+    if (config.ai.defaultTemperature < 0 || config.ai.defaultTemperature > 2) {
+      errors.push('AI default temperature must be between 0 and 2')
+    }
+
+    if (!Number.isFinite(config.ai.defaultMaxTokens) || config.ai.defaultMaxTokens <= 0) {
+      errors.push('AI default max tokens must be a positive number')
     }
 
     // 验证TTS配置
@@ -327,6 +347,8 @@ class ConfigurationManager {
         timeout: config.ai.timeout,
         maxRetries: config.ai.maxRetries,
         defaultModel: config.ai.defaultModel,
+        defaultTemperature: config.ai.defaultTemperature,
+        defaultMaxTokens: config.ai.defaultMaxTokens,
         hasApiKey: !!config.ai.cerebrasApiKey,
         proxyUrl: config.ai.proxyUrl,
         enableProxyHealthCheck: config.ai.enableProxyHealthCheck
@@ -388,6 +410,22 @@ export const configManager = ConfigurationManager.getInstance()
 // 便捷函数
 export const getConfig = () => configManager.getConfig()
 export const getAIConfig = () => configManager.getAIConfig()
+export const getAIConfigDefaults = (): {
+  temperature: number
+  maxTokens: number
+  timeout: number
+  maxRetries: number
+  model: string
+} => {
+  const aiConfig = configManager.getAIConfig()
+  return {
+    temperature: aiConfig.defaultTemperature,
+    maxTokens: aiConfig.defaultMaxTokens,
+    timeout: aiConfig.timeout,
+    maxRetries: aiConfig.maxRetries,
+    model: aiConfig.defaultModel
+  }
+}
 export const getTTSConfig = () => configManager.getTTSConfig()
 export const getDatabaseConfig = () => configManager.getDatabaseConfig()
 export const isFeatureEnabled = (feature: keyof AppConfig['features']) => 

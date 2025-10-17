@@ -1,4 +1,5 @@
 // 文本扩写工具函数
+import { buildExpansionPrompt } from './ai/prompt-templates'
 
 /**
  * 精确统计英文单词数量
@@ -69,8 +70,6 @@ export function generateExpansionPrompt(
   minAcceptablePercentage: number = 0.9,
   language: string = 'en-US'
 ): string {
-  const expansionTarget = calculateExpansionTarget(originalText, targetWordCount, minAcceptablePercentage + 0.05)  // 目标比最小要求多5%
-  
   // 语言映射
   const languageNames: Record<string, string> = {
     'en-US': 'American English',
@@ -84,26 +83,14 @@ export function generateExpansionPrompt(
   }
   
   const languageName = languageNames[language] || 'English'
-  
-  return `You are a professional ${languageName} listening comprehension script expansion assistant. Expand the following ${languageName} listening script.
 
-Original Topic: ${topic}
-Difficulty Level: ${difficulty}
-Current Length: ${currentWordCount} words
-Target Length: ${expansionTarget} words
-Minimum Requirement: ${Math.round(targetWordCount * minAcceptablePercentage)} words
-
-Original Script:
-${originalText}
-
-Expansion Requirements:
-1. Maintain the core content and logical structure of the original text
-2. Add relevant details, examples, descriptions, or explanations in appropriate places
-3. Ensure content is coherent and natural, suitable for ${difficulty} level
-4. Do not change the original meaning or add irrelevant information
-5. Generate a complete expanded script, not just additional content
-6. Output only the ${languageName} script itself, no explanations or notes
-7. Must reach the minimum ${Math.round(minAcceptablePercentage * 100)}% length requirement (${Math.round(targetWordCount * minAcceptablePercentage)} words)
-
-Please expand the above text to approximately ${expansionTarget} words in ${languageName}, ensuring rich content suitable for listening practice.`
+  return buildExpansionPrompt({
+    originalText,
+    currentWordCount,
+    targetWordCount,
+    topic,
+    difficulty,
+    minAcceptablePercentage,
+    languageName
+  })
 }

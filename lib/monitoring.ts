@@ -5,8 +5,10 @@
 
 import { checkDatabaseHealth } from './database'
 import type { ArkMessage } from './ark-helper'
+import { getProxyStatus } from './ark-helper'
 import { invokeStructured } from './ai/cerebras-service'
 import { healthCheckSchema, type HealthCheckStructuredResponse } from './ai/schemas'
+import { addAiTelemetryListener, type ArkCallTelemetry } from './ai/telemetry'
 import path from 'path'
 import fs from 'fs'
 
@@ -54,6 +56,8 @@ export interface HealthCheckResult {
   uptime: number
   version: string
 }
+
+let lastAiTelemetry: ArkCallTelemetry | null = null
 
 /**
  * 结构化日志记录器
@@ -626,23 +630,44 @@ export class HealthChecker {
   private async checkExternalServices(): Promise<HealthCheckResult['checks'][string]> {
     try {
       const cerebrasCheck = await this.checkCerebrasHealth()
+      const proxySnapshot = getProxyStatus()
       const status = cerebrasCheck.status
       const message =
         status === 'pass'
           ? 'External services accessible'
           : 'External services degraded or unavailable'
 
+      const details: Record<string, unknown> = {
+        cerebras: {
+          status: cerebrasCheck.status,
+          message: cerebrasCheck.message,
+          ...(cerebrasCheck.details ?? {})
+        },
+        proxy: proxySnapshot
+      }
+
+      if (lastAiTelemetry) {
+        const attempts = lastAiTelemetry.attempts.length
+        const lastAttempt = lastAiTelemetry.attempts[attempts - 1]
+
+        details.lastCall = {
+          label: lastAiTelemetry.label,
+          success: lastAiTelemetry.success,
+          attempts,
+          fallbackPath: lastAiTelemetry.fallbackPath,
+          totalBackoffMs: lastAiTelemetry.totalBackoffMs,
+          finalError: lastAiTelemetry.finalError,
+          lastAttemptDurationMs: lastAttempt?.durationMs,
+          lastAttemptVariant: lastAttempt?.variant,
+          usage: lastAiTelemetry.usage
+        }
+      }
+
       return {
         status,
         message,
         duration: cerebrasCheck.duration,
-        details: {
-          cerebras: {
-            status: cerebrasCheck.status,
-            message: cerebrasCheck.message,
-            ...(cerebrasCheck.details ?? {})
-          }
-        }
+        details
       }
     } catch (error) {
       return {
@@ -658,6 +683,23 @@ export class HealthChecker {
 export const logger = Logger.getInstance()
 export const performanceMonitor = PerformanceMonitor.getInstance()
 export const healthChecker = HealthChecker.getInstance()
+
+addAiTelemetryListener((event) => {
+  lastAiTelemetry = event
+
+  const lastAttempt = event.attempts[event.attempts.length - 1]
+  if (lastAttempt) {
+    performanceMonitor.recordMetric('ai_request_attempt_duration', lastAttempt.durationMs, 'ms', {
+      label: event.label ?? 'unknown',
+      variant: lastAttempt.variant,
+      success: event.success ? 'true' : 'false'
+    })
+  }
+
+  performanceMonitor.recordMetric('ai_request_total_backoff', event.totalBackoffMs, 'ms', {
+    label: event.label ?? 'unknown'
+  })
+})
 
 // 定期收集系统指标
 setInterval(() => {

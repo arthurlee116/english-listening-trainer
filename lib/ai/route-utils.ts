@@ -10,6 +10,7 @@ import {
   recordSuccessfulRequest,
   aiServiceCircuitBreaker
 } from '../rate-limiter'
+import { logger } from '../monitoring'
 
 export interface AiRouteOptions {
   label: string
@@ -74,6 +75,7 @@ export function createAiRoute(handler: RouteExecutor, options: AiRouteOptions) {
     const { rateLimitConfig, useCircuitBreaker } = options
 
     let rateLimitResult: RateLimitResult | undefined
+    const requestId = request.headers.get('x-request-id') || undefined
 
     if (rateLimitConfig) {
       rateLimitResult = checkRateLimit(request, rateLimitConfig)
@@ -113,7 +115,15 @@ export function createAiRoute(handler: RouteExecutor, options: AiRouteOptions) {
         return handleCircuitBreakerOpen()
       }
 
-      throw error
+      const err = error instanceof Error ? error : new Error(String(error))
+      logger.error(`AI route failed: ${options.label}`, err, undefined, requestId)
+
+      return NextResponse.json(
+        {
+          error: 'AI服务暂时不可用，请稍后再试'
+        },
+        { status: 500 }
+      )
     }
   }, options.label)
 }
