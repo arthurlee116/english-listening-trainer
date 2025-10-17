@@ -4,6 +4,7 @@
 - `app/` holds Next.js route handlers, layouts, and global styles; keep new pages in feature folders under `app/`.
 - `components/` contains reusable UI and form primitives shared across views.
 - `lib/` groups domain services (TTS, AI analysis, Kokoro) plus configuration helpers; co-locate new service modules here.
+- `lib/ai/` centralizes Ark/Cerebras integrations (`ark-helper`, `cerebras-client-manager`, `prompt-templates`, `schemas`, `telemetry`, `transcript-expansion`) with shared retry/coverage logic.
 - `prisma/schema.prisma` owns the database model; migrations now run via Prisma CLI (`npm run db:migrate`).
 - Tests are split across `__tests__/` (unit, integration, e2e) and `src/test/` fixtures; assets and public audio reside under `public/` and `data/`.
 
@@ -35,6 +36,7 @@
 ## Environment & Data Setup
 - Copy `.env.example` to `.env.local` and run `npm run verify-env` before starting.
 - Use `npm run docker:dev-db` for a throwaway Postgres instance, or `npm run db:reset` to refresh the local database.
+- Align AI configuration envs (`AI_DEFAULT_MODEL`, `AI_DEFAULT_TEMPERATURE`, `AI_DEFAULT_MAX_TOKENS`, `AI_TIMEOUT`, `AI_MAX_RETRIES`, `AI_PROXY_URL`, `AI_ENABLE_PROXY_HEALTH_CHECK`) with the defaults in `lib/config-manager.ts`.
 - Track sensitive credentials in `admin_cookies.txt`/`test_cookies.txt` only for local debugging—do not commit or share externally.
 
 ## User Rule (Superimportant)

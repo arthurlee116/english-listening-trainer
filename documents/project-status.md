@@ -2,13 +2,13 @@
 
 ### 当前版本
 - **版本号**: v1.3.0
-- **最后更新**: 2025-10-12
+- **最后更新**: 2025-10-15
 - **状态**: 稳定版本，生产就绪
 
 ### 核心功能状态
 - ✅ **TTS模块重构**: Kokoro本地TTS集成完成，支持GPU加速
 - ✅ **用户认证系统**: JWT认证，支持注册/登录/权限管理
-- ✅ **AI分析服务**: Cerebras API集成，支持文本分析和评估
+- ✅ **AI分析服务**: Cerebras API集成，支持结构化生成、标签覆盖率评估与自动降级
 - ✅ **多语言支持**: 中英文双语界面
 - ✅ **数据库迁移**: Prisma ORM，支持SQLite/PostgreSQL
 - ✅ **CI/CD流水线**: GitHub Actions，自动构建和部署
@@ -17,7 +17,7 @@
 - ✅ **远程部署指南**: 完整的部署文档和最佳实践
 
 ### 技术栈
-- **前端**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **前端**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
 - **后端**: Next.js API Routes, Prisma ORM
 - **数据库**: SQLite (开发), PostgreSQL (生产)
 - **TTS**: Kokoro (本地), OpenAI (备用)
@@ -27,11 +27,11 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
-- 2025-10-15 **AI 调用层统一与探活强化**
-  - 新增 `lib/ai/cerebras-service.ts` 与 `lib/ai/route-utils.ts`，统一 Cerebras 结构化调用、限流与熔断封装
-  - `/api/ai/topics|questions|transcript|grade|expand` 全面迁移至 `invokeStructured<T>()`，复用集中式 JSON Schema
-  - `lib/monitoring.ts` 接入 Cerebras 实际健康探活，`/api/health` 返回代理状态与延迟信息
-  - 配置中心新增 `AI_PROXY_URL`、`AI_ENABLE_PROXY_HEALTH_CHECK`，支持按环境切换代理与探活策略
+- 2025-10-15 **AI 调用层统一、结构化输出与代理容错强化**
+  - 创建 `lib/ark-helper.ts`、`lib/ai/cerebras-client-manager.ts`、`lib/ai/telemetry.ts`，集中处理 Cerebras/Ark 调用、代理可用性探活、调用遥测与回退链路
+  - 新增 `lib/ai/request-preprocessor.ts`、`lib/ai/retry-strategy.ts`、`lib/ai/prompt-templates.ts`、`lib/ai/schemas.ts`、`lib/ai/transcript-expansion.ts`，实现难度/语言预处理、指数退避重试、统一 Prompt 模板与 JSON Schema 解析
+  - `/api/ai/topics|questions|transcript|grade|expand` 全面迁移至 `invokeStructured()` 管道，内置限流熔断、焦点标签覆盖率评估、扩写回退与降级日志
+  - `lib/monitoring.ts` 接入最新 AI 遥测与 Cerebras 健康检查快照，`lib/config-manager.ts` 支持 `AI_PROXY_URL`、`AI_ENABLE_PROXY_HEALTH_CHECK`、`AI_DEFAULT_MAX_TOKENS` 等配置
 - 2025-10-13 **Scripts 目录精简**
   - 删除历史远程部署脚本，保留 `backup.sh`、`restore.sh`、`setup-kokoro.sh`
   - 更新 `package.json`、Docker Compose、部署文档改用手动命令
@@ -116,4 +116,4 @@
 
 ---
 
-*最后更新: 2025-10-12 10:34 UTC*
+*最后更新: 2025-10-15 18:20 UTC*

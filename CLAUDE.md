@@ -9,7 +9,7 @@ This is a Next.js 15 (App Router) application for AI-powered English listening p
 **Key Technologies:**
 - **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Backend:** Next.js API routes, Prisma ORM, SQLite (WAL mode)
-- **AI:** Cerebras Cloud SDK (default `llama3.1-8b` via `lib/config-manager.ts`, routed through `lib/ai/cerebras-service.ts` with optional proxy health checks)
+- **AI:** Cerebras Cloud SDK orchestrated via `lib/ark-helper.ts` + `lib/ai/cerebras-service.ts` (structured JSON schema pipeline, proxy failover & telemetry managed by `lib/ai/cerebras-client-manager.ts`)
 - **TTS:** Local Kokoro engine (Python-based, supports CPU/GPU/Metal)
 - **Auth:** JWT with bcrypt, server-side caching
 - **Testing:** Vitest with jsdom, @testing-library/react
@@ -63,10 +63,11 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 ### Core Data Flow
 
 1. **Content Generation Pipeline:**
-   - User selects difficulty/language/topic → `/api/ai/topics` → Cerebras AI generates topic suggestions
-   - Topic selected → `/api/ai/transcript` → Generates listening transcript
-   - Transcript ready → `/api/ai/questions` → Generates comprehension questions with focus areas
-   - Questions answered → `/api/ai/grade` → Grades responses and provides feedback
+   - User selects difficulty/language/topic → `/api/ai/topics` normalizes context via `preprocessRequestContext`, builds prompts from `lib/ai/prompt-templates.ts`, and calls `executeWithCoverageRetry()` + `topicsSchema` for structured suggestions
+   - Topic selected → `/api/ai/transcript` loops structured generations, validates length, and falls back to `expandTranscript()` for iterative expansion
+   - Transcript ready → `/api/ai/questions` reuses the same context preprocessor, coverage scoring, and `validateQuestionTagging()` to keep focus areas aligned; degradations are logged for telemetry
+   - Questions answered → `/api/ai/grade` builds grading prompts, parses `gradingSchema`, and returns focus coverage summaries
+   - Optional → `/api/ai/expand` directly expands any transcript via `lib/ai/transcript-expansion.ts`
 
 2. **Audio Generation Pipeline:**
    - Client requests TTS → `/api/tts` → Routes to `lib/kokoro-service.ts` (CPU) or `lib/kokoro-service-gpu.ts` (GPU)
@@ -83,12 +84,30 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 
 - **`lib/ai-service.ts`**: Client-side API wrappers for AI endpoints
 - **`lib/ai/cerebras-service.ts`**: Structured Cerebras invoker (`invokeStructured`) shared by all AI routes
+- **`lib/ark-helper.ts`**: Unified Ark/Cerebras caller with retry policy, proxy fallback, and telemetry emission
+- **`lib/ai/cerebras-client-manager.ts`**: Manages direct/proxy SDK clients plus health checks
+- **`lib/ai/telemetry.ts`**: Lightweight event bus for Ark call metrics consumed by monitoring
+- **`lib/ai/request-preprocessor.ts`**: Normalizes difficulty, language, and focus-area prompts before hitting AI
+- **`lib/ai/retry-strategy.ts`**: Exposes exponential backoff + coverage-aware retry orchestrator
+- **`lib/ai/prompt-templates.ts`** / **`lib/ai/schemas.ts`**: Central prompt builders and JSON Schema contracts for AI outputs
+- **`lib/ai/transcript-expansion.ts`**: Handles iterative transcript expansion + length validation via structured calls
 - **`lib/ai/route-utils.ts`**: Shared AI route wrapper combining rate limiting, circuit breaker, and concurrency control
+- **`lib/focus-area-utils.ts`**: Focus tag validation, coverage scoring, and retry prompt feedback
+- **`lib/config-manager.ts`**: Centralized configuration loader (AI defaults, proxy settings, TTS paths)
 - **`lib/kokoro-service.ts`**: CPU-based TTS service with circuit breaker pattern
 - **`lib/kokoro-service-gpu.ts`**: GPU-optimized TTS service (identical circuit breaker logic)
 - **`lib/auth.ts`**: Server-side auth helpers with caching, used via `withDatabase()` wrapper
 - **`lib/audio-cleanup-service.ts`**: Background service that prunes audio files (started in `lib/kokoro-init.ts`)
 - **`lib/types.ts`**: Central type definitions (DifficultyLevel, ListeningLanguage, FocusArea, etc.)
+
+### AI Infrastructure
+
+- `lib/ark-helper.ts` coordinates Ark/Cerebras invocations, applying retry policy, proxy failover, timeout control, and JSON parsing
+- `lib/ai/cerebras-client-manager.ts` keeps long-lived SDK clients, probes proxy health (`AI_ENABLE_PROXY_HEALTH_CHECK`), and feeds snapshots to monitoring
+- `lib/ai/telemetry.ts` emits structured attempt metrics; `lib/monitoring.ts` captures the last call for `/api/health` reporting and performance metrics
+- `lib/config-manager.ts` loads AI defaults (`AI_DEFAULT_MODEL`, `AI_DEFAULT_TEMPERATURE`, `AI_DEFAULT_MAX_TOKENS`, `AI_TIMEOUT`, `AI_MAX_RETRIES`, `AI_PROXY_URL`)
+- `lib/ai/route-utils.ts` wraps AI routes with shared rate limiting, concurrency guard, and circuit breaker (`aiServiceCircuitBreaker`)
+- Focus coverage utilities plus `executeWithCoverageRetry()` ensure topics/questions retry up to 2 times with degradation logging via `logDegradationEvent()`
 
 ### Database Schema
 
@@ -132,6 +151,7 @@ The app tracks 10 listening skill types (defined in `lib/types.ts`):
 - `main-idea`, `detail-comprehension`, `inference`, `vocabulary`, `cause-effect`, `sequence`, `speaker-attitude`, `comparison`, `number-information`, `time-reference`
 - Each question includes `focusAreas` (JSON array in DB)
 - Used for personalized difficulty assessment and skill tracking
+- AI routes compute coverage via `calculateFocusCoverage()`, emit degradation logs through `logDegradationEvent()`, and validate tagging quality with `validateQuestionTagging()`
 
 ## Important Patterns
 
@@ -194,6 +214,15 @@ TTS API returns metadata for instant UI feedback:
 - `KOKORO_LOCAL_MODEL_PATH`: Custom model path (optional, for offline loading)
 - `TTS_PYTHON_PATH`: Path to Python executable (default: `kokoro_local/venv/bin/python`)
 - `TTS_TIMEOUT`: Python process timeout in ms (default: 30000)
+
+**AI (managed by `lib/config-manager.ts`):**
+- `AI_DEFAULT_MODEL`: Model id (default `llama3.1-8b`)
+- `AI_DEFAULT_TEMPERATURE`: Float between 0-2 (default `0.3`)
+- `AI_DEFAULT_MAX_TOKENS`: Max tokens per completion (default `8192`)
+- `AI_TIMEOUT`: Request timeout in ms (default `30000`)
+- `AI_MAX_RETRIES`: Max retry attempts (default `3`)
+- `AI_PROXY_URL`: Optional HTTPS proxy for Cerebras traffic
+- `AI_ENABLE_PROXY_HEALTH_CHECK`: `true`/`false`, determines if proxy health probe runs (default `true`)
 
 **Optional:**
 - `NEXT_PUBLIC_APP_URL`: Public app URL for production

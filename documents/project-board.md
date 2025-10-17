@@ -10,6 +10,11 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-15 **AI 生成服务结构化与代理容错上线**
+  - 创建 `lib/ark-helper.ts`、`lib/ai/cerebras-client-manager.ts`、`lib/ai/telemetry.ts`，集中管理 Cerebras/Ark 调用、代理探活与重试遥测
+  - 新增 `lib/ai/request-preprocessor.ts`、`lib/ai/retry-strategy.ts`、`lib/ai/prompt-templates.ts`、`lib/ai/schemas.ts`、`lib/ai/transcript-expansion.ts`，支撑覆盖率自适应重试与 JSON Schema 解析
+  - `/app/api/ai/topics|transcript|questions|grade|expand` 全部改写为 `invokeStructured()` 管道，接入限流熔断、标签覆盖率评估及扩写回退路径
+  - `lib/monitoring.ts` 接入最新遥测与 Cerebras 健康检查，`lib/config-manager.ts` 支持 `AI_PROXY_URL`/`AI_ENABLE_PROXY_HEALTH_CHECK` 等新配置
 - [x] 2025-10-13 **Scripts directory精简完成**
   - 删除 70+ 旧部署/诊断脚本，仅保留 `backup.sh`、`restore.sh`、`setup-kokoro.sh`
   - 更新 `package.json`、Docker Compose 与部署文档改用手动命令
