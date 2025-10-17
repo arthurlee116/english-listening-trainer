@@ -389,8 +389,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
             })
 
             // Safe access to Prisma error properties using type assertion
-            const prismaCode = sessionError && typeof sessionError === 'object' && 'code' in sessionError ? (sessionError as any).code : undefined
-            const prismaMeta = sessionError && typeof sessionError === 'object' && 'meta' in sessionError ? (sessionError as any).meta : undefined
+            const prismaCode = sessionError && typeof sessionError === 'object' && 'code' in sessionError ? (sessionError as { code: string }).code : undefined
+            const prismaMeta = sessionError && typeof sessionError === 'object' && 'meta' in sessionError ? (sessionError as { meta: unknown }).meta : undefined
 
             console.error(`Import legacy data: Error processing session ${legacySession.sessionId} (Prisma details)`, { 
               prismaCode,
@@ -413,8 +413,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
       })
       
       // Safe access to Prisma error properties using type assertion
-      const prismaCode = transactionError && typeof transactionError === 'object' && 'code' in transactionError ? (transactionError as any).code : undefined
-      const prismaMeta = transactionError && typeof transactionError === 'object' && 'meta' in transactionError ? (transactionError as any).meta : undefined
+      const prismaCode = transactionError && typeof transactionError === 'object' && 'code' in transactionError ? (transactionError as { code: string }).code : undefined
+      const prismaMeta = transactionError && typeof transactionError === 'object' && 'meta' in transactionError ? (transactionError as { meta: unknown }).meta : undefined
 
       console.error('Import legacy data: Database transaction failed (Prisma details)', { 
         prismaCode,

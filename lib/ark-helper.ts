@@ -144,7 +144,7 @@ function extractUsage(response: ChatCompletionResponse | undefined): { inputToke
   }
   // 只有非流式响应才有 usage 属性
   if (isNonStreamChatCompletion(response) && 'usage' in response) {
-    const usage = response.usage as any
+    const usage = response.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
     if (usage && typeof usage === 'object') {
       return {
         inputTokens: usage.prompt_tokens,

@@ -90,16 +90,16 @@ export const cssVars = {
 export function createCSSVarStyles(
   properties: Record<string, keyof typeof cssVars>,
 ): CSSProperties {
-  const styles: CSSProperties = {}
+  const styles: Record<string, string> = {}
 
   Object.entries(properties).forEach(([cssProp, varName]) => {
     const cssVar = cssVars[varName]
     if (cssVar) {
-      styles[cssProp as any] = `hsl(${cssVar})`
+      styles[cssProp] = `hsl(${cssVar})`
     }
   })
 
-  return styles
+  return styles as CSSProperties
 }
 
 export const themeComponents = {

@@ -100,7 +100,7 @@ export function extractProvidedFocusAreas(
   // 如果内容包含 focus_areas 字段（如题目），直接使用
   const contentWithFocusAreas = content as {focus_areas?: unknown}
   if (Array.isArray(contentWithFocusAreas.focus_areas)) {
-    return (contentWithFocusAreas.focus_areas as string[]).filter((area: string) => 
+    return (contentWithFocusAreas.focus_areas as string[]).filter((area: string): area is FocusArea => 
       FOCUS_AREA_LIST.includes(area as FocusArea)
     )
   }
@@ -109,16 +109,7 @@ export function extractProvidedFocusAreas(
   if (Array.isArray(content)) {
     const allAreas = content
       .flatMap(item => (item as {focus_areas?: string[]}).focus_areas || [])
-      .filter((area: string) => FOCUS_AREA_LIST.includes(area as FocusArea))
-    
-    return Array.from(new Set(allAreas))
-  }
-  
-  // 如果是题目数组，合并所有题目的 focus_areas
-  if (Array.isArray(content)) {
-    const allAreas = content
-      .flatMap(item => item.focus_areas || [])
-      .filter((area: string) => FOCUS_AREA_LIST.includes(area as FocusArea))
+      .filter((area: string): area is FocusArea => FOCUS_AREA_LIST.includes(area as FocusArea))
     
     return Array.from(new Set(allAreas))
   }
