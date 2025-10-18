@@ -28,9 +28,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Local env files
-.env*.local
+# Local env files - 排除所有敏感环境变量文件
 .env
+.env*.local
+.env.local
+.env.production
+.env.development
+*.env.backup
+*.env.backup.*
+.env.*.backup
+.env.local.backup*
 
 # Python
 __pycache__/
@@ -164,3 +171,6 @@ mcp.jsonnext/
 my-v0-project@0.1.0
 
 .venv*
+
+.env.local
+
