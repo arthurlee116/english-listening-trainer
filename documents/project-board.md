@@ -4,7 +4,10 @@
 - [ ] （暂无）
 
 ## In Progress
-- [ ] （暂无）
+- [ ] 2025-10-17 **Home Page 模块化拆分（进行中）**
+  - 新增 `use-practice-setup.ts`、`use-practice-templates.ts`，收敛练习配置与模板操作状态
+  - 拆分 `app/page.tsx` UI，建立 `components/home/PracticeConfiguration`、`PracticeWorkspace`、`AuthenticationGate`
+  - 后续计划：继续抽离练习流状态机、音频播放器逻辑至独立容器与 Hook
 
 ## Review
 - [ ] （留空，提交 PR 后填入）
