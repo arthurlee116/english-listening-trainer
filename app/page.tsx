@@ -5,30 +5,43 @@ import React from "react"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 
-import { Sparkles, History, User, Settings, LogOut, Book, Keyboard } from "lucide-react"
+import { Loader2, Sparkles, History, User, Settings, LogOut, Book, Keyboard } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthDialog } from "@/components/auth-dialog"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
 import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
+import { AudioPlayer } from "@/components/audio-player"
+import { QuestionInterface } from "@/components/question-interface"
+import { ResultsDisplay } from "@/components/results-display"
 import { HistoryPanel } from "@/components/history-panel"
 import { WrongAnswersBook } from "@/components/wrong-answers-book"
 import { AssessmentResult } from "@/components/assessment-result"
 import { AssessmentInterface } from "@/components/assessment-interface"
-import { AuthenticationGate } from "@/components/home/authentication-gate"
-import { PracticeConfiguration } from "@/components/home/practice-configuration"
-import { PracticeWorkspace } from "@/components/home/practice-workspace"
+import { AchievementPanel } from "@/components/achievement-panel"
 import { ShortcutHelpDialog, ShortcutOnboardingDialog } from "@/components/shortcut-help-dialog"
 import { useHotkeys, useShortcutSettings, type ShortcutHandler } from "@/hooks/use-hotkeys"
 import { AudioPlayerControls } from "@/components/audio-player"
+import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, isLanguageSupported } from "@/lib/language-config"
+import { PracticeProvider } from "@/components/practice/PracticeContext"
+import { PracticeSetup } from "@/components/practice/PracticeSetup"
+import { PracticeFlow } from "@/components/practice/PracticeFlow"
 import type { 
   Exercise, 
   Question, 
   DifficultyLevel, 
+  ListeningLanguage, 
+  PracticeTemplate, 
   AchievementNotification,
   FocusArea,
   FocusAreaStats,
@@ -37,8 +50,8 @@ import type {
   GradingResult,
   WrongAnswerItem
 } from "@/lib/types"
-import { usePracticeSetup } from "@/hooks/use-practice-setup"
-import { usePracticeTemplates } from "@/hooks/use-practice-templates"
+import { FOCUS_AREA_LIST } from "@/lib/types"
+import { getTemplates, saveTemplate, deleteTemplate, renameTemplate } from "@/lib/template-storage"
 import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
 import { useLegacyMigration } from "@/hooks/use-legacy-migration"
 import { 
@@ -54,6 +67,32 @@ import {
   getDefaultRecommendations,
   type PracticeSession 
 } from "@/lib/focus-metrics"
+
+const DIFFICULTY_LEVELS = [
+  { value: "A1", labelKey: "difficultyLevels.A1" },
+  { value: "A2", labelKey: "difficultyLevels.A2" },
+  { value: "B1", labelKey: "difficultyLevels.B1" },
+  { value: "B2", labelKey: "difficultyLevels.B2" },
+  { value: "C1", labelKey: "difficultyLevels.C1" },
+  { value: "C2", labelKey: "difficultyLevels.C2" },
+]
+
+// 等级与个性化难度范围映射（参考 `components/assessment-interface.tsx` 的区间定义）
+const DIFFICULTY_RANGE_MAP: Record<DifficultyLevel, { min: number; max: number }> = {
+  A1: { min: 1, max: 5 },
+  A2: { min: 6, max: 10 },
+  B1: { min: 11, max: 15 },
+  B2: { min: 16, max: 20 },
+  C1: { min: 21, max: 25 },
+  C2: { min: 26, max: 30 },
+}
+
+const DURATION_OPTIONS = [
+  { value: 60, labelKey: "durationOptions.1min" },
+  { value: 120, labelKey: "durationOptions.2min" },
+  { value: 180, labelKey: "durationOptions.3min" },
+  { value: 300, labelKey: "durationOptions.5min" },
+]
 
 // Type guard for Error objects
 function isError(error: unknown): error is Error {
@@ -129,6 +168,11 @@ function HomePage() {
 
   // 原有状态
   const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
+  const [difficulty, setDifficulty] = useState<DifficultyLevel | "">("")
+  const [duration, setDuration] = useState<number>(120)
+  const [language, setLanguage] = useState<ListeningLanguage>(DEFAULT_LANGUAGE)
+  const [topic, setTopic] = useState<string>("")
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
   const [transcript, setTranscript] = useState<string>("")
   const [audioUrl, setAudioUrl] = useState<string>("")
   const [audioDuration, setAudioDuration] = useState<number | null>(null)
@@ -142,6 +186,11 @@ function HomePage() {
   
   // Assessment 相关状态
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResultType | null>(null)
+  const [templates, setTemplates] = useState<PracticeTemplate[]>([])
+  const [templateOpLoadingId, setTemplateOpLoadingId] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState<string>("")
+  const topicInputRef = useRef<HTMLInputElement>(null)
   
   // Achievement 系统状态
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState<boolean>(false)
@@ -165,31 +214,6 @@ function HomePage() {
   // 快捷键设置
   const { enabled: shortcutsEnabled, onboarded, setOnboarded } = useShortcutSettings()
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState<boolean>(false)
-
-  const resetSpecializedStateOnLanguageChange = useCallback(() => {
-    setSelectedFocusAreas([])
-    setFocusCoverage(null)
-    setIsLoadingRecommendations(true)
-  }, [setSelectedFocusAreas, setFocusCoverage, setIsLoadingRecommendations])
-
-  const {
-    difficulty,
-    setDifficulty,
-    duration,
-    setDuration,
-    language,
-    setLanguage,
-    topic,
-    setTopic,
-    suggestedTopics,
-    setSuggestedTopics,
-    handleLanguageChange,
-    wordCount,
-    isSetupComplete,
-  } = usePracticeSetup({
-    isSpecializedMode,
-    onSpecializedLanguageReset: resetSpecializedStateOnLanguageChange,
-  })
   
   // Enhanced loading states for better UX
   const [loadingStates, setLoadingStates] = useState({
@@ -302,6 +326,27 @@ function HomePage() {
     }
   }, [])
 
+  // Handle language change with specialized mode reset
+  const handleLanguageChange = useCallback((newLanguage: ListeningLanguage) => {
+    setLanguage(newLanguage)
+
+    // Reset specialized mode selections when language changes
+    if (isSpecializedMode) {
+      setSelectedFocusAreas([])
+      setFocusCoverage(null)
+
+      // Recalculate recommendations for the new language context
+      // This will trigger the useEffect that loads focus area data
+      setIsLoadingRecommendations(true)
+
+      toast({
+        title: t("messages.languageChanged"),
+        description: t("messages.languageChangedDesc"),
+        variant: "default",
+      })
+    }
+  }, [isSpecializedMode, toast, t])
+
   // Safe localStorage operations with error handling
   const safeLocalStorageGet = useCallback((key: string, defaultValue: unknown = null) => {
     try {
@@ -381,44 +426,17 @@ function HomePage() {
     throw lastError!
   }, [toast, t])
 
-  const {
-    templates,
-    templateOpLoadingId,
-    renamingId,
-    renameText,
-    topicInputRef,
-    applyTemplate,
-    saveTemplate: saveTemplateFromPrompt,
-    startRename,
-    confirmRename,
-    deleteTemplateById,
-    setRenameText,
-    resetRenameState,
-  } = usePracticeTemplates({
-    getCurrentConfig: () => ({
-      difficulty,
-      duration,
-      language,
-      topic,
-    }),
-    onApplyConfig: (config) => {
-      setDifficulty(config.difficulty)
-      setDuration(config.duration)
-      setLanguage(config.language)
-      setTopic(config.topic || "")
-    },
-    onResetAfterApply: () => {
-      setSuggestedTopics([])
-      setQuestions([])
-      setAnswers({})
-      setAudioUrl("")
-      setAudioDuration(null)
-      setAudioError(false)
-      setCanRegenerate(true)
-    },
-  })
+  const wordCount = useMemo(() => duration * 2, [duration])
 
   useEffect(() => {
+    const storageAvailable = typeof window !== 'undefined' && !!window.localStorage
+    if (!storageAvailable) {
+      toast({ title: t("pages.templates.unavailable"), description: "", variant: "destructive" })
+      return
+    }
+    const list = getTemplates()
+    setTemplates(list)
+    
     // 加载专项练习预设
     try {
       const storageKey = 'english-listening-specialized-presets'
@@ -755,7 +773,9 @@ function HomePage() {
   }, [shortcutsEnabled, onboarded, isAuthenticated])
 
   // Enhanced memoized computations to avoid unnecessary re-renders
-  // isSetupComplete is already provided by usePracticeSetup hook
+  const isSetupComplete = useMemo(() => {
+    return Boolean(difficulty && topic)
+  }, [difficulty, topic])
 
   const _canGenerateContent = useMemo(() => {
     return Boolean(difficulty && (!isSpecializedMode || selectedFocusAreas.length > 0))
@@ -928,6 +948,88 @@ function HomePage() {
       setLoadingMessage("")
     }
   }, [difficulty, topic, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
+
+  const handleApplyTemplate = useCallback((tpl: PracticeTemplate) => {
+    let appliedLanguage: ListeningLanguage = tpl.language
+    if (!isLanguageSupported(appliedLanguage)) {
+      appliedLanguage = DEFAULT_LANGUAGE
+      toast({ title: t("pages.templates.languageFallback"), description: "" })
+    }
+
+    setDifficulty(tpl.difficulty as DifficultyLevel)
+    setDuration(tpl.duration)
+    setLanguage(appliedLanguage)
+    setTopic(tpl.topic || "")
+    setSuggestedTopics([])
+    setQuestions([])
+    setAnswers({})
+    setAudioUrl("")
+    setAudioDuration(null)
+    setAudioError(false)
+    setCanRegenerate(true)
+    toast({ title: t("pages.templates.applySuccess"), description: "" })
+  }, [t, toast])
+
+  const handleSaveTemplate = useCallback(() => {
+    try {
+      const name = window.prompt(t("pages.templates.saveButton")) || ""
+      const trimmed = name.trim()
+      if (!trimmed) return
+
+      const tpl: PracticeTemplate = {
+        id: `${Date.now()}`,
+        name: trimmed,
+        createdAt: new Date().toISOString(),
+        difficulty: (difficulty || "A1") as DifficultyLevel,
+        language,
+        duration,
+        autoGenerateTopic: false,
+        topic: topic || ""
+      }
+
+      const ok = saveTemplate(tpl)
+      if (!ok) {
+        toast({ title: t("pages.templates.nameDuplicate"), description: "", variant: "destructive" })
+        return
+      }
+      setTemplates(getTemplates())
+      toast({ title: t("pages.templates.saveSuccess"), description: "" })
+      topicInputRef.current?.focus()
+    } catch {
+      toast({ title: t("pages.templates.unavailable"), description: "", variant: "destructive" })
+    }
+  }, [difficulty, duration, language, topic, t, toast])
+
+  const handleStartRename = useCallback((id: string, currentName: string) => {
+    setRenamingId(id)
+    setRenameText(currentName)
+  }, [])
+
+  const handleConfirmRename = useCallback(() => {
+    if (!renamingId) return
+    const newName = renameText.trim()
+    if (!newName) return
+    setTemplateOpLoadingId(renamingId)
+    const ok = renameTemplate(renamingId, newName)
+    setTemplateOpLoadingId(null)
+    if (!ok) {
+      toast({ title: t("pages.templates.nameDuplicate"), description: "", variant: "destructive" })
+      return
+    }
+    setRenamingId(null)
+    setRenameText("")
+    setTemplates(getTemplates())
+    toast({ title: t("pages.templates.renameSuccess"), description: "" })
+  }, [renameText, renamingId, t, toast])
+
+  const handleDeleteTemplateById = useCallback((id: string) => {
+    if (!window.confirm(t("pages.templates.deleteConfirm"))) return
+    setTemplateOpLoadingId(id)
+    deleteTemplate(id)
+    setTemplateOpLoadingId(null)
+    setTemplates(getTemplates())
+    toast({ title: t("pages.templates.deleteSuccess"), description: "" })
+  }, [t, toast])
 
   const handleGenerateAudio = useCallback(async () => {
     if (!transcript) return
@@ -1516,6 +1618,36 @@ function HomePage() {
   // 如果正在加载认证状态或未完成客户端挂载，显示加载界面
   console.log(`🔄 渲染状态检查: isLoading=${isLoading}, hasMounted=${hasMounted}, isAuthenticated=${isAuthenticated}`)
   
+  if (isLoading || !hasMounted) {
+    console.log('🔄 显示加载界面...')
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <h2 className="text-lg font-semibold mb-2">
+            <BilingualText translationKey="messages.loadingApp" />
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300">
+            <BilingualText translationKey="messages.verifyingLogin" />
+          </p>
+        </Card>
+      </div>
+    )
+  }
+
+  // 如果用户未认证，显示认证对话框
+  if (!isAuthenticated) {
+    console.log('🔐 显示登录对话框...')
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <AuthDialog
+          open={showAuthDialog}
+          onUserAuthenticated={handleUserAuthenticated}
+        />
+      </div>
+    )
+  }
+
   if (step === "history") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -1573,15 +1705,8 @@ function HomePage() {
   }
 
   return (
-    <AuthenticationGate
-      isLoading={isLoading}
-      hasMounted={hasMounted}
-      isAuthenticated={isAuthenticated}
-      showAuthDialog={showAuthDialog}
-      onUserAuthenticated={handleUserAuthenticated}
-    >
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="container mx-auto px-4 py-8">
         {/* Main Header Panel */}
         <div className="mb-8 flex justify-center">
           <div className="bg-slate-900/50 backdrop-blur rounded-3xl p-6 md:p-8 shadow-2xl max-w-5xl w-full">
@@ -1729,89 +1854,662 @@ function HomePage() {
           </div>
         )}
 
+        {/* Setup Step */}
         {step === "setup" && (
-          <PracticeConfiguration
-            practiceSetup={{
-              difficulty,
-              duration,
-              language,
-              topic,
-              suggestedTopics,
-              isSetupComplete,
-              onDifficultyChange: setDifficulty,
-              onDurationChange: setDuration,
-              onLanguageChange: handleLanguageChange,
-              onTopicChange: setTopic,
-              topicInputRef,
-            }}
-            templateManager={{
-              templates,
-              templateOpLoadingId,
-              renamingId,
-              renameText,
-              onRenameTextChange: setRenameText,
-              onApplyTemplate: applyTemplate,
-              onStartRename: startRename,
-              onConfirmRename: confirmRename,
-              onResetRenameState: resetRenameState,
-              onDeleteTemplate: deleteTemplateById,
-              onSaveTemplate: saveTemplateFromPrompt,
-            }}
-            specialized={{
-              isEnabled: isSpecializedMode,
-              selectedAreas: selectedFocusAreas,
-              recommendedAreas: recommendedFocusAreas,
-              focusAreaStats,
-              focusCoverage,
-              isLoadingRecommendations,
-              loadingStates,
-              progressInfo,
-              presets: specializedPresets,
-              onToggle: handleSpecializedModeToggle,
-              onSelectionChange: handleFocusAreaSelection,
-              onApplyRecommendations: handleApplyRecommendations,
-              onSavePreset: handleSaveSpecializedPreset,
-              onLoadPreset: handleLoadSpecializedPreset,
-              onDeletePreset: handleDeleteSpecializedPreset,
-            }}
-            operations={{
-              loading,
-              loadingMessage,
-              onGenerateTopics: handleGenerateTopics,
-              onGenerateExercise: handleGenerateTranscript,
-            }}
-            achievements={{
-              isGoalPanelOpen,
-              onToggleGoalPanel: () => setIsGoalPanelOpen((prev) => !prev),
-              isAuthenticated,
-            }}
-          />
+          <div className="max-w-2xl mx-auto space-y-4">
+            {/* Specialized Mode Status Display */}
+            {isSpecializedMode && selectedFocusAreas.length > 0 && (
+              <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="font-semibold text-sky-400">
+                    <BilingualText translationKey="components.specializedPractice.selectedAreas" />
+                    {` (${selectedFocusAreas.length}/5)`}
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSpecializedModeToggle(false)}
+                    className="text-sky-400 hover:text-sky-300"
+                  >
+                    <BilingualText translationKey="components.specializedPractice.disableMode" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedFocusAreas.map((area) => {
+                    const stats = focusAreaStats[area]
+                    return (
+                      <Badge
+                        key={area}
+                        variant="secondary"
+                        className="bg-slate-800/60 text-sky-300 border-slate-600"
+                      >
+                        <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
+                        {stats && stats.attempts > 0 && (
+                          <span className="ml-1 text-xs opacity-75">
+                            ({stats.accuracy.toFixed(0)}%)
+                          </span>
+                        )}
+                      </Badge>
+                    )
+                  })}
+                </div>
+                {focusCoverage && focusCoverage.coverage < 1 && (
+                  <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-700 rounded text-sm text-yellow-200">
+                    <BilingualText translationKey="components.specializedPractice.coverage.warning" />
+                    {`: ${Math.round(focusCoverage.coverage * 100)}%`}
+                  </div>
+                )}
+              </Card>
+            )}
+            {/* Templates List */}
+            <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-sky-400">
+                  <BilingualText translationKey="pages.templates.title" />
+                </h3>
+                <span className="text-xs text-slate-400">
+                  <BilingualText translationKey="pages.templates.deviceNotice" />
+                </span>
+              </div>
+              {templates.length === 0 ? (
+                <p className="text-sm text-slate-300">
+                  <BilingualText translationKey="pages.templates.emptyPlaceholder" />
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {templates.map((tpl) => (
+                    <li key={tpl.id} className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        {renamingId === tpl.id ? (
+                          <Input
+                            value={renameText}
+                            onChange={(e) => setRenameText(e.target.value)}
+                            placeholder={t("pages.templates.renamePlaceholder")}
+                            className="w-64"
+                          />
+                        ) : (
+                          <div className="font-medium">{tpl.name}</div>
+                        )}
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {t("pages.templates.createdAt")}：{new Date(tpl.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {renamingId === tpl.id ? (
+                          <>
+                            <Button onClick={handleConfirmRename} disabled={!renameText.trim() || templateOpLoadingId === tpl.id}>
+                              <BilingualText translationKey="pages.templates.confirmRename" />
+                            </Button>
+                            <Button variant="outline" onClick={() => { setRenamingId(null); setRenameText(""); }}>
+                              {t("buttons.cancel")}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button variant="secondary" onClick={() => handleApplyTemplate(tpl)} disabled={loading || templateOpLoadingId === tpl.id}>
+                              <BilingualText translationKey="pages.templates.applyButton" />
+                            </Button>
+                            <Button variant="outline" onClick={() => handleStartRename(tpl.id, tpl.name)}>
+                              <BilingualText translationKey="pages.templates.rename" />
+                            </Button>
+                            <Button variant="destructive" onClick={() => handleDeleteTemplateById(tpl.id)} disabled={templateOpLoadingId === tpl.id}>
+                              <BilingualText translationKey="pages.templates.delete" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Sparkles className="w-6 h-6 text-sky-400" />
+                <h2 className="text-2xl font-bold text-sky-400">
+                  <BilingualText translationKey="labels.createExercise" />
+                </h2>
+              </div>
+
+              <div className="space-y-6">
+                {/* Difficulty Selection */}
+                <div>
+<Label htmlFor="difficulty" className="text-base font-medium text-slate-300">
+  <BilingualText translationKey="labels.difficulty" />
+</Label>
+<Select value={difficulty} onValueChange={(value) => setDifficulty(value as DifficultyLevel | "")}>
+  <SelectTrigger aria-label={t("labels.difficulty")} className="border border-slate-600 bg-slate-800/50 text-slate-200">
+    <SelectValue placeholder={t("labels.selectDifficulty")} />
+  </SelectTrigger>
+                    <SelectContent>
+                      {DIFFICULTY_LEVELS.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          <BilingualText translationKey={level.labelKey} />
+                          {" "}
+                          <span className="text-xs text-gray-500">
+                            ({DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].min}-{DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].max})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Language Selection */}
+                <div>
+                  <Label htmlFor="language" className="text-base font-medium text-slate-300">
+                    <BilingualText translationKey="labels.listeningLanguage" />
+                  </Label>
+                  <Select value={language} onValueChange={(value) => handleLanguageChange(value as ListeningLanguage)}>
+<SelectTrigger aria-label={t("labels.listeningLanguage")} className="border border-slate-600 bg-slate-800/50 text-slate-200">
+  <SelectValue placeholder={t("labels.selectLanguage")} />
+</SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Duration Selection */}
+                <div>
+                  <Label htmlFor="duration" className="text-base font-medium text-slate-300">
+                    <BilingualText translationKey="labels.duration" />
+                  </Label>
+                  <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
+<SelectTrigger aria-label={t("labels.duration")} className="border border-slate-600 bg-slate-800/50 text-slate-200">
+  <SelectValue placeholder={t("labels.selectDuration")} />
+</SelectTrigger>
+                    <SelectContent>
+                      {DURATION_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value.toString()}>
+                          <BilingualText translationKey={option.labelKey} />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Specialized Practice Mode */}
+                <Card className="bg-slate-800/30 backdrop-blur border-slate-600 p-4">
+                  <div className="space-y-4">
+                    {/* Mode Toggle */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1">
+                        <h3 className="text-base sm:text-lg font-semibold text-sky-400">
+                          <BilingualText translationKey="components.specializedPractice.title" />
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-400">
+                          <BilingualText translationKey="components.specializedPractice.description" />
+                        </p>
+                      </div>
+                      <Button
+                        variant={isSpecializedMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleSpecializedModeToggle()}
+                        className={`
+                          ${isSpecializedMode ? "bg-sky-600 hover:bg-sky-700 text-white" : "bg-slate-800/60 text-sky-400 border-slate-600 hover:bg-slate-700/80"} 
+                          text-xs sm:text-sm px-3 py-2 touch-manipulation
+                          self-start sm:self-auto min-w-[120px] sm:min-w-[140px]
+                        `}
+                      >
+                        <BilingualText 
+                          translationKey={isSpecializedMode ? "components.specializedPractice.disableMode" : "components.specializedPractice.enableMode"} 
+                        />
+                      </Button>
+                    </div>
+
+                    {/* Specialized Mode Configuration */}
+                    {isSpecializedMode && (
+                      <div className="space-y-4 border-t border-blue-200 dark:border-blue-800 pt-4">
+                        {/* Recommendations Section */}
+                        {recommendedFocusAreas.length > 0 && (
+                          <div className="bg-slate-800/40 p-4 rounded-lg border border-slate-600">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                              <h4 className="font-medium text-sky-300 text-sm sm:text-base">
+                                <BilingualText translationKey="components.specializedPractice.recommendedAreas" />
+                              </h4>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleApplyRecommendations}
+                                className="bg-slate-700/60 text-sky-400 border-slate-600 hover:bg-slate-600/80 text-xs sm:text-sm self-start sm:self-auto"
+                              >
+                                <BilingualText translationKey="components.specializedPractice.applyRecommendations" />
+                              </Button>
+                            </div>
+                            <p className="text-xs sm:text-sm text-slate-400 mb-3">
+                              <BilingualText translationKey="components.specializedPractice.recommendedAreasDescription" />
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                              {recommendedFocusAreas.map((area) => {
+                                const stats = focusAreaStats[area]
+                                const canAdd = !selectedFocusAreas.includes(area) && selectedFocusAreas.length < 5
+                                return (
+                                  <Badge
+                                    key={area}
+                                    variant="secondary"
+                                    className={`
+                                      bg-slate-700/60 text-sky-300 border-slate-600
+                                      text-xs sm:text-sm px-2 py-1 touch-manipulation
+                                      ${canAdd 
+                                        ? 'cursor-pointer hover:bg-slate-600/80 active:scale-95' 
+                                        : 'opacity-50 cursor-not-allowed'
+                                      }
+                                    `}
+                                    onClick={() => {
+                                      if (canAdd) {
+                                        handleFocusAreaSelection([...selectedFocusAreas, area])
+                                      }
+                                    }}
+                                    role="button"
+                                    tabIndex={canAdd ? 0 : -1}
+                                    aria-pressed={canAdd}
+                                    aria-label={`${t(`components.specializedPractice.focusAreas.${area}`)} - ${canAdd ? t("messages.tapToToggle") : t("messages.selectionLimit")}`}
+                                  >
+                                    <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
+                                    {stats && (
+                                      <span className="ml-1 text-xs opacity-75">
+                                        ({stats.accuracy.toFixed(0)}%)
+                                      </span>
+                                    )}
+                                  </Badge>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Enhanced Loading States with Progress */}
+                        {(isLoadingRecommendations || loadingStates.computingStats || loadingStates.generatingRecommendations) && (
+                          <div className="bg-slate-800/40 border border-slate-600 p-4 rounded-lg space-y-3">
+                            <div className="flex items-center justify-center">
+                              <Loader2 className="w-4 h-4 animate-spin mr-2 text-sky-400" />
+                              <span className="text-sm font-medium text-sky-300">
+                                {loadingStates.computingStats && (
+                                  <BilingualText translationKey="components.specializedPractice.computingStats" />
+                                )}
+                                {loadingStates.generatingRecommendations && (
+                                  <BilingualText translationKey="components.specializedPractice.generatingRecommendations" />
+                                )}
+                                {isLoadingRecommendations && !loadingStates.computingStats && !loadingStates.generatingRecommendations && (
+                                  <BilingualText translationKey="components.specializedPractice.loadingRecommendations" />
+                                )}
+                              </span>
+                            </div>
+                            
+                            {/* Progress Bar */}
+                            {progressInfo && (
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-xs text-sky-400">
+                                  <span>{progressInfo.message}</span>
+                                  <span>{progressInfo.current}/{progressInfo.total}</span>
+                                </div>
+                                <Progress 
+                                  value={(progressInfo.current / progressInfo.total) * 100} 
+                                  className="h-2"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Loading States */}
+                        {(loadingStates.savingPreset || loadingStates.loadingPreset || loadingStates.clearingCache) && (
+                          <div className="flex items-center justify-center py-2 text-sm text-gray-600 dark:text-gray-400">
+                            <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                            {loadingStates.savingPreset && (
+                              <BilingualText translationKey="components.specializedPractice.savingPreset" />
+                            )}
+                            {loadingStates.loadingPreset && (
+                              <BilingualText translationKey="components.specializedPractice.loadingPreset" />
+                            )}
+                            {loadingStates.clearingCache && (
+                              <BilingualText translationKey="components.specializedPractice.clearingCache" />
+                            )}
+                          </div>
+                        )}
+
+                        {/* No Recommendations */}
+                        {!isLoadingRecommendations && recommendedFocusAreas.length === 0 && (
+                          <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg text-center">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                              <BilingualText translationKey="components.specializedPractice.noRecommendations" />
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">
+                              <BilingualText translationKey="components.specializedPractice.noRecommendationsDescription" />
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Focus Area Selection - Mobile Optimized */}
+                        <div>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                            <Label className="text-sm sm:text-base font-medium">
+                              <BilingualText translationKey="components.specializedPractice.selectFocusAreas" />
+                            </Label>
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
+                              <span className="text-xs sm:text-sm text-gray-500">
+                                <BilingualText 
+                                  translationKey="components.specializedPractice.selectedAreas" 
+                                />
+                                {` (${selectedFocusAreas.length}/5)`}
+                              </span>
+                              {selectedFocusAreas.length > 0 && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleFocusAreaSelection([])}
+                                  className="text-xs h-6 px-2 touch-manipulation"
+                                >
+                                  <BilingualText translationKey="components.specializedPractice.clearSelection" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            <BilingualText translationKey="components.specializedPractice.selectFocusAreasDescription" />
+                          </p>
+                          
+                          {/* Focus Area Grid - Mobile Optimized */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+                            {FOCUS_AREA_LIST.map((area) => {
+                              const isSelected = selectedFocusAreas.includes(area)
+                              const stats = focusAreaStats[area]
+                              const canSelect = !isSelected && selectedFocusAreas.length < 5
+                              
+                              return (
+                                <div
+                                  key={area}
+                                  className={`
+                                    p-3 sm:p-4 rounded-lg border cursor-pointer transition-all touch-manipulation
+                                    min-h-[80px] sm:min-h-[90px] flex flex-col justify-between
+                                    ${isSelected 
+                                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-400 shadow-md' 
+                                      : canSelect
+                                        ? 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 active:scale-95'
+                                        : 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
+                                    }
+                                  `}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      handleFocusAreaSelection(selectedFocusAreas.filter(a => a !== area))
+                                    } else if (canSelect) {
+                                      handleFocusAreaSelection([...selectedFocusAreas, area])
+                                    }
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-pressed={isSelected}
+                                  aria-label={`${t(`components.specializedPractice.focusAreas.${area}`)} - ${isSelected ? t("messages.focusAreaSelected") : canSelect ? t("messages.tapToToggle") : t("messages.selectionLimit")}`}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      if (isSelected) {
+                                        handleFocusAreaSelection(selectedFocusAreas.filter(a => a !== area))
+                                      } else if (canSelect) {
+                                        handleFocusAreaSelection([...selectedFocusAreas, area])
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h5 className={`text-sm sm:text-base font-medium leading-tight ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                                      <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
+                                    </h5>
+                                    <div className="flex-shrink-0 ml-2">
+                                      {isSelected ? (
+                                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                                        </div>
+                                      ) : canSelect ? (
+                                        <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 rounded-full"></div>
+                                      ) : (
+                                        <div className="w-5 h-5 border-2 border-gray-200 dark:border-gray-700 rounded-full opacity-50"></div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {stats && stats.attempts > 0 && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                                      <div className="flex justify-between items-center">
+                                        <span className="truncate">
+                                          <BilingualText translationKey="components.specializedPractice.accuracy" />: {stats.accuracy.toFixed(0)}%
+                                        </span>
+                                        <span className="text-right ml-2">
+                                          {stats.attempts} <BilingualText translationKey="components.specializedPractice.attempts" />
+                                        </span>
+                                      </div>
+                                      {stats.incorrect > 0 && (
+                                        <div className="text-red-500 dark:text-red-400">
+                                          <BilingualText translationKey="components.specializedPractice.errors" />: {stats.incorrect}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Preset Management */}
+                        {selectedFocusAreas.length > 0 && (
+                          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-sm font-medium">
+                                <BilingualText translationKey="components.specializedPractice.presets.title" />
+                              </Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const name = window.prompt(t("components.specializedPractice.presets.namePrompt"))
+                                  if (name) {
+                                    handleSaveSpecializedPreset(name)
+                                  }
+                                }}
+                                className="text-xs h-7 px-2"
+                              >
+                                <BilingualText translationKey="components.specializedPractice.presets.save" />
+                              </Button>
+                            </div>
+                            
+                            {specializedPresets.length > 0 ? (
+                              <div className="space-y-2">
+                                {specializedPresets.map((preset) => (
+                                  <div
+                                    key={preset.id}
+                                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium">{preset.name}</div>
+                                      <div className="text-xs text-gray-500">
+                                        {preset.focusAreas.length} areas • {preset.difficulty} • {new Date(preset.createdAt).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleLoadSpecializedPreset(preset)}
+                                        className="text-xs h-6 px-2"
+                                      >
+                                        <BilingualText translationKey="components.specializedPractice.presets.load" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          if (window.confirm(t("components.specializedPractice.presets.confirmDelete"))) {
+                                            handleDeleteSpecializedPreset(preset.id)
+                                          }
+                                        }}
+                                        className="text-xs h-6 px-2 text-red-600 hover:text-red-700"
+                                      >
+                                        <BilingualText translationKey="components.specializedPractice.presets.delete" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                                <BilingualText translationKey="components.specializedPractice.presets.noPresets" />
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                {/* Generate Topics Button */}
+                {difficulty && (
+                  <Button
+                    onClick={handleGenerateTopics}
+                    disabled={loading}
+                    className="w-full glass-effect"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {loadingMessage}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        <BilingualText translationKey="buttons.generateTopicSuggestions" />
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {/* Suggested Topics */}
+                {suggestedTopics.length > 0 && (
+                  <div>
+                    <Label className="text-base font-medium">
+                      <BilingualText translationKey="labels.suggestedTopics" />
+                    </Label>
+                    <div className="grid grid-cols-1 gap-2 mt-2">
+                      {suggestedTopics.map((suggestedTopic, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          className="glass-effect justify-start text-left h-auto py-3 px-4"
+                          onClick={() => setTopic(suggestedTopic)}
+                        >
+                          <span className="text-sm">{suggestedTopic}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual Topic Input */}
+                <div>
+                  <Label htmlFor="topic" className="text-base font-medium">
+                    <BilingualText translationKey="labels.manualTopic" />
+                  </Label>
+                  <Input
+                    id="topic"
+                    ref={topicInputRef}
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder={t("placeholders.enterTopic")}
+                    className="glass-effect"
+                  />
+                </div>
+
+                {/* Save Template Button */}
+                <Button
+                  onClick={handleSaveTemplate}
+                  disabled={!difficulty || !duration || loading}
+                  className="w-full glass-effect"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  <BilingualText translationKey="pages.templates.saveButton" />
+                </Button>
+
+                {/* Generate Exercise Button */}
+                <Button
+                  onClick={handleGenerateTranscript}
+                  disabled={!isSetupComplete || loading}
+                  className="w-full"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {loadingMessage}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      <BilingualText translationKey="buttons.generateListeningExercise" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
+            
+            {/* Achievement Panel */}
+            <AchievementPanel 
+              isOpen={isGoalPanelOpen}
+              onToggle={() => setIsGoalPanelOpen(!isGoalPanelOpen)}
+              userAuthenticated={isAuthenticated}
+            />
+          </div>
         )}
 
-        <PracticeWorkspace
-          step={step}
-          audioPlayerRef={audioPlayerRef}
-          transcript={transcript}
-          difficulty={difficulty}
-          topic={topic}
-          wordCount={wordCount}
-          audioUrl={audioUrl}
-          audioError={audioError}
-          onGenerateAudio={handleGenerateAudio}
-          onStartQuestions={handleStartQuestions}
-          onRegenerate={handleGenerateTranscript}
-          canRegenerate={canRegenerate}
-          loading={loading}
-          loadingMessage={loadingMessage}
-          audioDuration={audioDuration}
-          questions={questions}
-          answers={answers}
-          onAnswerChange={setAnswers}
-          onSubmitAnswers={handleSubmitAnswers}
-          currentExercise={currentExercise}
-          onRestart={handleRestart}
-          onExport={handleExport}
-        />
+        {/* Listening Step */}
+        {step === "listening" && (
+          <div className="max-w-4xl mx-auto">
+            <AudioPlayer
+              ref={audioPlayerRef}
+              transcript={transcript}
+              difficulty={difficulty}
+              topic={topic}
+              wordCount={wordCount}
+              audioUrl={audioUrl}
+              audioError={audioError}
+              onGenerateAudio={handleGenerateAudio}
+              onStartQuestions={handleStartQuestions}
+              onRegenerate={canRegenerate ? handleGenerateTranscript : undefined}
+              loading={loading}
+              loadingMessage={loadingMessage}
+              initialDuration={audioDuration ?? undefined}
+            />
+          </div>
+        )}
+
+        {/* Questions Step */}
+        {step === "questions" && questions.length > 0 && (
+          <div className="max-w-4xl mx-auto">
+            <QuestionInterface
+              questions={questions}
+              answers={answers}
+              onAnswerChange={setAnswers}
+              onSubmit={handleSubmitAnswers}
+              loading={loading}
+              loadingMessage={loadingMessage}
+              audioUrl={audioUrl}
+              transcript={transcript}
+              initialDuration={audioDuration ?? undefined}
+            />
+          </div>
+        )}
+
+        {/* Results Step */}
+        {step === "results" && currentExercise && (
+          <div className="max-w-4xl mx-auto">
+            <ResultsDisplay exercise={currentExercise} onRestart={handleRestart} onExport={handleExport} />
+          </div>
+        )}
       </div>
 
       {/* 快捷键帮助对话框 */}
@@ -1829,9 +2527,18 @@ function HomePage() {
         onComplete={handleCompleteOnboarding}
       />
 
-      <Toaster />
+      {/* New Practice Flow (Beta) */}
+      <div className="max-w-4xl mx-auto mt-8">
+        <PracticeProvider>
+          <div className="space-y-6">
+            <PracticeSetup />
+            <PracticeFlow />
+          </div>
+        </PracticeProvider>
       </div>
-    </AuthenticationGate>
+
+      <Toaster />
+    </div>
   )
 }
 

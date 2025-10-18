@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { kokoroTTS } from '@/lib/kokoro-service'
+import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
 import { createTTSApiHandler } from '@/lib/performance-middleware'
 import { ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
 import crypto from 'crypto'
@@ -53,13 +53,13 @@ async function ttsHandler(request: NextRequest): Promise<NextResponse> {
       console.log(`🎵 开始生成TTS音频，文本长度: ${text.length}`)
       
       // 确保TTS服务已准备好
-      const isReady = await kokoroTTS.isReady()
+      const isReady = await kokoroTTSGPU.isReady()
       if (!isReady) {
         throw new Error('TTS服务未就绪，请稍后重试')
       }
 
       // 生成音频
-      const audio = await kokoroTTS.generateAudio(text, speed)
+      const audio = await kokoroTTSGPU.generateAudio(text, speed)
 
       // 缓存音频URL - 类型断言为 Record<string, unknown>
       audioCache.set(cacheKey, audio as unknown as Record<string, unknown>, 30 * 60 * 1000) // 30分钟TTL
@@ -101,7 +101,7 @@ export const POST = createTTSApiHandler(ttsHandler)
 // 健康检查端点
 export async function GET() {
   try {
-    const isReady = await kokoroTTS.isReady()
+    const isReady = await kokoroTTSGPU.isReady()
     
     return NextResponse.json({
       status: isReady ? 'ready' : 'initializing',

@@ -7,7 +7,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 ### Features:
 - **AI-Powered Content:** Generate topics, transcripts, and questions using Cerebras-hosted models.
 - **Personalized Difficulty:** The system assesses the user's level and recommends a suitable difficulty (CEFR and L-levels).
-- **Local Text-to-Speech (TTS):** Utilizes a local Kokoro engine (CPU & GPU variants) and now returns duration/byte-size metadata for instant UI feedback.
+- **Local Text-to-Speech (TTS):** Utilizes a GPU-accelerated Kokoro engine and returns duration/byte-size metadata for instant UI feedback.
 - **Authentication Optimizations:** Email/password login with JWT cookies, client-side caching via `use-auth-state`, and server-side in-memory caches in `lib/auth.ts`.
 - **Automated Clean-up:** A background audio clean-up service prunes generated WAV files to avoid exhausting disk space.
 - **Admin Dashboard:** Manage users and monitor performance statistics.
@@ -65,7 +65,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 ## Key Workflows
 
 - **Content Generation:** The AI service generates topics, transcripts, and questions (see `lib/ai-service.ts`, `lib/ai/cerebras-service.ts`, and `app/api/ai/*`).
-- **Audio Generation:** `lib/kokoro-service.ts` (CPU) and `lib/kokoro-service-gpu.ts` (GPU) orchestrate Kokoro Python workers. `/api/tts` now returns metadata (`duration`, `byteLength`) consumed by `components/audio-player.tsx`.
+- **Audio Generation:** `lib/kokoro-service-gpu.ts` orchestrates the GPU Kokoro Python worker. `/api/tts` returns metadata (`duration`, `byteLength`) consumed by `components/audio-player/AudioPlayer.tsx`.
 - **Authentication:** `hooks/use-auth-state.ts` hydrates auth state from localStorage and refreshes via `/api/auth/me`. Server-side helpers in `lib/auth.ts` use TTL caches and refresh-once logic to reduce DB load.
 - **Audio Clean-up:** `lib/audio-cleanup-service.ts` is started automatically (see `lib/kokoro-init.ts`) to purge stale WAV files under `public/`.
 - **User Progress:** Exercises and session data are persisted in `data/app.db` via Prisma.
@@ -86,7 +86,7 @@ This is a Next.js App Router (TypeScript) application for AI-assisted English li
 
 - **TTS Performance**: The first audio generation can take 3-5 seconds due to model loading. Subsequent generations are faster, typically taking 2-8 seconds depending on the text length.
 - **Memory Usage**: The Kokoro TTS engine can consume 1-2GB of RAM when active.
-- **Circuit Breakers**: Both CPU and GPU TTS services include circuit breakers and exponential backoff. Monitor logs for repeated `Circuit breaker: OPEN` messages.
+- **Circuit Breakers**: The GPU TTS service includes a circuit breaker and exponential backoff. Monitor logs for repeated `Circuit breaker: OPEN` messages.
 - **Apple Silicon**: The application is optimized for Apple Silicon, which provides a significant performance boost for audio generation.
 
 ## Troubleshooting

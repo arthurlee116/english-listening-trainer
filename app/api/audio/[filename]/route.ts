@@ -1,7 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, stat } from 'fs/promises'
-import { existsSync } from 'fs'
+import { stat } from 'fs/promises'
+import { createReadStream, existsSync } from 'fs'
+import { Readable } from 'stream'
 import path from 'path'
+
+type ParsedRange =
+  | { type: 'partial'; start: number; end: number }
+  | { type: 'invalid' }
+
+const AUDIO_HEADERS_BASE = {
+  'Content-Type': 'audio/wav',
+  'Accept-Ranges': 'bytes',
+  'Cache-Control': 'public, max-age=31536000, immutable',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Range, Content-Type',
+} as const
+
+function parseRangeHeader(range: string, fileSize: number): ParsedRange {
+  const prefix = 'bytes='
+  if (!range.startsWith(prefix)) {
+    return { type: 'invalid' }
+  }
+
+  const value = range.slice(prefix.length).trim()
+  if (value === '' || value.includes(',')) {
+    return { type: 'invalid' }
+  }
+
+  const [startStr, endStr] = value.split('-')
+
+  if (startStr === '' && endStr === '') {
+    return { type: 'invalid' }
+  }
+
+  if (startStr === '') {
+    const suffixLength = Number(endStr)
+    if (!Number.isInteger(suffixLength) || suffixLength <= 0) {
+      return { type: 'invalid' }
+    }
+    const start = Math.max(fileSize - suffixLength, 0)
+    const end = fileSize - 1
+    if (start > end) {
+      return { type: 'invalid' }
+    }
+    return { type: 'partial', start, end }
+  }
+
+  const start = Number(startStr)
+  if (!Number.isInteger(start) || start < 0 || start >= fileSize) {
+    return { type: 'invalid' }
+  }
+
+  if (endStr === '') {
+    return { type: 'partial', start, end: fileSize - 1 }
+  }
+
+  const end = Number(endStr)
+  if (!Number.isInteger(end) || end < start) {
+    return { type: 'invalid' }
+  }
+
+  const boundedEnd = Math.min(end, fileSize - 1)
+  return { type: 'partial', start, end: boundedEnd }
+}
 
 export async function GET(
   request: NextRequest,
@@ -28,48 +90,39 @@ export async function GET(
     const { size: fileSize } = await stat(filePath)
 
     if (range) {
-      const matches = range.match(/bytes=(\d*)-(\d*)/)
-      if (!matches) {
-        return NextResponse.json({ error: 'Invalid Range header' }, { status: 416 })
+      const parsedRange = parseRangeHeader(range, fileSize)
+      if (parsedRange.type === 'invalid') {
+        return NextResponse.json(
+          { error: 'Requested range not satisfiable' },
+          {
+            status: 416,
+            headers: {
+              ...AUDIO_HEADERS_BASE,
+              'Content-Range': `bytes */${fileSize}`,
+            },
+          }
+        )
       }
 
-      const start = matches[1] ? Number(matches[1]) : 0
-      const end = matches[2] ? Number(matches[2]) : fileSize - 1
+      const { start, end } = parsedRange
+      const chunkStream = createReadStream(filePath, { start, end })
 
-      if (Number.isNaN(start) || Number.isNaN(end) || start > end || end >= fileSize) {
-        return NextResponse.json({ error: 'Requested range not satisfiable' }, { status: 416 })
-      }
-
-      const chunk = await readFile(filePath)
-      const sliced = chunk.subarray(start, end + 1)
-
-      return new NextResponse(sliced, {
+      return new NextResponse(Readable.toWeb(chunkStream), {
         status: 206,
         headers: {
-          'Content-Type': 'audio/wav',
-          'Content-Length': String(sliced.length),
+          ...AUDIO_HEADERS_BASE,
+          'Content-Length': String(end - start + 1),
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Cache-Control': 'public, max-age=31536000, immutable',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Range, Content-Type',
         },
       })
     }
 
-    const fileBuffer = await readFile(filePath)
-
-    return new NextResponse(fileBuffer, {
+    const fullStream = createReadStream(filePath)
+    return new NextResponse(Readable.toWeb(fullStream), {
       status: 200,
       headers: {
-        'Content-Type': 'audio/wav',
-        'Content-Length': fileBuffer.length.toString(),
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000, immutable',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Range, Content-Type',
+        ...AUDIO_HEADERS_BASE,
+        'Content-Length': String(fileSize),
       },
     })
   } catch (error) {

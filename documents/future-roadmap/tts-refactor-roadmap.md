@@ -84,7 +84,7 @@
    - 将本文路线图合并到正式文档，供后续 AI/协作者执行。
 
 ## 验收标准
-- Node 层（`lib/kokoro-service*.ts`）无需改动逻辑即可运行，并能调用新的分块模块。
+- Node 层（`lib/kokoro-service-gpu.ts`）无需改动逻辑即可运行，并能调用新的分块模块。
 - CLI 自检在 GitHub Actions（CPU 模式）与 GPU 服务器上都能输出结构化报告。
 - 移除 legacy 脚本后，`npm run lint` / `npm run test` / `docker build` 全部通过。
 - 文档明确列出“唯一权威入口”与“模型文件必须存在的路径”。

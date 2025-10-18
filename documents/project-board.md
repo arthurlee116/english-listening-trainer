@@ -4,15 +4,20 @@
 - [ ] （暂无）
 
 ## In Progress
-- [ ] 2025-10-17 **Home Page 模块化拆分（进行中）**
-  - 新增 `use-practice-setup.ts`、`use-practice-templates.ts`，收敛练习配置与模板操作状态
-  - 拆分 `app/page.tsx` UI，建立 `components/home/PracticeConfiguration`、`PracticeWorkspace`、`AuthenticationGate`
-  - 后续计划：继续抽离练习流状态机、音频播放器逻辑至独立容器与 Hook
+- [ ] （暂无）
 
 ## Review
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-18 **主页练习流模块化与音频控制解耦完成**
+  - `app/page.tsx` 精简为壳组件，改由 `components/home/practice-configuration.tsx`、`practice-workspace.tsx`、`authentication-gate.tsx` 组合驱动
+  - 新增 `hooks/use-practice-setup.ts` 与 `hooks/use-practice-templates.ts` 管理练习模板/专项模式状态，补充对应单元测试
+  - 创建 `components/audio-player/AudioPlayer.tsx` 与 `hooks/use-audio-player.ts`，实现音频播放控制抽象并扩充测试覆盖
+- [x] 2025-10-18 **GPU TTS 单栈切换与音频路由流式化完成**
+  - 删除 `lib/kokoro-service.ts`，`app/api/tts/route.ts|route-optimized.ts` 全量改用 `kokoroTTSGPU`，并在 `README.md` / `CLAUDE.md` 同步说明
+  - `app/api/audio/[filename]/route.ts` 重写 Range 解析与响应，统一音频响应头并基于 `createReadStream` 提供流式分发
+  - 新增 `tests/integration/api/audio-route.spec.ts` 验证整段、分段、后缀与 416 情形，保障路由兼容多种播放器
 - [x] 2025-10-16 **音频播放与分块体验优化**
   - `app/api/audio/[filename]/route.ts` 支持 HTTP Range 请求，播放器拖拽后可无缝续播
   - `lib/audio-utils.ts` 调整 WAV chunk 解析逻辑，移除 10MB 上限并校准大文件元数据

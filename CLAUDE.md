@@ -10,7 +10,7 @@ This is a Next.js 15 (App Router) application for AI-powered English listening p
 - **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Backend:** Next.js API routes, Prisma ORM, SQLite (WAL mode)
 - **AI:** Cerebras Cloud SDK orchestrated via `lib/ark-helper.ts` + `lib/ai/cerebras-service.ts` (structured JSON schema pipeline, proxy failover & telemetry managed by `lib/ai/cerebras-client-manager.ts`)
-- **TTS:** Local Kokoro engine (Python-based, supports CPU/GPU/Metal)
+- **TTS:** GPU-accelerated local Kokoro engine (Python worker)
 - **Auth:** JWT with bcrypt, server-side caching
 - **Testing:** Vitest with jsdom, @testing-library/react
 
@@ -39,10 +39,8 @@ npm run db:migrate  # Run Prisma migrations
 npm run setup-kokoro     # Initialize Kokoro TTS (first-time setup)
 # Supports env vars: KOKORO_TORCH_VARIANT, KOKORO_CUDA_HOME, KOKORO_DEVICE
 
-# Kokoro self-test CLI (validate TTS functionality)
-python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml  # CPU mode, Markdown output
-python -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml --format json  # GPU mode, JSON output
-python -m kokoro_local.selftest --config kokoro_local/configs/default.yaml --skip-on-missing-model  # CI mode
+# Kokoro self-test CLI (validate GPU TTS functionality)
+python -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml --format json
 ```
 
 ### Build & Deploy
@@ -70,15 +68,27 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
    - Optional → `/api/ai/expand` directly expands any transcript via `lib/ai/transcript-expansion.ts`
 
 2. **Audio Generation Pipeline:**
-   - Client requests TTS → `/api/tts` → Routes to `lib/kokoro-service.ts` (CPU) or `lib/kokoro-service-gpu.ts` (GPU)
+   - Client requests TTS → `/api/tts` → Routes to `lib/kokoro-service-gpu.ts` (GPU worker)
    - Python worker processes text → Returns WAV file to `public/`
    - API returns metadata (`duration`, `byteLength`) for instant UI feedback
+   - 前端通过 `components/audio-player/AudioPlayer.tsx` + `hooks/use-audio-player.ts` 消费元数据与控制指令
+   - `app/api/audio/[filename]/route.ts` 解析 Range 请求并基于 `createReadStream` 提供流式响应，覆写 416 兜底逻辑保障播放器兼容性
    - `lib/audio-cleanup-service.ts` automatically prunes old audio files
 
 3. **Authentication Flow:**
    - Login → `/api/auth/login` → Returns JWT in HTTP-only cookie
    - Client-side: `hooks/use-auth-state.ts` hydrates from localStorage and refreshes via `/api/auth/me`
    - Server-side: `lib/auth.ts` uses in-memory cache (1min TTL) with version-based invalidation
+
+### Frontend Modules
+
+- **`components/home/practice-configuration.tsx`**: 负责练习配置 UI（难度、语言、练习模板），消费 `usePracticeSetup()`
+- **`components/home/practice-workspace.tsx`**: 显示题目与练习内容，根据认证态渲染对应视图
+- **`components/home/authentication-gate.tsx`**: 管理认证加载、未登录访问控制与提示
+- **`hooks/use-practice-setup.ts`**: 统一练习模板初始值、提交与重置逻辑（含语言切换回退）
+- **`hooks/use-practice-templates.ts`**: 拉取并缓存练习模板，提供过滤/选择状态
+- **`components/audio-player/AudioPlayer.tsx`**: 基于 `useAudioPlayer()` 输出播放进度、倍速、错误提示等交互
+- **`hooks/use-audio-player.ts`**: 封装播放控制、媒体事件监听与错误恢复逻辑
 
 ### Key Service Files
 
@@ -94,8 +104,7 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 - **`lib/ai/route-utils.ts`**: Shared AI route wrapper combining rate limiting, circuit breaker, and concurrency control
 - **`lib/focus-area-utils.ts`**: Focus tag validation, coverage scoring, and retry prompt feedback
 - **`lib/config-manager.ts`**: Centralized configuration loader (AI defaults, proxy settings, TTS paths)
-- **`lib/kokoro-service.ts`**: CPU-based TTS service with circuit breaker pattern
-- **`lib/kokoro-service-gpu.ts`**: GPU-optimized TTS service (identical circuit breaker logic)
+- **`lib/kokoro-service-gpu.ts`**: GPU-optimized Kokoro TTS service with circuit breaker logic
 - **`lib/auth.ts`**: Server-side auth helpers with caching, used via `withDatabase()` wrapper
 - **`lib/audio-cleanup-service.ts`**: Background service that prunes audio files (started in `lib/kokoro-init.ts`)
 - **`lib/types.ts`**: Central type definitions (DifficultyLevel, ListeningLanguage, FocusArea, etc.)
@@ -155,9 +164,9 @@ The app tracks 10 listening skill types (defined in `lib/types.ts`):
 
 ## Important Patterns
 
-### Circuit Breaker Pattern (TTS Services)
+### Circuit Breaker Pattern (TTS Service)
 
-Both `kokoro-service.ts` and `kokoro-service-gpu.ts` implement identical circuit breakers:
+`kokoro-service-gpu.ts` encapsulates the TTS circuit breaker:
 - **States:** CLOSED (normal) → OPEN (fast-fail) → HALF_OPEN (testing recovery)
 - **Thresholds:** 3 failures → OPEN, 2 successes in HALF_OPEN → CLOSED
 - **Exponential backoff:** 5s → 10s → 20s (max)
@@ -196,7 +205,7 @@ TTS API returns metadata for instant UI feedback:
 // API response
 { url: string, duration: number, byteLength: number }
 
-// Usage in components/audio-player.tsx
+// Usage in components/audio-player/AudioPlayer.tsx
 // Displays duration immediately without waiting for audio load
 ```
 
@@ -243,6 +252,8 @@ For production, consider switching to PostgreSQL via `DATABASE_URL`.
 - Tests use Vitest with jsdom and @testing-library/react
 - Config: `vitest.config.ts` with path aliases (`@/lib`, `@/components`, etc.)
 - Coverage thresholds: 70% lines, 60% branches, 80% functions
+- `tests/integration/api/audio-route.spec.ts` 验证音频路由的整段/区间/后缀 Range 及 416 响应
+- `tests/unit/hooks/use-practice-setup.test.ts` / `use-practice-templates.test.ts` / `use-audio-player.test.tsx` 覆盖练习状态和播放器控制逻辑
 - Critical modules (`auth.ts`, `storage.ts`, `focus-metrics.ts`) require 90% coverage
 
 ### Running Specific Tests
@@ -395,7 +406,7 @@ python -m kokoro_local.selftest --config kokoro_local/configs/gpu.yaml      # GP
 
 ## 尤其要注意的盲区
 - **缓存与部署链条**：改动 Dockerfile、CI、部署脚本时核查缓存标签、远程预热、镜像体积。
-- **TTS 模块**：修改 `kokoro_local/` 或 `lib/kokoro-service*.ts` 时确保与自检脚本、离线模型路径、分块逻辑一致。
+- **TTS 模块**：修改 `kokoro_local/` 或 `lib/kokoro-service-gpu.ts` 时确保与自检脚本、离线模型路径、分块逻辑一致。
 - **数据与密钥**：涉及敏感配置时确认 `.env` 是否同步，并避免泄露。
 - **文档同步**：代码改动影响使用方式时必须更新指南，不可仅口头提醒。
 - **未知依赖**：对外部依赖不确定时先确认。

@@ -2,7 +2,7 @@
 
 ### 当前版本
 - **版本号**: v1.3.0
-- **最后更新**: 2025-10-16
+- **最后更新**: 2025-10-18
 - **状态**: 稳定版本，生产就绪
 
 ### 核心功能状态
@@ -27,6 +27,14 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+- 2025-10-18 **主页练习流模块化与音频控制解耦**
+  - `app/page.tsx` 精简为容器组件，引入 `components/home/practice-configuration.tsx`、`practice-workspace.tsx`、`authentication-gate.tsx` 管理练习配置与认证
+  - 新增 `hooks/use-practice-setup.ts`、`hooks/use-practice-templates.ts` 统一练习模板与专项模式状态，并补充 Vitest 单元测试
+  - 替换旧版播放器为 `components/audio-player/AudioPlayer.tsx` + `hooks/use-audio-player.ts`，拓展播放控制 API 与测试覆盖
+- 2025-10-18 **GPU TTS 单栈切换与音频流式化**
+  - 删除 `lib/kokoro-service.ts` 并将 `app/api/tts/route.ts`、`app/api/tts/route-optimized.ts` 统一改用 `kokoroTTSGPU`，同步刷新 `README.md`、`CLAUDE.md`
+  - `app/api/audio/[filename]/route.ts` 重写 Range 解析、安全校验与流式输出，统一响应头字段并给出 416 兜底
+  - 新增 `tests/integration/api/audio-route.spec.ts` 覆盖整段、区间、后缀与不可满足 Range，验证播放器兼容性
 - 2025-10-16 **音频播放与分块体验优化**
   - `app/api/audio/[filename]/route.ts` 增加 HTTP Range 支持，拖拽进度条时播放器可立即续播
   - `lib/audio-utils.ts` 修复大于 10MB WAV 的 chunk 解析，准确回传持续时间与采样信息
@@ -120,4 +128,4 @@
 
 ---
 
-*最后更新: 2025-10-16 10:05 UTC*
+*最后更新: 2025-10-18 10:25 UTC*
