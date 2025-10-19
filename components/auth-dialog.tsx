@@ -172,12 +172,11 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
       if (response.ok) {
         toast({
           title: "注册成功",
-          description: "账号创建成功，请使用新账号登录",
+          description: `欢迎，${data.user.name || data.user.email}！您的账号已自动登录`,
         })
         
-        // 自动切换到登录标签
-        setActiveTab("login")
-        setFormData(prev => ({ ...prev, password: "", confirmPassword: "", name: "" }))
+        // 自动登录：直接调用 onUserAuthenticated 更新认证状态
+        onUserAuthenticated(data.user, data.token)
       } else {
         if (data.details && Array.isArray(data.details)) {
           setErrors(prev => ({ ...prev, password: data.details.join('，') }))
@@ -191,7 +190,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
     } finally {
       setLoading(false)
     }
-  }, [formData, validateForm, toast])
+  }, [formData, validateForm, toast, onUserAuthenticated])
 
   // 提交处理
   const handleSubmit = useCallback(() => {

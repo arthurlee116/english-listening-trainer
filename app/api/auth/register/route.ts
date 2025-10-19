@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createUser, findUserByEmail, validateEmail, validatePasswordStrength } from '@/lib/auth'
+import { createUser, findUserByEmail, validateEmail, validatePasswordStrength, generateJWT, getAuthCookieOptions } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,17 +51,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 返回成功响应（不包含敏感信息）
-    return NextResponse.json({
+    // 生成 JWT Token 实现自动登录
+    const jwtPayload = {
+      userId: user.id,
+      email: user.email,
+      isAdmin: user.isAdmin
+    }
+    const token = generateJWT(jwtPayload, false) // 注册默认不勾选"记住我"
+
+    // 创建响应（不包含敏感信息）
+    const response = NextResponse.json({
       message: '注册成功',
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         isAdmin: user.isAdmin,
-        createdAt: user.createdAt
-      }
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      },
+      token
     }, { status: 201 })
+
+    // 设置 HTTP-only Cookie 实现自动登录
+    const cookieOptions = getAuthCookieOptions(false)
+    response.cookies.set('auth-token', token, cookieOptions)
+
+    return response
 
   } catch (error) {
     console.error('Registration error:', error)

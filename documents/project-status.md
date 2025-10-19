@@ -27,6 +27,9 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+- 2025-10-19 **注册后自动登录优化**
+  - 修改 `app/api/auth/register/route.ts` 注册成功后生成 JWT token 并设置 auth-token cookie
+  - 更新 `components/auth-dialog.tsx` 注册成功后直接调用 `onUserAuthenticated` 实现自动登录，无需手动切换到登录页
 - 2025-10-18 **主页练习流模块化与音频控制解耦**
   - `app/page.tsx` 精简为容器组件，引入 `components/home/practice-configuration.tsx`、`practice-workspace.tsx`、`authentication-gate.tsx` 管理练习配置与认证
   - 新增 `hooks/use-practice-setup.ts`、`hooks/use-practice-templates.ts` 统一练习模板与专项模式状态，并补充 Vitest 单元测试
