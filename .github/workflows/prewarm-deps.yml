@@ -18,6 +18,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   CACHE_QUARTER: ${{ github.event.inputs.cache_quarter || '2025Q4' }}
+  DOCKER_PROXY_URL: ${{ vars.DOCKER_PROXY_URL || secrets.DOCKER_PROXY_URL || 'http://81.71.93.183:10811' }}
 
 jobs:
   # Job 1: Prewarm base layer
@@ -26,6 +27,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      HTTP_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      HTTPS_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      http_proxy: ${{ env.DOCKER_PROXY_URL }}
+      https_proxy: ${{ env.DOCKER_PROXY_URL }}
+      ALL_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      all_proxy: ${{ env.DOCKER_PROXY_URL }}
+      NO_PROXY: localhost,127.0.0.1,::1
+      no_proxy: localhost,127.0.0.1,::1
 
     steps:
       - name: Checkout repository
@@ -100,6 +110,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      HTTP_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      HTTPS_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      http_proxy: ${{ env.DOCKER_PROXY_URL }}
+      https_proxy: ${{ env.DOCKER_PROXY_URL }}
+      ALL_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      all_proxy: ${{ env.DOCKER_PROXY_URL }}
+      NO_PROXY: localhost,127.0.0.1,::1
+      no_proxy: localhost,127.0.0.1,::1
 
     steps:
       - name: Checkout repository
@@ -173,6 +192,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      HTTP_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      HTTPS_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      http_proxy: ${{ env.DOCKER_PROXY_URL }}
+      https_proxy: ${{ env.DOCKER_PROXY_URL }}
+      ALL_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      all_proxy: ${{ env.DOCKER_PROXY_URL }}
+      NO_PROXY: localhost,127.0.0.1,::1
+      no_proxy: localhost,127.0.0.1,::1
 
     steps:
       - name: Checkout repository
@@ -247,6 +275,15 @@ jobs:
     permissions:
       contents: read
       packages: read
+    env:
+      HTTP_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      HTTPS_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      http_proxy: ${{ env.DOCKER_PROXY_URL }}
+      https_proxy: ${{ env.DOCKER_PROXY_URL }}
+      ALL_PROXY: ${{ env.DOCKER_PROXY_URL }}
+      all_proxy: ${{ env.DOCKER_PROXY_URL }}
+      NO_PROXY: localhost,127.0.0.1,::1
+      no_proxy: localhost,127.0.0.1,::1
 
     steps:
       - name: Log in to GHCR

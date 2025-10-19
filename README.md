@@ -1169,7 +1169,8 @@ This project is licensed under the [MIT License](LICENSE).
 For issues, feature requests, or questions:
 - **GitHub Issues**: [Create an issue](https://github.com/yourusername/english-listening-trainer/issues)
 - **Documentation**: See [`documents/`](documents/) for detailed guides
-- **Email**: support@example.com
+- **Email**: laoliarthur@outlook.com
+- **WeChat**: bookspiano
 
 ---
 

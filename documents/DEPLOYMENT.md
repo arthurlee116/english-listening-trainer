@@ -33,7 +33,7 @@
 
 **关键命令**：
 - `docker login ghcr.io`：使用 PAT 认证 GHCR（参见下文“镜像同步”）
-- `docker pull ghcr.io/<namespace>/<image>:<tag>`：拉取预构建镜像
+- `HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PROXY=http://81.71.93.183:10811 docker pull ghcr.io/<namespace>/<image>:<tag>`：拉取预构建镜像
 - `docker compose -f docker-compose.gpu.yml up -d`：启动/更新服务
 
 ### 2. 基于Git拉取部署
@@ -177,9 +177,11 @@ export GHCR_PAT=<your-token>
 echo "$GHCR_PAT" | docker login ghcr.io -u arthurlee116 --password-stdin
 unset GHCR_PAT
 
+PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+
 # 依次拉取缓存层（可选，但建议在首次部署或缓存失效时执行）
 for tag in cache-base cache-python cache-node; do
-  docker pull ghcr.io/arthurlee116/english-listening-trainer:$tag || break
+  HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:$tag || break
 done
 ```
 
@@ -187,7 +189,8 @@ done
 
 ```bash
 # 拉取业务镜像
-docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
 
 # 在服务器上重新加载容器
 ssh -p 60022 ubuntu@49.234.30.246 <<'EOF'
@@ -288,7 +291,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "docker images | grep english-listening-traine
 ssh -p 60022 ubuntu@49.234.30.246 "docker image prune -f"
 
 # 拉取指定镜像
-ssh -p 60022 ubuntu@49.234.30.246 "docker pull ghcr.io/arthurlee116/english-listening-trainer:latest"
+ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PROXY=http://81.71.93.183:10811 docker pull ghcr.io/arthurlee116/english-listening-trainer:latest"
 ```
 
 ---
@@ -377,7 +380,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "df -h /"
 ssh -p 60022 ubuntu@49.234.30.246 "docker system prune -a"
 
 # 手动拉取缓存层
-ssh -p 60022 ubuntu@49.234.30.246 "docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-base"
+ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PROXY=http://81.71.93.183:10811 docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-base"
 ```
 
 #### 4. 备份权限问题
@@ -556,7 +559,8 @@ jobs:
           ssh -i key.pem -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
           set -e
           cd ~/english-listening-trainer
-          docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
+          PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+          HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
           docker compose -f docker-compose.gpu.yml down --remove-orphans
           docker compose -f docker-compose.gpu.yml up -d
           EOF

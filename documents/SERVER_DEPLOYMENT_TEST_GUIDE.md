@@ -15,11 +15,12 @@ ssh -p 60022 ubuntu@49.234.30.246
 sudo docker login ghcr.io -u <GITHUB_USERNAME>
 
 # 预热基础层
-sudo docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # 预热依赖缓存
-sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
-sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
+sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
+sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
 ```
 
 - **验证**：
@@ -31,12 +32,14 @@ sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
 ## 3. 日常部署流程建议
 1. **同步依赖层**：
    ```bash
-   sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
-   sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
+   PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+   sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
+   sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
    ```
 2. **拉取最新运行时镜像**：
    ```bash
-   sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:runtime-<git-sha>
+   PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+   sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:runtime-<git-sha>
    ```
 3. **启动/更新服务**（示例）：
    ```bash
@@ -50,8 +53,9 @@ sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
 - 当预热 workflow 切换至新季度标签（例如 `2026Q1`）后：
   1. 在服务器上执行：
      ```bash
-     sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python-2026Q1
-     sudo docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node-2026Q1
+     PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+     sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python-2026Q1
+     sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node-2026Q1
      ```
   2. 若磁盘空间有限，可保留最新季度与滚动标签，删除上一季度旧标签：
      ```bash

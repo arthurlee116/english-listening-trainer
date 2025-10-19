@@ -41,7 +41,8 @@
 ### 1. 基础镜像内刊化 ✅ 已完成（2025-10-07）
 - **任务**：在本地或专用 workflow 中执行：
   ```bash
-  docker pull nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+  PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+  HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
   docker tag nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 \
     ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
   docker push ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
@@ -102,9 +103,10 @@
 - **远程服务器操作手册**：
   - 首次部署或季度切换时执行：
     ```bash
-    docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
-    docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
-    docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
+    PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+    HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+    HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
+    HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
     ```
   - 部署脚本需先同步 `cache-python`、`cache-node` 后再拉取最新 runtime，禁止使用 `docker system prune -a`
   - 通过 `docker images --digests` 验证缓存层存在，部署日志模板记录命中情况

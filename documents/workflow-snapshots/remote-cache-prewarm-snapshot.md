@@ -37,6 +37,8 @@
 
 **关键代码段**:
 ```bash
+PROXY_URL="${PROXY_URL:-http://81.71.93.183:10811}"
+
 # 缓存层列表（按依赖顺序）
 CACHE_LAYERS=(
     "cache-base"
@@ -47,7 +49,7 @@ CACHE_LAYERS=(
 # 按顺序拉取缓存层
 for layer in "${CACHE_LAYERS[@]}"; do
     echo -e "${YELLOW}📥 拉取缓存层: $layer${NC}"
-    if docker pull "$REGISTRY/$IMAGE_NAME:$layer"; then
+    if HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull "$REGISTRY/$IMAGE_NAME:$layer"; then
         echo -e "${GREEN}✅ 成功拉取: $layer${NC}"
     else
         echo -e "${RED}❌ 拉取失败: $layer${NC}"
