@@ -1,8 +1,58 @@
-# English Listening Trainer
+# 🎧 English Listening Trainer
 
-A comprehensive, AI-powered English listening practice platform built with Next.js, featuring adaptive difficulty, real-time feedback, and personalized progress tracking.
+**轻松提升听力，智能高效练习** | Version: v1.3.0 | Status: Production Ready
 
-**Version:** v1.3.0 | **Status:** Production Ready
+---
+
+## 关于项目
+
+English Listening Trainer 是一款革命性的AI驱动英语听力训练平台，通过个性化内容生成和智能反馈机制，帮助学习者突破听力瓶颈。平台融合了先进的Cerebras AI技术和Kokoro本地语音合成，为您打造沉浸式、个性化的学习体验。
+
+### 核心功能与价值
+
+- **🎯 智能内容生成**：AI根据您的水平自动生成丰富多彩的听力材料，从日常生活对话到专业领域话题，应有尽有
+- **📊 个性化评估与反馈**：实时智能评分，深入分析错误原因，提供相关例句和学习建议，追踪10个关键技能维度的进步
+- **🎤 高质量音频体验**：本地TTS技术合成自然语音，支持多种语言、语速调节，让学习更真实、更高效
+- **🌍 多语言友好界面**：中英文双语支持，适应不同母语背景的学习者，无障碍使用
+- **📱 随时随地练习**：响应式设计优化移动端，键盘快捷键支持，让学习融入日常生活
+
+### 谁适合使用
+
+- **英语学习爱好者**：从初学者到高级水平，寻找个性化练习方式的用户
+- **自学者与教育机构**：需要结构化、数据驱动的学习平台
+- **考试准备者**：针对托福、雅思等考试的专项听力训练
+- **专业人士**：提升商务英语或行业英语听力技能
+
+### 使用场景
+
+- **通勤学习**：地铁、公交上的碎片化时间高效利用
+- **家庭练习**：与家人一起进行互动式听力训练
+- **课堂辅助**：教师为学生定制个性化听力作业
+- **自我提升**：周末放松时光的专业技能充电
+
+### 独特优势与创新点
+
+- **自适应难度调节**：系统根据您的表现智能调整内容难度，确保学习始终在舒适区内
+- **AI深度错误剖析**：不仅仅指出错误，更提供上下文相关的解释和改进建议
+- **离线优先设计**：本地TTS生成，无需网络即可享受高质量音频
+- **可视化进度追踪**：直观的图表和成就徽章，让学习成果一目了然
+- **创新音频技术**：结合GPU加速的Kokoro引擎，实现实时流式音频播放
+
+### 技术架构亮点
+
+平台采用现代Web技术栈：Next.js 15构建的前端应用，TypeScript确保代码质量，Prisma ORM管理数据库。AI服务集成Cerebras API进行智能内容生成，本地Kokoro TTS提供高性能语音合成。支持Docker容器化部署，可选GPU加速以提升音频处理效率。
+
+### 快速开始体验
+
+只需几步，即可开启您的智能听力之旅：
+
+1. **获取代码**：`git clone https://github.com/yourusername/english-listening-trainer.git`
+2. **安装环境**：`npm install` 安装所有依赖
+3. **配置环境**：复制 `.env.example` 到 `.env.local` 并填写API密钥
+4. **设置数据库**：运行 `npm run db:migrate` 初始化数据库
+5. **启动应用**：`npm run dev` 启动开发服务器，访问 `http://localhost:3000`
+
+立即体验AI驱动的个性化听力训练！ 🚀
 
 ---
 
@@ -472,7 +522,7 @@ curl -X POST http://localhost:3000/api/ai/topics \
 #### Saving Practice Sessions
 
 Sessions are automatically saved after grading. View history:
-1. Home page → "History" button
+1. Home page → "Practice History" button
 2. Filter by language, difficulty, date range
 3. Click session to review questions and feedback
 

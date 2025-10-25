@@ -5,9 +5,9 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp, Zap, Star, Target, TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react"
+import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp, Zap, Star } from "lucide-react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
-import type { Exercise, FocusArea, FocusAreaStats, UserProgressMetrics } from "@/lib/types"
+import type { Exercise, UserProgressMetrics } from "@/lib/types"
 import { getProgressMetrics, isStorageAvailable, getPracticeNote, savePracticeNote } from "@/lib/storage"
 import { useToast } from "@/hooks/use-toast"
 
@@ -15,11 +15,12 @@ interface ResultsDisplayProps {
   exercise: Exercise
   onRestart: () => void
   onExport: () => void
-  focusAreaStats?: FocusAreaStats
-  onRetryWithAdjustedTags?: (adjustedTags: FocusArea[]) => void
+  // 以下属性已废弃,仅为兼容历史代码保留
+  focusAreaStats?: never
+  onRetryWithAdjustedTags?: never
 }
 
-export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, onRetryWithAdjustedTags }: ResultsDisplayProps) => {
+export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplayProps) => {
   const [showDetails, setShowDetails] = useState(true)
   const [showTranscript, setShowTranscript] = useState(false)
   const [progressMetrics, setProgressMetrics] = useState<UserProgressMetrics | null>(null)
@@ -30,11 +31,6 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
   const [savedNoteText, setSavedNoteText] = useState("")
   const [isNotesEnabled, setIsNotesEnabled] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  
-  // Helper function to get focus area display name
-  const getFocusAreaDisplayName = (focusArea: FocusArea): string => {
-    return t(`components.specializedPractice.focusAreas.${focusArea}`)
-  }
   
   const correctAnswers = exercise.results.filter(result => result.is_correct).length
   const totalQuestions = exercise.results.length
@@ -209,165 +205,9 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, focusAreaStats, 
         </Card>
       )}
 
-      {/* Specialized Practice Statistics */}
-      {exercise.specializedMode && exercise.focusAreas && exercise.focusAreas.length > 0 && (
-        <Card className="glass-effect p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
-            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
-            {t('components.resultsDisplay.specializedStats')}
-          </h3>
-          
-          {/* Coverage Warning - Mobile Optimized */}
-          {exercise.focusCoverage && exercise.focusCoverage.coverage < 1 && (
-            <div className="mb-3 sm:mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-yellow-800 dark:text-yellow-200 mb-1 text-sm sm:text-base">
-                    {t('components.resultsDisplay.coverageWarning')}
-                  </div>
-                  <div className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mb-2">
-                    {t('components.resultsDisplay.coverageWarningDesc', {
-                      values: { coverage: Math.round(exercise.focusCoverage.coverage * 100) },
-                    })}
-                  </div>
-                  {exercise.focusCoverage.unmatchedTags && exercise.focusCoverage.unmatchedTags.length > 0 && (
-                    <div className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mb-2 break-words">
-                      <span className="font-medium">{t('components.resultsDisplay.unmatchedTags')}: </span>
-                      {exercise.focusCoverage.unmatchedTags.map(tag => getFocusAreaDisplayName(tag)).join(', ')}
-                    </div>
-                  )}
-                  {onRetryWithAdjustedTags && (
-                    <button
-                      onClick={() => onRetryWithAdjustedTags(exercise.focusCoverage?.provided || [])}
-                      className="text-xs sm:text-sm bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded hover:bg-yellow-200 dark:hover:bg-yellow-800 transition-colors touch-manipulation"
-                    >
-                      {t('components.resultsDisplay.retryWithCoveredTags')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Focus Area Performance - Mobile Optimized */}
-          <div className="space-y-2 sm:space-y-3">
-            {exercise.focusAreas.map(focusArea => {
-              const currentAccuracy = exercise.perFocusAccuracy?.[focusArea]
-              const historicalStats = focusAreaStats?.[focusArea]
-              const historicalAccuracy = historicalStats?.accuracy || 0
-              const improvement = currentAccuracy !== undefined && historicalAccuracy > 0 
-                ? currentAccuracy - historicalAccuracy 
-                : null
-
-              return (
-                <div key={focusArea} className="border rounded-lg p-3 sm:p-4">
-                  <div className="flex items-start sm:items-center justify-between mb-2 gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
-                      <span className="font-medium text-sm sm:text-base truncate">
-                        {getFocusAreaDisplayName(focusArea)}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
-                      {currentAccuracy !== undefined && (
-                        <span className={`text-sm sm:text-base font-medium ${
-                          currentAccuracy >= 80 ? 'text-green-600' : 
-                          currentAccuracy >= 60 ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
-                          {currentAccuracy.toFixed(1)}%
-                        </span>
-                      )}
-                      {improvement !== null && (
-                        <div className="flex items-center gap-1">
-                          {improvement > 5 ? (
-                            <TrendingUp className="w-3 h-3 text-emerald-400" />
-                          ) : improvement < -5 ? (
-                            <TrendingDown className="w-3 h-3 text-rose-400" />
-                          ) : (
-                            <Minus className="w-3 h-3 text-slate-500" />
-                          )}
-                          <span className={`text-xs ${
-                            improvement > 0 ? 'text-green-600' : 
-                            improvement < 0 ? 'text-red-600' : 'text-gray-500'
-                          }`}>
-                            {improvement > 0 ? '+' : ''}{improvement?.toFixed(1)}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                    <div className="flex justify-between sm:block">
-                      <span className="font-medium">{t('components.resultsDisplay.thisSession')}: </span>
-                      <span>{currentAccuracy?.toFixed(1) || 'N/A'}%</span>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="font-medium">{t('components.resultsDisplay.historical')}: </span>
-                      <span>{historicalAccuracy > 0 ? `${historicalAccuracy.toFixed(1)}%` : t('components.resultsDisplay.noData')}</span>
-                    </div>
-                  </div>
-
-                  {historicalStats && historicalStats.attempts > 0 && (
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
-                      <span>{t('components.resultsDisplay.totalAttempts')}: {historicalStats.attempts}</span>
-                      <span>{t('components.resultsDisplay.totalErrors')}: {historicalStats.incorrect}</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Recommendations - Mobile Optimized */}
-          <div className="mt-3 sm:mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-            <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2 text-sm sm:text-base">
-              {t('components.resultsDisplay.nextStepRecommendations')}
-            </h4>
-            <div className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 space-y-1">
-              {exercise.focusAreas.map(focusArea => {
-                const currentAccuracy = exercise.perFocusAccuracy?.[focusArea] || 0
-                if (currentAccuracy < 70) {
-                  return (
-                    <div key={focusArea} className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span className="flex-1">
-                        {t('components.resultsDisplay.recommendationImprove', {
-                          values: {
-                            area: getFocusAreaDisplayName(focusArea),
-                          },
-                        })}
-                      </span>
-                    </div>
-                  )
-                } else if (currentAccuracy >= 90) {
-                  return (
-                    <div key={focusArea} className="flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">•</span>
-                      <span className="flex-1">
-                        {t('components.resultsDisplay.recommendationMaster', {
-                          values: {
-                            area: getFocusAreaDisplayName(focusArea),
-                          },
-                        })}
-                      </span>
-                    </div>
-                  )
-                }
-                return null
-              }).filter(Boolean)}
-              
-              {exercise.focusAreas.every(area => (exercise.perFocusAccuracy?.[area] || 0) >= 70) && (
-                <div className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">•</span>
-                  <span className="flex-1">{t('components.resultsDisplay.recommendationOverall')}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-      )}
+      {/* Specialized Practice Statistics - REMOVED
+         专项练习统计已移除,但保留类型定义以兼容历史数据展示
+         历史练习记录中的 focusAreas/focusCoverage 等字段仍然存在于数据库中 */}
 
       {/* Details toggle button */}
       <div className="flex justify-center">

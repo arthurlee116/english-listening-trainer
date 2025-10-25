@@ -37,11 +37,12 @@ export async function generateTopics(
   wordCount: number, 
   language: ListeningLanguage = 'en-US', 
   difficultyLevel?: DifficultyLevel,
-  focusAreas?: FocusArea[]
+  focusAreas?: FocusArea[],
+  excludedTopics?: string[]
 ): Promise<TopicGenerationResponse> {
   const data = await postJson<TopicGenerationResponse>(
     "/api/ai/topics",
-    { difficulty, wordCount, language, difficultyLevel, focusAreas },
+    { difficulty, wordCount, language, difficultyLevel, focusAreas, excludedTopics },
   )
   return data
 }

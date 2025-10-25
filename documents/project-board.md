@@ -1,7 +1,14 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] （暂无）
+- [ ] 建立数据库驱动的语言切换体系  
+      - `users` 表新增语言偏好字段（默认中文），实现"仅显示当前语言"渲染逻辑  
+      - 右上角新增纯图标地球切换器（无文字/tooltip），切换后即时刷新所有双语文案  
+      - 语言偏好需写回数据库并在登录流程中自动应用，复用现有 i18n 能力
+- [ ] 改造首页为可折叠左侧导航布局  
+      - 左栏收纳原标题区域所有入口，点击折叠/展开并采用苹果风格弹性动画  
+      - 移动端同样展示侧栏，展开时覆盖主内容并提供易触控关闭操作  
+      - 缩小主标题/宣传语排版，确保在新布局下层级与可访问性良好
 
 ## In Progress
 - [ ] （暂无）
@@ -10,6 +17,34 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-10-25 **移除专项练习模式**
+  - 删除 `lib/specialized-preset-storage.ts`、`lib/focus-metrics.ts`、`lib/focus-metrics-cache.ts` 专项模式服务文件
+  - 从 `app/page.tsx` 移除专项模式状态、hooks、事件处理函数和API调用中的focusAreas参数
+  - 简化 `hooks/use-practice-setup.ts`,移除专项模式参数和语言切换回调
+  - 从 `components/home/practice-configuration.tsx` 移除专项练习UI组件和相关接口
+  - 隐藏 `components/history-panel.tsx` 和 `components/results-display.tsx` 中的专项模式显示区块
+  - 跳过 `tests/e2e/scenarios/complete-user-journey.spec.tsx` 中的专项练习测试
+  - 更新 `tests/fixtures/exercises/sample-exercises.ts`,将helper函数标记为已废弃
+  - API保持向后兼容: `/api/practice/save` 保留可选的focusAreas/focusCoverage参数以兼容历史数据
+  - 保留Focus Area类型定义供其他功能使用,翻译文件保持完整以免破坏历史数据展示
+  - 构建验证通过,无TypeScript类型错误
+- [x] 2025-10-25 **彻底移除快捷键功能**
+  - 删除 `lib/shortcuts.ts`、`hooks/use-hotkeys.ts`、`components/shortcut-help-dialog.tsx` 快捷键相关文件
+  - 从 `app/page.tsx` 移除快捷键导入、状态、处理函数和 UI 组件（包括 Keyboard 图标和快捷键按钮）
+  - 从 `lib/i18n/translations/common.json` 和 `components.json` 移除所有 `shortcuts.*` 相关翻译键
+  - 删除 `tests/unit/hooks/use-hotkeys.test.ts` 测试文件
+  - 清理 localStorage 中 `english-listening-shortcuts-*` 相关存储键的使用
+  - 构建检查通过，无 TypeScript 类型错误和未使用引用警告
+  - 界面仅保留点击/触控交互，不再显示任何快捷键相关内容
+- [x] 2025-10-25 **下线练习模板系统并清理本地缓存**
+  - 删除 `hooks/use-practice-templates.ts` 和 `lib/template-storage.ts` 模板存储模块
+  - 从 `app/page.tsx` 移除模板相关的 hook 调用和状态管理
+  - 从 `components/home/practice-configuration.tsx` 移除模板卡片 UI、保存/应用/重命名/删除功能
+  - 从 `lib/types.ts` 删除 `PracticeTemplate` 接口定义
+  - 从 `lib/i18n/translations/pages.json` 清理模板相关翻译键
+  - 删除 `tests/unit/hooks/use-practice-templates.test.ts` 测试文件
+  - 在应用初始化时自动清空 `localStorage` 中的 `english-listening-templates` 键
+  - 验证核心练习流程（配置、生成、音频、题目）在无模板功能下完整可用
 - [x] 2025-10-18 **主页练习流模块化与音频控制解耦完成**
   - `app/page.tsx` 精简为壳组件，改由 `components/home/practice-configuration.tsx`、`practice-workspace.tsx`、`authentication-gate.tsx` 组合驱动
   - 新增 `hooks/use-practice-setup.ts` 与 `hooks/use-practice-templates.ts` 管理练习模板/专项模式状态，补充对应单元测试

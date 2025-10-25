@@ -306,17 +306,12 @@ export function createMockExercise(overrides: Partial<Exercise> = {}): Exercise 
   }
 }
 
-// Helper function to create exercise with specific focus areas
+// Helper function to create exercise with specific focus areas (deprecated - for testing legacy data only)
 export function createExerciseWithFocusAreas(focusAreas: FocusArea[], difficulty: DifficultyLevel = "B1"): Exercise {
   return createMockExercise({
     difficulty,
     focusAreas,
-    specializedMode: true,
-    focusCoverage: {
-      requested: focusAreas,
-      provided: focusAreas,
-      coverage: 1.0,
-      unmatchedTags: []
-    }
+    specializedMode: false, // Specialized mode is deprecated
+    focusCoverage: undefined
   })
 }

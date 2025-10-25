@@ -5,8 +5,8 @@
       "zh": "生成"
     },
     "history": {
-      "en": "History",
-      "zh": "历史"
+      "en": "Practice History",
+      "zh": "练习历史"
     },
     "admin": {
       "en": "Admin",
@@ -109,8 +109,8 @@
       "zh": "完成测试"
     },
     "generateTopicSuggestions": {
-      "en": "Generate Topic Suggestions",
-      "zh": "生成话题建议"
+      "en": "Generate Topics",
+      "zh": "生成话题"
     },
     "generateListeningExercise": {
       "en": "Generate Listening Exercise",
@@ -145,8 +145,8 @@
       "zh": "练习"
     },
     "assessment": {
-      "en": "Assessment",
-      "zh": "评估"
+      "en": "Test My Level",
+      "zh": "自测英文水平"
     },
     "achievements": {
       "en": "Achievements",
@@ -155,6 +155,10 @@
     "goalsAndAchievements": {
       "en": "Goals & Achievements",
       "zh": "目标与成就"
+    },
+    "refreshTopics": {
+      "en": "Get More Topics",
+      "zh": "换一批"
     }
   },
   "labels": {
@@ -828,108 +832,6 @@
     "specializedModeInactive": {
       "en": "Specialized mode is inactive",
       "zh": "专项模式未激活"
-    }
-  },
-  "shortcuts": {
-    "title": {
-      "en": "Keyboard Shortcuts",
-      "zh": "快捷键"
-    },
-    "description": {
-      "en": "Use these keyboard shortcuts to navigate the application more efficiently",
-      "zh": "使用这些快捷键更高效地操作应用"
-    },
-    "playPause": {
-      "en": "Play/Pause Audio",
-      "zh": "播放/暂停音频"
-    },
-    "openHistory": {
-      "en": "Open History Panel",
-      "zh": "打开历史面板"
-    },
-    "openWrongAnswers": {
-      "en": "Open Wrong Answers Book",
-      "zh": "打开错题本"
-    },
-    "toggleSpecializedMode": {
-      "en": "Toggle Specialized Mode",
-      "zh": "切换专项模式"
-    },
-    "closeDialog": {
-      "en": "Close Dialog/Return",
-      "zh": "关闭对话框/返回"
-    },
-    "showHelp": {
-      "en": "Show Shortcuts Help",
-      "zh": "显示快捷键帮助"
-    },
-    "returnHome": {
-      "en": "Return to Home",
-      "zh": "返回主页"
-    },
-    "enableShortcuts": {
-      "en": "Enable Shortcuts",
-      "zh": "启用快捷键"
-    },
-    "disableShortcuts": {
-      "en": "Disable Shortcuts",
-      "zh": "禁用快捷键"
-    },
-    "shortcutsEnabled": {
-      "en": "Shortcuts Enabled",
-      "zh": "快捷键已启用"
-    },
-    "shortcutsDisabled": {
-      "en": "Shortcuts Disabled",
-      "zh": "快捷键已禁用"
-    },
-    "onboardingTitle": {
-      "en": "Keyboard Shortcuts Available!",
-      "zh": "快捷键功能已启用！"
-    },
-    "onboardingDescription": {
-      "en": "You can now use keyboard shortcuts to navigate the application. Press Shift+? to view all available shortcuts.",
-      "zh": "您现在可以使用快捷键来操作应用。按 Shift+? 查看所有可用快捷键。"
-    },
-    "onboardingGotIt": {
-      "en": "Got it!",
-      "zh": "知道了！"
-    },
-    "shortcutKey": {
-      "en": "Shortcut",
-      "zh": "快捷键"
-    },
-    "action": {
-      "en": "Action",
-      "zh": "操作"
-    },
-    "availability": {
-      "en": "Available in",
-      "zh": "可用于"
-    },
-    "allSteps": {
-      "en": "All steps",
-      "zh": "所有步骤"
-    },
-    "setupStep": {
-      "en": "Setup step",
-      "zh": "设置步骤"
-    },
-    "listeningStep": {
-      "en": "Listening step",
-      "zh": "听力步骤"
-    },
-    "questionsStep": {
-      "en": "Questions step",
-      "zh": "答题步骤"
-    },
-    "resultsStep": {
-      "en": "Results step",
-      "zh": "结果步骤"
-    },
-    "requiresAudio": {
-      "en": "(requires audio)",
-      "zh": "（需要音频）"
     }
   },
   "placeholders": {

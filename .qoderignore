@@ -41,8 +41,6 @@ __pycache__/
 *.so
 venv/
 .venv/
-env/
-.env/
 
 # Database
 *.db

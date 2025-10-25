@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, TrendingUp, Target } from "lucide-react"
+import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, TrendingUp } from "lucide-react"
 import { getHistory, clearHistory, getPracticeNote, savePracticeNote, deletePracticeNote, isStorageAvailable } from "@/lib/storage"
 import type { Exercise, FocusArea } from "@/lib/types"
 import { FOCUS_AREA_LABELS } from "@/lib/types"
@@ -80,18 +80,14 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
       })
     }
 
-    // 按能力标签过滤
+    // 按能力标签过滤 - 专项模式已下线,隐藏相关过滤
     if (focusAreaFilter !== "all") {
-      filtered = filtered.filter(exercise => {
-        if (focusAreaFilter === "specialized") {
-          return exercise.specializedMode === true
-        } else if (focusAreaFilter === "general") {
-          return !exercise.specializedMode
-        } else {
-          // 特定标签过滤
+      if (focusAreaFilter !== "specialized" && focusAreaFilter !== "general") {
+        // 特定标签过滤
+        filtered = filtered.filter(exercise => {
           return exercise.focusAreas && exercise.focusAreas.includes(focusAreaFilter as FocusArea)
-        }
-      })
+        })
+      }
     }
 
     // 排序
@@ -217,51 +213,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                   </div>
                 </div>
               </div>
-              
-              {/* 专项练习统计 */}
-              {(() => {
-                const specializedExercises = exercises.filter(ex => ex.specializedMode)
-                const generalExercises = exercises.filter(ex => !ex.specializedMode)
-                
-                if (specializedExercises.length > 0) {
-                  return (
-                    <div className="border-t pt-3">
-                      <div className="text-sm font-medium mb-2 flex items-center gap-2">
-                        <Target className="w-4 h-4 text-blue-600" />
-                        <BilingualText translationKey="components.specializedPractice.title" />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-center text-sm">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                          <div className="font-bold text-blue-600">{specializedExercises.length}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            <BilingualText translationKey="components.specializedPractice.title" />
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-800/50 p-2 rounded">
-                          <div className="font-bold text-gray-600 dark:text-gray-300">{generalExercises.length}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            <BilingualText translationKey="components.generalPractice.title" />
-                          </div>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded sm:col-span-2 lg:col-span-1">
-                          <div className="font-bold text-green-600">
-                            {specializedExercises.length > 0 
-                              ? Math.round(specializedExercises.reduce((acc, ex) => {
-                                  const correct = ex.results.filter(r => r.is_correct).length
-                                  return acc + (correct / ex.results.length) * 100
-                                }, 0) / specializedExercises.length)
-                              : 0}%
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            <BilingualText translationKey="components.specializedPractice.accuracy" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-                return null
-              })()}
+
             </Card>
           )}
           
@@ -369,12 +321,6 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                         <h3 className="font-semibold truncate">{exercise.topic}</h3>
                         <Badge variant="outline">{exercise.difficulty}</Badge>
                         <Badge variant="outline">{exercise.language}</Badge>
-                        {exercise.specializedMode && (
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700">
-                            <Target className="w-3 h-3 mr-1" />
-                            <BilingualText translationKey="components.specializedPractice.title" />
-                          </Badge>
-                        )}
                       </div>
                       
                       <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
@@ -393,44 +339,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                           {correctAnswers}/{totalQuestions} {t("components.historyPanel.correct")}
                         </Badge>
                       </div>
-                      
-                      {/* 专项练习标签信息 - Mobile Optimized */}
-                      {exercise.specializedMode && exercise.focusAreas && exercise.focusAreas.length > 0 && (
-                        <div className="mt-2">
-                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-2">
-                            <span className="text-xs text-gray-500 font-medium mb-1 sm:mb-0 sm:mr-2">
-                              <BilingualText translationKey="components.questionInterface.focusAreas" />:
-                            </span>
-                            <div className="flex flex-wrap gap-1">
-                              {exercise.focusAreas.map((area) => {
-                                const label = FOCUS_AREA_LABELS[area]
-                                const areaAccuracy = exercise.perFocusAccuracy?.[area]
-                                return (
-                                  <Badge 
-                                    key={area} 
-                                    variant="outline" 
-                                    className="text-xs px-2 py-0.5"
-                                    title={label?.description}
-                                  >
-                                    <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
-                                    {areaAccuracy !== undefined && (
-                                      <span className="ml-1 text-gray-500">({areaAccuracy}%)</span>
-                                    )}
-                                  </Badge>
-                                )
-                              })}
-                            </div>
-                          </div>
-                          {exercise.focusCoverage && exercise.focusCoverage.coverage < 1 && (
-                            <div className="text-xs text-orange-600 dark:text-orange-400 mt-1 flex items-center gap-1">
-                              <span className="font-medium">
-                                <BilingualText translationKey="components.specializedPractice.coverage.provided" />
-                              </span>
-                              <span>{Math.round(exercise.focusCoverage.coverage * 100)}%</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
+
                     </div>
                     
                     <Button 

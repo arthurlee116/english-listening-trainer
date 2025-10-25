@@ -8,7 +8,7 @@ import { BilingualText } from "@/components/ui/bilingual-text"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-import { Sparkles, History, User, Settings, LogOut, Book, Keyboard } from "lucide-react"
+import { Sparkles, History, User, Settings, LogOut, Book } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
@@ -22,23 +22,15 @@ import { AssessmentInterface } from "@/components/assessment-interface"
 import { AuthenticationGate } from "@/components/home/authentication-gate"
 import { PracticeConfiguration } from "@/components/home/practice-configuration"
 import { PracticeWorkspace } from "@/components/home/practice-workspace"
-import { ShortcutHelpDialog, ShortcutOnboardingDialog } from "@/components/shortcut-help-dialog"
-import { useHotkeys, useShortcutSettings, type ShortcutHandler } from "@/hooks/use-hotkeys"
+
 import { AudioPlayerControls } from "@/components/audio-player"
 import type { 
   Exercise, 
   Question, 
   DifficultyLevel, 
-  AchievementNotification,
-  FocusArea,
-  FocusAreaStats,
-  FocusCoverage,
-  SpecializedPreset,
-  GradingResult,
-  WrongAnswerItem
+  AchievementNotification
 } from "@/lib/types"
 import { usePracticeSetup } from "@/hooks/use-practice-setup"
-import { usePracticeTemplates } from "@/hooks/use-practice-templates"
 import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
 import { useLegacyMigration } from "@/hooks/use-legacy-migration"
 import { 
@@ -47,13 +39,6 @@ import {
   migrateFromHistory 
 } from "@/lib/achievement-service"
 import { getHistory } from "@/lib/storage"
-import { 
-  computeFocusStats, 
-  selectRecommendedFocusAreas, 
-  getDefaultStats, 
-  getDefaultRecommendations,
-  type PracticeSession 
-} from "@/lib/focus-metrics"
 
 // Type guard for Error objects
 function isError(error: unknown): error is Error {
@@ -147,30 +132,8 @@ function HomePage() {
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState<boolean>(false)
   const [newAchievements, setNewAchievements] = useState<AchievementNotification[]>([])
 
-  // 专项练习模式状态
-  const [isSpecializedMode, setIsSpecializedMode] = useState<boolean>(false)
-  const [selectedFocusAreas, setSelectedFocusAreas] = useState<FocusArea[]>([])
-  const [recommendedFocusAreas, setRecommendedFocusAreas] = useState<FocusArea[]>([])
-  
-  // 统计和分析状态
-  const [focusAreaStats, setFocusAreaStats] = useState<FocusAreaStats>({})
-  const [focusCoverage, setFocusCoverage] = useState<FocusCoverage | null>(null)
-  
-  // 快捷键相关状态
-  const [showShortcutHelp, setShowShortcutHelp] = useState<boolean>(false)
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(false)
   const audioPlayerRef = useRef<AudioPlayerControls>(null)
   const exerciseStartTimeRef = useRef<number | null>(null)
-  
-  // 快捷键设置
-  const { enabled: shortcutsEnabled, onboarded, setOnboarded } = useShortcutSettings()
-  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState<boolean>(false)
-
-  const resetSpecializedStateOnLanguageChange = useCallback(() => {
-    setSelectedFocusAreas([])
-    setFocusCoverage(null)
-    setIsLoadingRecommendations(true)
-  }, [setSelectedFocusAreas, setFocusCoverage, setIsLoadingRecommendations])
 
   const {
     difficulty,
@@ -178,7 +141,6 @@ function HomePage() {
     duration,
     setDuration,
     language,
-    setLanguage,
     topic,
     setTopic,
     suggestedTopics,
@@ -186,159 +148,11 @@ function HomePage() {
     handleLanguageChange,
     wordCount,
     isSetupComplete,
-  } = usePracticeSetup({
-    isSpecializedMode,
-    onSpecializedLanguageReset: resetSpecializedStateOnLanguageChange,
-  })
+  } = usePracticeSetup()
   
-  // Enhanced loading states for better UX
-  const [loadingStates, setLoadingStates] = useState({
-    computingStats: false,
-    generatingRecommendations: false,
-    savingPreset: false,
-    loadingPreset: false,
-    clearingCache: false
-  })
-  
-  // Progress tracking for large data operations
-  const [progressInfo, setProgressInfo] = useState<{
-    operation: string
-    current: number
-    total: number
-    message: string
-  } | null>(null)
-  
-  // 预设管理状态
-  const [specializedPresets, setSpecializedPresets] = useState<SpecializedPreset[]>([])
 
-  // Loading state management helpers
-  const updateLoadingState = useCallback((key: keyof typeof loadingStates, value: boolean) => {
-    setLoadingStates(prev => ({ ...prev, [key]: value }))
-  }, [])
 
-  const updateProgress = useCallback((
-    operation: string,
-    current: number,
-    total: number,
-    message: string = ''
-  ) => {
-    setProgressInfo({ operation, current, total, message })
-  }, [])
 
-  const clearProgress = useCallback(() => {
-    setProgressInfo(null)
-  }, [])
-
-  // Cache management for focus area data
-  const getCachedFocusData = useCallback(() => {
-    try {
-      const cacheKey = 'english-listening-focus-area-cache'
-      const cached = localStorage.getItem(cacheKey)
-      if (!cached) return null
-
-      const data = JSON.parse(cached)
-      const cacheAge = Date.now() - new Date(data.lastCalculated).getTime()
-      const maxCacheAge = 10 * 60 * 1000 // 10 minutes
-
-      if (cacheAge > maxCacheAge) {
-        localStorage.removeItem(cacheKey)
-        return null
-      }
-
-      return data
-    } catch (error) {
-      console.error('Failed to read focus area cache:', error)
-      return null
-    }
-  }, [])
-
-  const setCachedFocusData = useCallback((stats: FocusAreaStats, recommendations: FocusArea[]) => {
-    try {
-      const cacheKey = 'english-listening-focus-area-cache'
-      const data = {
-        stats,
-        recommendations,
-        lastCalculated: new Date().toISOString(),
-        dataVersion: '1.0'
-      }
-      localStorage.setItem(cacheKey, JSON.stringify(data))
-    } catch (error) {
-      console.error('Failed to cache focus area data:', error)
-    }
-  }, [])
-
-  // 记录用户标签偏好用于后续推荐
-  const recordUserIntent = useCallback((focusAreas: FocusArea[]) => {
-    try {
-      const storageKey = 'english-listening-user-intent'
-      const existingData = localStorage.getItem(storageKey)
-      let intentData: { 
-        preferences: Record<string, number>
-        lastUpdated: string 
-      } = {
-        preferences: {},
-        lastUpdated: new Date().toISOString()
-      }
-
-      if (existingData) {
-        try {
-          intentData = JSON.parse(existingData)
-        } catch (error) {
-          console.warn('Failed to parse user intent data, using defaults', error)
-        }
-      }
-
-      // Increment preference count for each selected focus area
-      focusAreas.forEach(area => {
-        intentData.preferences[area] = (intentData.preferences[area] || 0) + 1
-      })
-
-      intentData.lastUpdated = new Date().toISOString()
-      localStorage.setItem(storageKey, JSON.stringify(intentData))
-      
-      console.log('Recorded user intent for focus areas:', focusAreas)
-    } catch (error) {
-      console.warn('Failed to record user intent:', error)
-    }
-  }, [])
-
-  // Safe localStorage operations with error handling
-  const safeLocalStorageGet = useCallback((key: string, defaultValue: unknown = null) => {
-    try {
-      if (typeof window === 'undefined' || !window.localStorage) {
-        console.warn('localStorage not available')
-        return defaultValue
-      }
-      
-      const item = localStorage.getItem(key)
-      return item ? JSON.parse(item) : defaultValue
-    } catch (error) {
-      console.warn(`Failed to read from localStorage key "${key}":`, error)
-      return defaultValue
-    }
-  }, [])
-
-  const safeLocalStorageSet = useCallback((key: string, value: unknown) => {
-    try {
-      if (typeof window === 'undefined' || !window.localStorage) {
-        console.warn('localStorage not available, cannot save data')
-        return false
-      }
-      
-      localStorage.setItem(key, JSON.stringify(value))
-      return true
-    } catch (error) {
-      console.warn(`Failed to write to localStorage key "${key}":`, error)
-      
-      // Show user-friendly message for storage issues
-      toast({
-        title: t("messages.storageError"),
-        description: t("messages.storageErrorDesc"),
-        variant: "default",
-      })
-      return false
-    }
-  }, [toast, t])
 
   // Network retry mechanism for API calls
   const _retryApiCall = useCallback(async (
@@ -381,53 +195,20 @@ function HomePage() {
     throw lastError!
   }, [toast, t])
 
-  const {
-    templates,
-    templateOpLoadingId,
-    renamingId,
-    renameText,
-    topicInputRef,
-    applyTemplate,
-    saveTemplate: saveTemplateFromPrompt,
-    startRename,
-    confirmRename,
-    deleteTemplateById,
-    setRenameText,
-    resetRenameState,
-  } = usePracticeTemplates({
-    getCurrentConfig: () => ({
-      difficulty,
-      duration,
-      language,
-      topic,
-    }),
-    onApplyConfig: (config) => {
-      setDifficulty(config.difficulty)
-      setDuration(config.duration)
-      setLanguage(config.language)
-      setTopic(config.topic || "")
-    },
-    onResetAfterApply: () => {
-      setSuggestedTopics([])
-      setQuestions([])
-      setAnswers({})
-      setAudioUrl("")
-      setAudioDuration(null)
-      setAudioError(false)
-      setCanRegenerate(true)
-    },
-  })
+  const topicInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Clean up legacy template storage on mount
   useEffect(() => {
-    // 加载专项练习预设
     try {
-      const storageKey = 'english-listening-specialized-presets'
-      const savedPresets = JSON.parse(localStorage.getItem(storageKey) || '[]') as SpecializedPreset[]
-      setSpecializedPresets(savedPresets)
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('english-listening-templates')
+      }
     } catch (error) {
-      console.error('Failed to load specialized presets:', error)
+      console.error('Failed to clean up legacy template storage:', error)
     }
   }, [])
+
+
 
   // Initialize achievement system
   useEffect(() => {
@@ -476,228 +257,14 @@ function HomePage() {
     }
   }, [migrationStatus, toast])
 
-  // Enhanced focus area data loading with progress tracking
-  const loadFocusAreaData = useCallback(async () => {
-    if (!isAuthenticated || !user) {
-      // For unauthenticated users, use default stats
-      setFocusAreaStats(getDefaultStats())
-      setRecommendedFocusAreas(getDefaultRecommendations())
-      return
-    }
 
-    setIsLoadingRecommendations(true)
-    updateLoadingState('computingStats', true)
-    updateProgress('loadingData', 0, 4, 'Checking cache...')
-    
-    // Try to load from cache first
-    const cachedData = getCachedFocusData()
-    if (cachedData) {
-      setFocusAreaStats(cachedData.stats)
-      setRecommendedFocusAreas(cachedData.recommendations)
-      setIsLoadingRecommendations(false)
-      updateLoadingState('computingStats', false)
-      clearProgress()
-      return
-    }
-
-    updateProgress('loadingData', 1, 4, 'Loading practice data...')
-      
-      try {
-        // Load wrong answers and practice sessions from API
-        const [wrongAnswersResponse, practiceHistoryResponse] = await Promise.all([
-          fetch('/api/wrong-answers/list', {
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' }
-          }),
-          fetch('/api/practice/history', {
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' }
-          })
-        ])
-
-        updateProgress('loadingData', 2, 4, 'Processing practice data...')
-
-        let wrongAnswers: WrongAnswerItem[] = []
-        let practiceHistory: PracticeSession[] = []
-
-        if (wrongAnswersResponse.ok) {
-          const wrongAnswersData = await wrongAnswersResponse.json()
-          wrongAnswers = wrongAnswersData.wrongAnswers || []
-        }
-
-        if (practiceHistoryResponse.ok) {
-          const practiceData = await practiceHistoryResponse.json()
-          practiceHistory = practiceData.sessions || []
-        }
-
-        updateProgress('loadingData', 3, 4, `Computing statistics for ${wrongAnswers.length} wrong answers...`)
-
-        // Compute focus area statistics with progress tracking
-        const stats = computeFocusStats(wrongAnswers, practiceHistory)
-        setFocusAreaStats(stats)
-
-        updateLoadingState('generatingRecommendations', true)
-        updateProgress('loadingData', 4, 4, 'Generating recommendations...')
-
-        // Check if we have meaningful data for recommendations
-        const hasWrongAnswers = wrongAnswers.length > 0
-        const hasSpecializedSessions = practiceHistory.some(session => {
-          try {
-            const exerciseData = typeof session.exerciseData === 'string'
-              ? JSON.parse(session.exerciseData)
-              : session.exerciseData
-            return exerciseData?.specializedMode === true
-          } catch {
-            return false
-          }
-        })
-
-        // Generate recommendations based on statistics or use defaults
-        let recommendations: FocusArea[]
-        let showNoDataMessage = false
-
-        if (hasWrongAnswers || hasSpecializedSessions) {
-          recommendations = selectRecommendedFocusAreas(stats, 3)
-          
-          // If no recommendations from analysis, still show message about no weak areas
-          if (recommendations.length === 0) {
-            recommendations = getDefaultRecommendations()
-            toast({
-              title: t("messages.noWeakAreasFound"),
-              description: t("messages.noWeakAreasFoundDesc"),
-              variant: "default",
-            })
-          }
-        } else {
-          // No meaningful data available, use defaults and show guidance
-          recommendations = getDefaultRecommendations()
-          showNoDataMessage = true
-        }
-
-        setRecommendedFocusAreas(recommendations)
-
-        // Show guidance message for new users
-        if (showNoDataMessage) {
-          toast({
-            title: t("messages.welcomeToSpecializedMode"),
-            description: t("messages.welcomeToSpecializedModeDesc"),
-            variant: "default",
-          })
-        }
-
-        // Cache the computed data
-        setCachedFocusData(stats, recommendations)
-
-        // Show completion message for large datasets
-        if (wrongAnswers.length > 50 || practiceHistory.length > 20) {
-          toast({
-            title: t("messages.statisticsComputed"),
-            description: formatToastMessage("messages.statisticsComputedDesc", { 
-              wrongAnswers: wrongAnswers.length,
-              sessions: practiceHistory.length
-            }),
-            variant: "default",
-          })
-        }
-
-      } catch (error) {
-        console.error('Failed to load focus area data:', error)
-        
-        // Fallback to default values on error
-        setFocusAreaStats(getDefaultStats())
-        setRecommendedFocusAreas(getDefaultRecommendations())
-        
-        toast({
-          title: t("messages.focusDataLoadFailed"),
-          description: t("messages.usingDefaultRecommendations"),
-          variant: "destructive",
-        })
-    } finally {
-      setIsLoadingRecommendations(false)
-      updateLoadingState('computingStats', false)
-      updateLoadingState('generatingRecommendations', false)
-      clearProgress()
-    }
-  }, [isAuthenticated, user, toast, t, updateLoadingState, updateProgress, clearProgress, formatToastMessage, getCachedFocusData, setCachedFocusData])
-
-  // Load and compute focus area statistics
-  useEffect(() => {
-    loadFocusAreaData()
-  }, [loadFocusAreaData])
 
 
 
   // API request cache to avoid duplicate calls
   const apiRequestCache = useMemo(() => new Map<string, Promise<unknown>>(), [])
 
-  // Debounced functions for performance optimization
-  const debouncedFunctions = useMemo(() => {
-    // Debounced recommendation update
-    let recommendationTimeoutId: NodeJS.Timeout
-    const updateRecommendations = (stats: FocusAreaStats) => {
-      clearTimeout(recommendationTimeoutId)
-      recommendationTimeoutId = setTimeout(() => {
-        const recommendations = selectRecommendedFocusAreas(stats, 3)
-        setRecommendedFocusAreas(recommendations)
-      }, 300)
-    }
 
-    // Debounced focus area selection
-    let focusAreaTimeoutId: NodeJS.Timeout
-    const debouncedFocusAreaSelection = (areas: FocusArea[]) => {
-      clearTimeout(focusAreaTimeoutId)
-      focusAreaTimeoutId = setTimeout(() => {
-        const limitedAreas = areas.slice(0, 5)
-        setSelectedFocusAreas(limitedAreas)
-        setFocusCoverage(null)
-        
-        // Reset related states
-        if (limitedAreas.length > 0) {
-          setQuestions([])
-          setAnswers({})
-          setTranscript("")
-          setAudioUrl("")
-          setAudioDuration(null)
-          setAudioError(false)
-        }
-      }, 200)
-    }
-
-    // Debounced cache clearing with loading state
-    let cacheTimeoutId: NodeJS.Timeout
-    const debouncedCacheClear = () => {
-      clearTimeout(cacheTimeoutId)
-      updateLoadingState('clearingCache', true)
-      
-      cacheTimeoutId = setTimeout(() => {
-        try {
-          localStorage.removeItem('english-listening-focus-area-cache')
-          
-          // Show feedback for cache clearing
-          toast({
-            title: t("messages.cacheCleared"),
-            description: t("messages.cacheClearedDesc"),
-            variant: "default",
-          })
-        } catch (error) {
-          console.error('Failed to clear focus area cache:', error)
-          toast({
-            title: t("messages.cacheClearFailed"),
-            description: t("messages.storageUnavailable"),
-            variant: "destructive",
-          })
-        } finally {
-          updateLoadingState('clearingCache', false)
-        }
-      }, 1000)
-    }
-
-    return {
-      updateRecommendations,
-      debouncedFocusAreaSelection,
-      debouncedCacheClear
-    }
-  }, [updateLoadingState, toast, t])
 
   // Cached API call wrapper to prevent duplicate requests
   const cachedApiCall = useCallback(async (
@@ -729,12 +296,7 @@ function HomePage() {
     }
   }, [apiRequestCache])
 
-  // Update recommendations when focus area stats change (debounced)
-  useEffect(() => {
-    if (Object.keys(focusAreaStats).length > 0) {
-      debouncedFunctions.updateRecommendations(focusAreaStats)
-    }
-  }, [focusAreaStats, debouncedFunctions])
+
 
   // 客户端挂载状态管理
   useEffect(() => {
@@ -742,34 +304,10 @@ function HomePage() {
     setHasMounted(true)
   }, [])
 
-  // 快捷键系统初始化和入门引导
-  useEffect(() => {
-    if (shortcutsEnabled && !onboarded && isAuthenticated) {
-      // 延迟显示入门引导，避免与其他对话框冲突
-      const timer = setTimeout(() => {
-        setShowOnboarding(true)
-      }, 1000)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [shortcutsEnabled, onboarded, isAuthenticated])
-
   // Enhanced memoized computations to avoid unnecessary re-renders
   // isSetupComplete is already provided by usePracticeSetup hook
 
-  const _canGenerateContent = useMemo(() => {
-    return Boolean(difficulty && (!isSpecializedMode || selectedFocusAreas.length > 0))
-  }, [difficulty, isSpecializedMode, selectedFocusAreas.length])
 
-  const _specializedModeConfig = useMemo(() => {
-    return {
-      isEnabled: isSpecializedMode,
-      selectedAreas: selectedFocusAreas,
-      recommendedAreas: recommendedFocusAreas,
-      hasRecommendations: recommendedFocusAreas.length > 0,
-      isLoadingRecommendations
-    }
-  }, [isSpecializedMode, selectedFocusAreas, recommendedFocusAreas, isLoadingRecommendations])
 
   const _currentExerciseStats = useMemo(() => {
     if (!currentExercise) return null
@@ -792,41 +330,13 @@ function HomePage() {
     setLoadingMessage("Generating topic suggestions...")
 
     try {
-      // Create cache key for this specific request
-      // const cacheKey = `topics-${difficulty}-${wordCount}-${language}-${isSpecializedMode ? selectedFocusAreas.join(',') : 'normal'}`; // Removed unused cacheKey
-
       const response = await cachedApiCall(
-        `topics-${difficulty}-${wordCount}-${language}-${JSON.stringify(selectedFocusAreas)}`,
-        () => generateTopics(difficulty, wordCount, language, undefined, selectedFocusAreas),
+        `topics-${difficulty}-${wordCount}-${language}`,
+        () => generateTopics(difficulty, wordCount, language),
         60000 // 1 minute cache for topics
-      ) as { topics: string[]; focusCoverage?: FocusCoverage; degradationReason?: string }
+      ) as { topics: string[]; degradationReason?: string }
       
       setSuggestedTopics(response.topics)
-      
-      // Handle focus coverage for specialized mode
-      if (isSpecializedMode && response.focusCoverage) {
-        setFocusCoverage(response.focusCoverage)
-        
-        // Check for zero coverage (AI doesn't support focus areas)
-        if (response.focusCoverage.coverage === 0) {
-          // Record user intent for future recommendations
-          recordUserIntent(selectedFocusAreas)
-          
-          toast({
-            title: t("messages.specializedModeUnavailable"),
-            description: t("messages.specializedModeUnavailableDesc"),
-            variant: "default",
-          })
-        } else if (response.focusCoverage.coverage < 0.8) {
-          toast({
-            title: t("messages.partialCoverageWarning"),
-            description: t("messages.partialCoverageWarningDesc", {
-              values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
-            }),
-            variant: "default",
-          })
-        }
-      }
       
       toast({
         title: t("messages.topicGenerationSuccess"),
@@ -844,7 +354,44 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
+  }, [difficulty, wordCount, language, toast, cachedApiCall, t, formatToastMessage])
+
+  const handleRefreshTopics = useCallback(async () => {
+    if (!difficulty || suggestedTopics.length === 0) return
+
+    setLoading(true)
+    setLoadingMessage("Generating new topic suggestions...")
+
+    try {
+      // Pass current topics to avoid duplicates
+      const response = await generateTopics(
+        difficulty, 
+        wordCount, 
+        language, 
+        undefined, 
+        undefined,
+        suggestedTopics
+      )
+      
+      setSuggestedTopics(response.topics)
+      
+      toast({
+        title: t("messages.topicGenerationSuccess"),
+        description: formatToastMessage("messages.topicGenerationSuccessDesc", { count: response.topics.length }),
+      })
+    } catch (error) {
+      console.error("Failed to refresh topics:", error)
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.topicGenerationFailed"),
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+      setLoadingMessage("")
+    }
+  }, [difficulty, wordCount, language, suggestedTopics, toast, t, formatToastMessage])
 
   const handleGenerateTranscript = useCallback(async () => {
     if (!difficulty || !topic) return
@@ -854,49 +401,19 @@ function HomePage() {
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       try {
-        // Create cache key for transcript generation
-        // const cacheKey = `transcript-${difficulty}-${wordCount}-${topic}-${language}-${isSpecializedMode ? selectedFocusAreas.join(',') : 'normal'}`; // Removed unused cacheKey
-
         const response = await cachedApiCall(
-          `transcript-${difficulty}-${wordCount}-${topic}-${language}-${isSpecializedMode ? selectedFocusAreas.join(',') : 'normal'}`,
+          `transcript-${difficulty}-${wordCount}-${topic}-${language}`,
           () => generateTranscript(
             difficulty,
             wordCount,
             topic,
-            language,
-            undefined,
-            isSpecializedMode ? selectedFocusAreas : undefined
+            language
           ),
           120000 // 2 minutes cache for transcripts
-        ) as { transcript: string; focusCoverage?: FocusCoverage; degradationReason?: string }
+        ) as { transcript: string; degradationReason?: string }
         
         setTranscript(response.transcript)
         setCanRegenerate(true)
-        
-        // Handle focus coverage for specialized mode
-        if (isSpecializedMode && response.focusCoverage) {
-          setFocusCoverage(response.focusCoverage)
-          
-          // Check for zero coverage (AI doesn't support focus areas)
-          if (response.focusCoverage.coverage === 0) {
-            // Record user intent for future recommendations
-            recordUserIntent(selectedFocusAreas)
-            
-            toast({
-              title: t("messages.specializedModeUnavailable"),
-              description: t("messages.specializedModeUnavailableDesc"),
-              variant: "default",
-            })
-          } else if (response.focusCoverage.coverage < 0.8) {
-            toast({
-              title: t("messages.partialCoverageWarning"),
-              description: t("messages.partialCoverageWarningDesc", {
-                values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
-              }),
-              variant: "default",
-            })
-          }
-        }
       } catch (error) {
         console.error(`Transcript generation attempt ${attempt} failed:`, error)
         if (attempt < 3) {
@@ -927,7 +444,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [difficulty, topic, wordCount, language, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
+  }, [difficulty, topic, wordCount, language, toast, cachedApiCall, t])
 
   const handleGenerateAudio = useCallback(async () => {
     if (!transcript) return
@@ -1010,9 +527,8 @@ function HomePage() {
     setLoadingMessage("Generating questions...")
 
     try {
-      // Create cache key for questions generation
-      const transcriptHash = transcript.slice(0, 50) // Use first 50 chars as hash
-      const cacheKey = `questions-${difficulty}-${transcriptHash}-${language}-${duration}-${isSpecializedMode ? selectedFocusAreas.join(',') : 'normal'}`; // Removed unused cacheKey
+      const transcriptHash = transcript.slice(0, 50)
+      const cacheKey = `questions-${difficulty}-${transcriptHash}-${language}-${duration}`
       
       const response = await cachedApiCall(
         cacheKey,
@@ -1020,41 +536,14 @@ function HomePage() {
           difficulty, 
           transcript, 
           language, 
-          duration, 
-          undefined, 
-          isSpecializedMode ? selectedFocusAreas : undefined
+          duration
         ),
         180000 // 3 minutes cache for questions
-      ) as { questions: Question[]; focusCoverage?: FocusCoverage; focusMatch?: Array<{questionIndex: number; matchedTags: FocusArea[]; confidence: 'high' | 'medium' | 'low'}>; degradationReason?: string }
+      ) as { questions: Question[]; degradationReason?: string }
       
       setQuestions(response.questions)
       setAnswers({})
       setStep("questions")
-      
-      // Handle focus coverage for specialized mode
-      if (isSpecializedMode && response.focusCoverage) {
-        setFocusCoverage(response.focusCoverage)
-        
-        // Check for zero coverage (AI doesn't support focus areas)
-        if (response.focusCoverage.coverage === 0) {
-          // Record user intent for future recommendations
-          recordUserIntent(selectedFocusAreas)
-          
-          toast({
-            title: t("messages.specializedModeUnavailable"),
-            description: t("messages.specializedModeUnavailableDesc"),
-            variant: "default",
-          })
-        } else if (response.focusCoverage.coverage < 0.8) {
-            toast({
-              title: t("messages.partialCoverageWarning"),
-              description: t("messages.partialCoverageWarningDesc", {
-                values: { coverage: Math.round(response.focusCoverage.coverage * 100) },
-              }),
-              variant: "default",
-            })
-        }
-      }
       
       toast({
         title: t("messages.questionsGenerationSuccess"),
@@ -1072,7 +561,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [transcript, difficulty, language, duration, isSpecializedMode, selectedFocusAreas, toast, cachedApiCall])
+  }, [transcript, difficulty, language, duration, toast, cachedApiCall, t, formatToastMessage])
 
   const handleSubmitAnswers = useCallback(async () => {
     if (questions.length === 0 || !user) return
@@ -1081,17 +570,8 @@ function HomePage() {
     setLoadingMessage("Grading your answers...")
 
     try {
-      const gradingResponse = await gradeAnswers(transcript, questions, answers, language, isSpecializedMode ? selectedFocusAreas : undefined)
+      const gradingResponse = await gradeAnswers(transcript, questions, answers, language)
       const gradingResults = gradingResponse.results
-      
-      // Handle focus coverage from grading if in specialized mode
-      const latestFocusCoverage = isSpecializedMode
-        ? gradingResponse.focusCoverage ?? focusCoverage
-        : null
-
-      if (isSpecializedMode && latestFocusCoverage) {
-        setFocusCoverage(latestFocusCoverage)
-      }
 
       const now = Date.now()
       let practiceDurationSec: number
@@ -1107,8 +587,8 @@ function HomePage() {
         practiceDurationSec = 60
       }
 
-      // Build base Exercise object
-      const baseExercise: Exercise = {
+      // Build Exercise object
+      const exercise: Exercise = {
         id: Date.now().toString(),
         difficulty: difficulty as DifficultyLevel,
         language,
@@ -1119,25 +599,6 @@ function HomePage() {
         results: gradingResults,
         createdAt: new Date(now).toISOString(),
         ...(practiceDurationSec > 0 ? { totalDurationSec: practiceDurationSec } : {})
-      }
-
-      // Calculate per-focus accuracy only once for specialized mode
-      const memoizedPerFocusAccuracy = isSpecializedMode 
-        ? calculatePerFocusAccuracy(gradingResults, questions)
-        : undefined
-
-      // Build specialized fields if in specialized mode
-      const specializedFields = isSpecializedMode ? {
-        focusAreas: [...selectedFocusAreas],
-        ...(latestFocusCoverage ? { focusCoverage: latestFocusCoverage } : {}),
-        specializedMode: true as const,
-        ...(memoizedPerFocusAccuracy ? { perFocusAccuracy: memoizedPerFocusAccuracy } : {})
-      } : {}
-
-      // Merge base and specialized fields into final exercise object
-      const exercise: Exercise = {
-        ...baseExercise,
-        ...specializedFields
       }
 
       setCurrentExercise(exercise)
@@ -1195,14 +656,9 @@ function HomePage() {
             topic: topic,
             accuracy: accuracy,
             score: score,
-            duration: practiceDurationSec // Use calculated duration in seconds
+            duration: practiceDurationSec
           })
         })
-
-        // 如果是专项模式，使用防抖清除缓存以便重新计算统计数据
-        if (isSpecializedMode) {
-          debouncedFunctions.debouncedCacheClear()
-        }
       } catch (error) {
         console.error('Failed to save exercise to database:', error)
         // 不阻塞用户流程，只记录错误
@@ -1226,7 +682,7 @@ function HomePage() {
       setLoading(false)
       setLoadingMessage("")
     }
-  }, [questions, transcript, answers, difficulty, language, topic, user, toast])
+  }, [questions, transcript, answers, difficulty, language, topic, user, toast, audioDuration, duration, t, formatToastMessage])
 
   const handleRestart = useCallback(() => {
     setStep("setup")
@@ -1253,60 +709,6 @@ function HomePage() {
     }
   }, [currentExercise, toast])
 
-
-  // 快捷键处理函数
-  const handleShortcut: ShortcutHandler = useCallback((action) => {
-    switch (action) {
-      case 'play-pause':
-        if (audioPlayerRef.current?.hasAudio) {
-          audioPlayerRef.current.togglePlayPause()
-        }
-        break
-      case 'open-history':
-        setStep('history')
-        break
-      case 'open-wrong-answers':
-        setStep('wrong-answers')
-        break
-      case 'toggle-specialized-mode':
-        if (step === 'setup') {
-          console.log('Specialized Mode Toggle - Current State:', isSpecializedMode, 'Focus Areas:', selectedFocusAreas, 'Window Width:', window.innerWidth)
-          handleSpecializedModeToggle()
-        }
-        break
-      case 'close-dialog':
-        if (showShortcutHelp) {
-          setShowShortcutHelp(false)
-        } else if (showOnboarding) {
-          setShowOnboarding(false)
-        } else if (step !== 'setup') {
-          setStep('setup')
-        }
-        break
-      case 'show-help':
-        setShowShortcutHelp(true)
-        break
-      case 'return-home':
-        setStep('setup')
-        break
-      default:
-        break
-    }
-  }, [step, isSpecializedMode, showShortcutHelp, showOnboarding])
-
-
-  const handleCompleteOnboarding = useCallback(() => {
-    setOnboarded(true)
-    setShowOnboarding(false)
-  }, [setOnboarded])
-
-  // 快捷键监听
-  useHotkeys({
-    enabled: shortcutsEnabled,
-    currentStep: step,
-    hasAudio: Boolean(audioUrl && !audioError),
-    onShortcut: handleShortcut
-  })
 
   const handleRestoreExercise = useCallback((exercise: Exercise) => {
     // 恢复所有练习相关的状态
@@ -1335,183 +737,7 @@ function HomePage() {
     exerciseStartTimeRef.current = null
   }, [])
 
-  // 专项模式核心逻辑函数
-  const handleSpecializedModeToggle = useCallback((enabled?: boolean) => {
-    const newState = enabled !== undefined ? enabled : !isSpecializedMode
-    setIsSpecializedMode(newState)
-    if (!newState) {
-      // 关闭专项模式时清空相关状态
-      setSelectedFocusAreas([])
-      setFocusCoverage(null)
-      // 重置练习相关状态以避免数据不一致
-      setQuestions([])
-      setAnswers({})
-      setTranscript("")
-      setAudioUrl("")
-      setAudioDuration(null)
-      setAudioError(false)
-      exerciseStartTimeRef.current = null
-    }
-  }, [isSpecializedMode])
 
-  const handleFocusAreaSelection = useCallback((areas: FocusArea[]) => {
-    // Use debounced selection to prevent rapid state updates
-    debouncedFunctions.debouncedFocusAreaSelection(areas)
-  }, [debouncedFunctions])
-
-  const handleApplyRecommendations = useCallback(() => {
-    const uniqueAreas = Array.from(new Set([...selectedFocusAreas, ...recommendedFocusAreas]))
-    const limitedAreas = uniqueAreas.slice(0, 5) // 限制最多5个标签
-    setSelectedFocusAreas(limitedAreas)
-    
-    // 重置相关状态
-    setFocusCoverage(null)
-    setQuestions([])
-    setAnswers({})
-    setTranscript("")
-    setAudioUrl("")
-    setAudioDuration(null)
-    setAudioError(false)
-    exerciseStartTimeRef.current = null
-  }, [selectedFocusAreas, recommendedFocusAreas])
-
-  const handleSaveSpecializedPreset = useCallback(async (name: string) => {
-    if (!name.trim() || selectedFocusAreas.length === 0) return false
-    
-    updateLoadingState('savingPreset', true)
-    
-    try {
-      // Simulate processing time for better UX feedback
-      await new Promise(resolve => setTimeout(resolve, 300))
-      
-      const preset: SpecializedPreset = {
-        id: `specialized-${Date.now()}`,
-        name: name.trim(),
-        focusAreas: [...selectedFocusAreas],
-        difficulty: (difficulty || "A1") as DifficultyLevel,
-        language,
-        duration,
-        createdAt: new Date().toISOString()
-      }
-      
-      const storageKey = 'english-listening-specialized-presets'
-      const existingPresets = safeLocalStorageGet(storageKey, []) as SpecializedPreset[]
-      
-      // 检查名称是否重复
-      if (existingPresets.some(p => p.name === preset.name)) {
-        return false
-      }
-      
-      const updatedPresets = [...existingPresets, preset]
-      const saved = safeLocalStorageSet(storageKey, updatedPresets)
-      
-      if (saved) {
-        setSpecializedPresets(updatedPresets)
-      } else {
-        return false
-      }
-      
-      toast({
-        title: t("messages.presetSaveSuccess"),
-        description: formatToastMessage("messages.presetSaveSuccessDesc", { name: preset.name }),
-      })
-      
-      return true
-    } catch (error) {
-      console.error('Failed to save specialized preset:', error)
-      toast({
-        title: t("messages.presetSaveFailed"),
-        description: t("messages.storageUnavailable"),
-        variant: "destructive",
-      })
-      return false
-    } finally {
-      updateLoadingState('savingPreset', false)
-    }
-  }, [selectedFocusAreas, difficulty, language, duration, toast, t, formatToastMessage, updateLoadingState, safeLocalStorageGet, safeLocalStorageSet])
-
-  const handleLoadSpecializedPreset = useCallback(async (preset: SpecializedPreset) => {
-    updateLoadingState('loadingPreset', true)
-    
-    try {
-      // Simulate processing time for better UX feedback
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      setSelectedFocusAreas([...preset.focusAreas])
-      setDifficulty(preset.difficulty)
-      setLanguage(preset.language)
-      setDuration(preset.duration)
-      
-      // 重置相关状态
-      setFocusCoverage(null)
-      setQuestions([])
-      setAnswers({})
-      setTranscript("")
-      setAudioUrl("")
-      setAudioDuration(null)
-      setAudioError(false)
-      
-      toast({
-        title: t("messages.presetLoadSuccess"),
-        description: formatToastMessage("messages.presetLoadSuccessDesc", { name: preset.name }),
-      })
-    } finally {
-      updateLoadingState('loadingPreset', false)
-    }
-  }, [toast, t, formatToastMessage, updateLoadingState])
-
-  const handleDeleteSpecializedPreset = useCallback((presetId: string) => {
-    try {
-      const storageKey = 'english-listening-specialized-presets'
-      const existingPresets = safeLocalStorageGet(storageKey, []) as SpecializedPreset[]
-      const updatedPresets = existingPresets.filter(p => p.id !== presetId)
-      
-      const saved = safeLocalStorageSet(storageKey, updatedPresets)
-      
-      if (saved) {
-        setSpecializedPresets(updatedPresets)
-      }
-      
-      toast({
-        title: t("messages.presetDeleteSuccess"),
-        description: t("messages.presetDeleteSuccessDesc"),
-      })
-    } catch (error) {
-      console.error('Failed to delete specialized preset:', error)
-      toast({
-        title: t("messages.presetDeleteFailed"),
-        description: t("messages.storageUnavailable"),
-        variant: "destructive",
-      })
-    }
-  }, [toast, t])
-
-  // Helper function to calculate accuracy per focus area
-  const calculatePerFocusAccuracy = useCallback((results: GradingResult[], questions: Question[]) => {
-    const perFocusAccuracy: Record<string, number> = {}
-
-    selectedFocusAreas.forEach(area => {
-      let relevantCount = 0
-      let correctCount = 0
-
-      questions.forEach((question, index) => {
-        if (!question.focus_areas?.includes(area)) {
-          return
-        }
-
-        relevantCount += 1
-        if (results[index]?.is_correct) {
-          correctCount += 1
-        }
-      })
-
-      perFocusAccuracy[area] = relevantCount > 0
-        ? Math.round((correctCount / relevantCount) * 100)
-        : 0
-    })
-
-    return perFocusAccuracy
-  }, [selectedFocusAreas])
 
   // 如果正在加载认证状态或未完成客户端挂载，显示加载界面
   console.log(`🔄 渲染状态检查: isLoading=${isLoading}, hasMounted=${hasMounted}, isAuthenticated=${isAuthenticated}`)
@@ -1596,8 +822,8 @@ function HomePage() {
                 </h2>
               </div>
               <div className="text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed">
-                <p className="mb-1">Improve your English listening skills with AI-powered exercises</p>
-                <p>通过AI驱动的练习提升您的英语听力技能</p>
+                <p className="mb-1">Make learning fun with bite-sized AI listening practice</p>
+                <p>轻松练听力，让 AI 帮你进步更有趣</p>
               </div>
             </div>
             
@@ -1625,16 +851,7 @@ function HomePage() {
                     </span>
                   </Badge>
                 )}
-                
-                {/* Specialized Mode Badge */}
-                {isSpecializedMode && (
-                  <Badge variant="secondary" className="bg-slate-900/60 text-sky-400 border-slate-700">
-                    <BilingualText translationKey="components.specializedPractice.title" />
-                    {selectedFocusAreas.length > 0 && (
-                      <span className="ml-1">({selectedFocusAreas.length})</span>
-                    )}
-                  </Badge>
-                )}
+
               </div>
               
               {/* Primary Action Buttons Row */}
@@ -1642,13 +859,13 @@ function HomePage() {
                 <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
                   <Sparkles className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline"><BilingualText translationKey="buttons.assessment" /></span>
-                  <span className="sm:hidden">Assessment</span>
+                  <span className="sm:hidden"><BilingualText translationKey="buttons.assessment" /></span>
                 </Button>
                 
                 <Button variant="outline" size="sm" onClick={() => setStep("history")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
                   <History className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline"><BilingualText translationKey="buttons.history" /></span>
-                  <span className="sm:hidden">History</span>
+                  <span className="sm:hidden"><BilingualText translationKey="buttons.history" /></span>
                 </Button>
                 
                 <Button variant="outline" size="sm" onClick={() => setStep("wrong-answers")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
@@ -1668,19 +885,7 @@ function HomePage() {
                   </Button>
                 )}
                 
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setShowShortcutHelp(true)} 
-                  className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80"
-                  title={t("shortcuts.title")}
-                >
-                  <Keyboard className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline"><BilingualText translationKey="shortcuts.title" /></span>
-                  <span className="sm:hidden">快捷键</span>
-                </Button>
-                
-                
+
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -1696,38 +901,7 @@ function HomePage() {
             </div>
           </div>
         </div>
-        
-        {/* Coverage Warning */}
-        {isSpecializedMode && focusCoverage && focusCoverage.coverage < 1 && (
-          <div className="max-w-5xl mx-auto mb-8">
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">!</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                    <BilingualText translationKey="components.specializedPractice.coverage.warning" />
-                  </p>
-                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    <BilingualText 
-                      translationKey="components.specializedPractice.coverage.warningDescription"
-                    />
-                    {` (${Math.round(focusCoverage.coverage * 100)}%)`}
-                  </p>
-                  {focusCoverage.unmatchedTags.length > 0 && (
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                      <BilingualText translationKey="components.specializedPractice.coverage.unmatchedTags" />
-                      {`: ${focusCoverage.unmatchedTags.map(tag => 
-                        t(`components.specializedPractice.focusAreas.${tag}`)
-                      ).join(', ')}`}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {step === "setup" && (
           <PracticeConfiguration
@@ -1744,40 +918,11 @@ function HomePage() {
               onTopicChange: setTopic,
               topicInputRef,
             }}
-            templateManager={{
-              templates,
-              templateOpLoadingId,
-              renamingId,
-              renameText,
-              onRenameTextChange: setRenameText,
-              onApplyTemplate: applyTemplate,
-              onStartRename: startRename,
-              onConfirmRename: confirmRename,
-              onResetRenameState: resetRenameState,
-              onDeleteTemplate: deleteTemplateById,
-              onSaveTemplate: saveTemplateFromPrompt,
-            }}
-            specialized={{
-              isEnabled: isSpecializedMode,
-              selectedAreas: selectedFocusAreas,
-              recommendedAreas: recommendedFocusAreas,
-              focusAreaStats,
-              focusCoverage,
-              isLoadingRecommendations,
-              loadingStates,
-              progressInfo,
-              presets: specializedPresets,
-              onToggle: handleSpecializedModeToggle,
-              onSelectionChange: handleFocusAreaSelection,
-              onApplyRecommendations: handleApplyRecommendations,
-              onSavePreset: handleSaveSpecializedPreset,
-              onLoadPreset: handleLoadSpecializedPreset,
-              onDeletePreset: handleDeleteSpecializedPreset,
-            }}
             operations={{
               loading,
               loadingMessage,
               onGenerateTopics: handleGenerateTopics,
+              onRefreshTopics: handleRefreshTopics,
               onGenerateExercise: handleGenerateTranscript,
             }}
             achievements={{
@@ -1814,20 +959,7 @@ function HomePage() {
         />
       </div>
 
-      {/* 快捷键帮助对话框 */}
-      <ShortcutHelpDialog
-        open={showShortcutHelp}
-        onOpenChange={setShowShortcutHelp}
-        currentStep={step}
-        hasAudio={Boolean(audioUrl && !audioError)}
-      />
 
-      {/* 快捷键入门引导对话框 */}
-      <ShortcutOnboardingDialog
-        open={showOnboarding}
-        onOpenChange={setShowOnboarding}
-        onComplete={handleCompleteOnboarding}
-      />
 
       <Toaster />
       </div>

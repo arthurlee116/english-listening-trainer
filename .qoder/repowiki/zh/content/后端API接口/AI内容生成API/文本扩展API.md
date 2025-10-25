@@ -1,13 +1,21 @@
-
 # 文本扩展API
 
 <cite>
 **本文档引用文件**   
 - [route.ts](file://app/api/ai/expand/route.ts)
-- [text-expansion.ts](file://lib/text-expansion.ts)
-- [ai-service.ts](file://lib/ai-service.ts)
-- [ark-helper.ts](file://lib/ark-helper.ts)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts)
+- [schemas.ts](file://lib/ai/schemas.ts)
+- [prompt-templates.ts](file://lib/ai/prompt-templates.ts)
 </cite>
+
+## 更新摘要
+**主要变更**   
+- 更新了AI服务调用架构，从`ark-helper.ts`迁移至`cerebras-service.ts`中的`invokeStructured`函数
+- 重构了文本扩展处理流程，引入结构化调用管道
+- 新增了智能重试策略和错误处理机制
+- 更新了扩写提示词生成逻辑和响应模式
+- 移除了动态代理支持，统一了AI调用接口
 
 ## 目录
 1. [简介](#简介)
@@ -22,7 +30,7 @@
 10. [性能优化与错误处理](#性能优化与错误处理)
 
 ## 简介
-文本扩展API旨在为英语听力学习者提供智能化的语言输入增强功能。该API通过`/api/ai/expand`端点接收简短的原始文本，并将其扩展为更丰富、更具上下文意义的表达形式，从而提升语言学习材料的复杂度和实用性。系统利用Cerebras大模型进行语义保持的扩写任务，确保生成内容既符合目标长度要求，又不偏离原始含义。
+文本扩展API旨在为英语听力学习者提供智能化的语言输入增强功能。该API通过`/api/ai/expand`端点接收简短的原始文本，并将其扩展为更丰富、更具上下文意义的表达形式，从而提升语言学习材料的复杂度和实用性。系统利用Cerebras大模型进行语义保持的扩写任务，确保生成内容既符合目标长度要求，又不偏离原始含义。近期重构了AI服务调用管道，统一采用结构化调用机制，提升了调用的稳定性和可维护性。
 
 ## 核心功能与应用场景
 本API的核心功能是将用户提供的简短句子或关键词扩展为适合听力练习的完整段落。主要应用于：
@@ -32,7 +40,7 @@
 - 支持个性化学习路径中的内容定制化
 
 **Section sources**
-- [route.ts](file://app/api/ai/expand/route.ts#L1-L113)
+- [route.ts](file://app/api/ai/expand/route.ts#L1-L38)
 
 ## 输入输出结构定义
 ### 输入字段说明
@@ -63,7 +71,7 @@
 ```
 
 **Section sources**
-- [route.ts](file://app/api/ai/expand/route.ts#L1-L113)
+- [route.ts](file://app/api/ai/expand/route.ts#L1-L38)
 
 ## 处理流程剖析
 ```mermaid
@@ -94,10 +102,10 @@ ReturnResult --> End
 ```
 
 **Diagram sources**
-- [route.ts](file://app/api/ai/expand/route.ts#L1-L113)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L32-L130)
 
 **Section sources**
-- [route.ts](file://app/api/ai/expand/route.ts#L1-L113)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L32-L130)
 
 ## 扩写算法实现机制
 ### 单词计数逻辑
@@ -115,49 +123,53 @@ class TextExpansionUtils {
 +countWords(text : string) : number
 +meetsLengthRequirement(text : string, targetWordCount : number, minPercentage : number) : boolean
 +calculateExpansionTarget(currentText : string, targetWordCount : number, expansionPercentage : number) : number
-+generateExpansionPrompt(originalText : string, currentWordCount : number, targetWordCount : number, topic : string, difficulty : string, minAcceptablePercentage : number, language : string) : string
++buildExpansionPrompt(originalText : string, currentWordCount : number, targetWordCount : number, topic : string, difficulty : string, minAcceptablePercentage : number, languageName : string) : string
 }
-TextExpansionUtils --> "uses" ark-helper : 调用
-TextExpansionUtils --> "defines" ExpansionResponse : 输出格式
+TextExpansionUtils --> "uses" cerebras-service : 调用
+TextExpansionUtils --> "defines" ExpansionStructuredResponse : 输出格式
 ```
 
 **Diagram sources**
-- [text-expansion.ts](file://lib/text-expansion.ts#L1-L108)
+- [prompt-templates.ts](file://lib/ai/prompt-templates.ts#L188-L225)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L32-L130)
 
 **Section sources**
-- [text-expansion.ts](file://lib/text-expansion.ts#L1-L108)
+- [prompt-templates.ts](file://lib/ai/prompt-templates.ts#L188-L225)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L32-L130)
 
 ## AI服务调用与模型集成
-### 客户端服务封装
-`ai-service.ts`提供了前端调用接口，通过`fetch`向后端API发送请求，避免在浏览器中暴露API密钥。
+### 结构化调用管道
+`cerebras-service.ts`提供了统一的结构化调用接口`invokeStructured`，所有AI调用通过此函数完成，确保了调用的一致性和类型安全。
 
 ### 服务端AI调用
-`ark-helper.ts`实现了对Cerebras大模型的安全调用，包含代理配置、健康检查、自动回退和重试机制。
+`invokeStructured`函数封装了对Cerebras大模型的调用，包含智能重试策略、超时控制和结构化响应处理，移除了之前的动态代理支持。
 
 ```mermaid
 sequenceDiagram
 participant Frontend as 前端应用
 participant AIService as ai-service.ts
 participant APIRoute as route.ts
-participant ArkHelper as ark-helper.ts
+participant CerebrasService as cerebras-service.ts
 participant Cerebras as Cerebras模型
 Frontend->>AIService : expandText()
 AIService->>APIRoute : POST /api/ai/expand
-APIRoute->>ArkHelper : callArkAPI()
-ArkHelper->>Cerebras : 发送消息+Schema
-Cerebras-->>ArkHelper : 返回JSON响应
-ArkHelper-->>APIRoute : 解析结果
+APIRoute->>transcript-expansion : expandTranscript()
+transcript-expansion->>CerebrasService : invokeStructured()
+CerebrasService->>Cerebras : 发送消息+Schema
+Cerebras-->>CerebrasService : 返回JSON响应
+CerebrasService-->>transcript-expansion : 解析结果
+transcript-expansion-->>APIRoute : 扩展结果
 APIRoute-->>AIService : JSON响应
 AIService-->>Frontend : 扩展结果对象
 ```
 
 **Diagram sources**
-- [ai-service.ts](file://lib/ai-service.ts#L1-L113)
-- [ark-helper.ts](file://lib/ark-helper.ts#L1-L233)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L31-L60)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L89-L89)
 
 **Section sources**
-- [ai-service.ts](file://lib/ai-service.ts#L1-L113)
-- [ark-helper.ts](file://lib/ark-helper.ts#L1-L233)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L31-L60)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L89-L89)
 
 ## 示例演示
 将简单句子"I like apples"扩展为更丰富的表达：
@@ -187,7 +199,7 @@ AIService-->>Frontend : 扩展结果对象
 ```
 
 **Section sources**
-- [route.ts](file://app/api/ai/expand/route.ts#L1-L113)
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L32-L130)
 
 ## 可控性设置与语义保持
 ### 控制参数
@@ -201,9 +213,11 @@ AIService-->>Frontend : 扩展结果对象
 - 禁止改变原意或添加无关信息
 - 要求生成完整的扩展脚本而非片段
 - 使用结构化输出确保数据一致性
+- 通过`expansionSchema`强制要求返回`expanded_text`字段
 
 **Section sources**
-- [text-expansion.ts](file://lib/text-expansion.ts#L1-L108)
+- [prompt-templates.ts](file://lib/ai/prompt-templates.ts#L188-L225)
+- [schemas.ts](file://lib/ai/schemas.ts#L154-L161)
 
 ## 敏感内容过滤策略
 虽然当前代码未直接体现敏感内容过滤逻辑，但可通过以下方式实现：
@@ -212,7 +226,7 @@ AIService-->>Frontend : 扩展结果对象
 3. 利用外部内容审核API进行二次校验
 4. 设置黑名单机制阻止特定主题的扩写
 
-建议在`callArkAPI`返回后增加内容审查步骤，确保生成文本符合教育场景的安全标准。
+建议在`invokeStructured`返回后增加内容审查步骤，确保生成文本符合教育场景的安全标准。
 
 ## 性能优化与错误处理
 ### 错误处理机制
@@ -220,12 +234,15 @@ AIService-->>Frontend : 扩展结果对象
 - 捕获异步操作异常并记录日志
 - AI响应格式异常时继续重试
 - 超出最大尝试次数后返回部分成功结果
+- 通过`try-catch`块处理单次扩写尝试失败
 
 ### 性能优化措施
-- 使用代理服务器提高API访问稳定性
-- 实现指数退避重试策略
-- 添加连接池支持并发请求
+- 统一采用`invokeStructured`结构化调用管道
+- 实现智能重试策略，失败时自动重试直至达到最大尝试次数
+- 添加超时控制和信号中断支持
+- 使用结构化响应模式减少解析错误
 - 本地缓存常用配置减少重复计算
 
 **Section sources**
-- [route.ts](file://app/api/ai/expand/route.ts#L
+- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts#L32-L130)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L31-L60)

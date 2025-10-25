@@ -1,8 +1,8 @@
 # 项目状态总览
 
 ### 当前版本
-- **版本号**: v1.3.0
-- **最后更新**: 2025-10-18
+- **版本号**: v1.3.1
+- **最后更新**: 2025-10-19
 - **状态**: 稳定版本，生产就绪
 
 ### 核心功能状态
@@ -27,6 +27,75 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+
+### 2025-10-25
+- 🔧 修复ESLint警告：移除未使用的类型导入和变量声明
+  - 清理 `app/page.tsx` 中未使用的 `GradingResult`、`WrongAnswerItem` 类型导入
+  - 移除未使用的 `setLanguage`、`safeLocalStorageGet`、`safeLocalStorageSet` 变量
+  - 清理 `components/history-panel.tsx` 中未使用的 `Target` 图标导入
+  - 移除 `components/results-display.tsx` 中未使用的 `FocusArea` 类型导入
+
+## 最近更新
+- 2025-10-25 **优化专项练习模式清理**
+  - 完全删除 `components/results-display.tsx` 中160行的专项练习统计Card(之前仅用false隐藏)
+  - 移除未使用的imports: Target, TrendingUp, TrendingDown, Minus, AlertTriangle, FocusAreaStats
+  - 将 ResultsDisplayProps 中的 focusAreaStats 和 onRetryWithAdjustedTags 标记为 never 类型(已废弃但保留以兼容历史代码)
+  - 保留题目的 focus_areas 属性显示(用于错题分析和标签统计)
+  - 验证所有exercise.focusAreas引用都有可选链保护,避免运行时错误
+  - 构建验证通过,无TypeScript错误
+- 2025-10-25 **移除专项练习模式**
+  - 删除 `lib/specialized-preset-storage.ts`、`lib/focus-metrics.ts`、`lib/focus-metrics-cache.ts` 专项模式服务文件
+  - 从 `app/page.tsx` 移除专项模式状态、hooks、事件处理函数和API调用中的focusAreas参数
+  - 简化 `hooks/use-practice-setup.ts`,移除专项模式参数和语言切换回调
+  - 从 `components/home/practice-configuration.tsx` 移除专项练习UI组件和相关接口
+  - 隐藏 `components/history-panel.tsx` 和 `components/results-display.tsx` 中的专项模式显示区块
+  - 跳过 `tests/e2e/scenarios/complete-user-journey.spec.tsx` 中的专项练习测试
+  - 更新 `tests/fixtures/exercises/sample-exercises.ts`,将helper函数标记为已废弃
+  - API保持向后兼容: `/api/practice/save` 保留可选的focusAreas/focusCoverage参数以兼容历史数据
+  - 保留Focus Area类型定义供其他功能使用,翻译文件保持完整以免破坏历史数据展示
+  - 构建验证通过,无TypeScript类型错误
+- 2025-10-25 **彻底移除快捷键功能**
+  - 删除 `lib/shortcuts.ts`、`hooks/use-hotkeys.ts`、`components/shortcut-help-dialog.tsx` 快捷键相关文件
+  - 从 `app/page.tsx` 移除快捷键导入、状态、处理函数和 UI 组件（包括 Keyboard 图标和快捷键按钮）
+  - 从 `lib/i18n/translations/common.json` 和 `components.json` 移除所有 `shortcuts.*` 相关翻译键
+  - 删除 `tests/unit/hooks/use-hotkeys.test.ts` 测试文件
+  - 清理 localStorage 中 `english-listening-shortcuts-*` 相关存储键的使用
+  - 构建检查通过，无 TypeScript 类型错误和未使用引用警告
+  - 界面仅保留点击/触控交互，不再显示任何快捷键相关提示
+- 2025-10-25 **下线练习模板系统**
+  - 删除 `hooks/use-practice-templates.ts` 和 `lib/template-storage.ts` 模板存储模块
+  - 从 `app/page.tsx` 移除模板相关的 hook 调用和状态管理
+  - 从 `components/home/practice-configuration.tsx` 移除模板卡片 UI、保存/应用/重命名/删除功能
+  - 从 `lib/types.ts` 删除 `PracticeTemplate` 接口定义
+  - 从 `lib/i18n/translations/pages.json` 清理模板相关翻译键
+  - 删除 `tests/unit/hooks/use-practice-templates.test.ts` 测试文件
+  - 在应用初始化时自动清空 `localStorage` 中的 `english-listening-templates` 键，确保无残留数据
+  - 核心练习流程（配置、话题生成、音频生成、题目答题）在无模板功能下保持完整可用
+- 2025-10-25 **按钮文案与宣传语更新**
+  - 将“评估”按钮改为“自测英文水平”，英文 "Assessment" → "Test My Level"
+  - 将“历史”按钮改为“练习历史”，英文 "History" → "Practice History"
+  - 将“生成话题建议”改为“生成话题”，英文 "Generate Topic Suggestions" → "Generate Topics"
+  - 更新宣传语为轻松语气：中文“轻松练听力，让 AI 帮你进步更有趣”，英文 "Make learning fun with bite-sized AI listening practice"
+  - 同步更新 `lib/i18n/translations/common.json`、`pages.json`、`app/page.tsx`、`app/layout.tsx`、`README.md`
+- 2025-10-25 **话题建议区新增「换一批」按钮**
+  - 在 `lib/i18n/translations/common.json` 中添加 `buttons.refreshTopics` 翻译文案
+  - 修改 `app/api/ai/topics/route.ts` 支持 `excludedTopics` 参数，避免生成重复话题
+  - 更新 `lib/ai/prompt-templates.ts` 在提示词中排除已有话题
+  - 扩展 `lib/ai-service.ts` 的 `generateTopics` 函数支持传递排除列表
+  - 在 `app/page.tsx` 中实现 `handleRefreshTopics` 函数并传递给组件
+  - 在 `components/home/practice-configuration.tsx` 中添加「换一批」按钮 UI，仅在有话题时显示
+- 2025-10-19 **注册后自动登录优化**
+  - 修改 `app/api/auth/register/route.ts` 注册成功后生成 JWT token 并设置 auth-token cookie
+  - 更新 `components/auth-dialog.tsx` 注册成功后直接调用 `onUserAuthenticated` 实现自动登录，无需手动切换到登录页
+
+### 近期产品迭代（按难度递增且无前置依赖）
+1. ~~话题建议区新增「换一批」按钮与加载态，避免生成重复主题~~ ✅  
+2. ~~重写指定按钮与宣传语文案，保持中英文同步更新~~ ✅  
+3. ~~下线练习模板系统并清理本地缓存数据~~ ✅  
+4. ~~彻底移除快捷键功能及相关配置、翻译与测试~~ ✅  
+5. 下线专项练习模式并清理成就/历史展示依赖  
+6. 建立数据库驱动的语言切换体系，实现按用户偏好单语展示  
+7. 改造首页为可折叠左侧导航布局，强化导航体验
 - 2025-10-19 **注册后自动登录优化**
   - 修改 `app/api/auth/register/route.ts` 注册成功后生成 JWT token 并设置 auth-token cookie
   - 更新 `components/auth-dialog.tsx` 注册成功后直接调用 `onUserAuthenticated` 实现自动登录，无需手动切换到登录页
@@ -131,4 +200,4 @@
 
 ---
 
-*最后更新: 2025-10-18 10:25 UTC*
+*最后更新: 2025-10-19 10:25 UTC*

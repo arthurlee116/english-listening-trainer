@@ -4,7 +4,7 @@
 **本文档中引用的文件**
 - [login/route.ts](file://app/api/auth/login/route.ts)
 - [transcript/route.ts](file://app/api/ai/transcript/route.ts)
-- [tts/route.ts](file://app/api/tts/route.ts)
+- [tts/route-optimized.ts](file://app/api/tts/route-optimized.ts)
 - [save/route.ts](file://app/api/practice/save/route.ts)
 - [users/route.ts](file://app/api/admin/users/route.ts)
 - [auth.ts](file://lib/auth.ts)
@@ -12,15 +12,18 @@
 - [cerebras-service.ts](file://lib/ai/cerebras-service.ts)
 - [route-utils.ts](file://lib/ai/route-utils.ts)
 - [retry-strategy.ts](file://lib/ai/retry-strategy.ts)
+- [performance-optimizer.ts](file://lib/performance-optimizer.ts)
+- [audio/[filename]/route.ts](file://app/api/audio/[filename]/route.ts)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 更新了AI接口部分，反映从直接调用到`invokeStructured`管道的架构变更
-- 修订了AI生成接口的处理逻辑，体现结构化调用、覆盖率评估和代理容错机制
-- 新增了对`createAiRoute`高阶函数和`executeWithCoverageRetry`重试策略的说明
-- 更新了请求处理流程示例，准确反映当前代码实现
-- 修正了错误响应模式，包含新的限流和熔断机制
+- 更新了语音合成接口部分，反映从`route.ts`到`route-optimized.ts`的迁移，支持GPU加速和音频缓存
+- 新增了音频流式传输和断点续播功能说明，支持Range请求
+- 更新了AI接口部分，确认所有AI调用已统一通过`invokeStructured`管道
+- 新增了TTS并发限制器和内存缓存机制说明
+- 修订了请求处理流程示例，准确反映当前代码实现
+- 修正了错误响应模式，包含新的缓存命中和并发控制信息
 
 ## 目录
 1. [简介](#简介)
@@ -35,7 +38,7 @@
 10. [API版本控制与扩展规划](#api版本控制与扩展规划)
 
 ## 简介
-本API文档全面覆盖英语听力训练应用的所有公开后端接口，按功能模块划分为认证(auth)、AI内容生成(ai)、语音合成(tts)、练习记录(practice)和管理员(admin)五大组。所有接口均基于Next.js路由处理器实现，采用RESTful设计风格，通过JSON格式进行数据交换。系统采用JWT令牌结合HTTP-only Cookie实现安全的身份验证与会话管理。近期对AI接口进行了重大重构，引入了结构化调用、统一的限流与熔断机制，以及基于覆盖率的重试策略。
+本API文档全面覆盖英语听力训练应用的所有公开后端接口，按功能模块划分为认证(auth)、AI内容生成(ai)、语音合成(tts)、练习记录(practice)和管理员(admin)五大组。所有接口均基于Next.js路由处理器实现，采用RESTful设计风格，通过JSON格式进行数据交换。系统采用JWT令牌结合HTTP-only Cookie实现安全的身份验证与会话管理。近期对AI接口进行了重大重构，引入了结构化调用、统一的限流与熔断机制，以及基于覆盖率的重试策略。同时，语音合成服务已迁移至GPU专用服务，并增加了音频缓存和流式传输支持。
 
 ## 认证接口 (auth)
 提供用户注册、登录、登出及身份查询功能，是所有受保护资源访问的前提。
@@ -258,7 +261,7 @@
 - [schemas.ts](file://lib/ai/schemas.ts#L175-L263)
 
 ## 语音合成接口 (tts)
-使用GPU加速的Kokoro TTS服务将文本转换为自然语音。
+使用GPU加速的Kokoro TTS服务将文本转换为自然语音，支持音频缓存和流式传输。
 
 ### 文本转语音 (/api/tts)
 - **HTTP方法**: POST
@@ -274,18 +277,21 @@
   "audioUrl": "/tts_audio_12345.wav",
   "duration": 12.5,
   "byteLength": 102400,
-  "provider": "kokoro-gpu"
+  "provider": "kokoro-gpu",
+  "cached": false,
+  "message": "Audio generated successfully"
 }
 ```
-- **核心机制**: 接口通过Node.js子进程调用Python编写的Kokoro GPU服务，利用电路断路器(Circuit Breaker)模式管理服务健康状态，支持自动重启和指数退避重试。
+- **核心机制**: 接口通过Node.js子进程调用Python编写的Kokoro GPU服务，利用电路断路器(Circuit Breaker)模式管理服务健康状态，支持自动重启和指数退避重试。使用`audioCache`进行音频缓存，TTL为30分钟。通过`ttsRequestLimiter`限制并发请求数为1。
 - **错误码**:
   - 400: 文本为空或语言不支持
   - 503: GPU TTS服务未就绪
   - 504: 生成超时
 
 **Section sources**
-- [tts/route.ts](file://app/api/tts/route.ts#L1-L85)
+- [tts/route-optimized.ts](file://app/api/tts/route-optimized.ts#L1-L122)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts#L131-L518)
+- [performance-optimizer.ts](file://lib/performance-optimizer.ts#L249-L245)
 
 ## 练习记录接口 (practice)
 管理用户的练习历史和学习进度。

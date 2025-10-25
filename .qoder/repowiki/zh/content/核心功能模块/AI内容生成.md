@@ -2,30 +2,22 @@
 
 <cite>
 **本文档引用的文件**
-- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts) - *新增的AI客户端管理器*
-- [cerebras-service.ts](file://lib/ai/cerebras-service.ts) - *重构的AI服务调用层*
-- [request-preprocessor.ts](file://lib/ai/request-preprocessor.ts) - *新增的请求预处理器*
-- [retry-strategy.ts](file://lib/ai/retry-strategy.ts) - *新增的重试策略模块*
-- [prompt-templates.ts](file://lib/ai/prompt-templates.ts) - *重构的提示词模板*
-- [schemas.ts](file://lib/ai/schemas.ts) - *重构的JSON Schema定义*
-- [transcript-expansion.ts](file://lib/ai/transcript-expansion.ts) - *重构的文本扩写服务*
-- [topics/route.ts](file://app/api/ai/topics/route.ts) - *更新的API路由*
-- [transcript/route.ts](file://app/api/ai/transcript/route.ts) - *更新的API路由*
-- [questions/route.ts](file://app/api/ai/questions/route.ts) - *更新的API路由*
+- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts) - *AI客户端管理器，包含代理配置*
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts) - *AI服务调用层*
+- [retry-strategy.ts](file://lib/ai/retry-strategy.ts) - *重试策略模块*
+- [topics/route.ts](file://app/api/ai/topics/route.ts) - *话题生成API路由*
+- [transcript/route.ts](file://app/api/ai/transcript/route.ts) - *听力稿生成API路由*
+- [questions/route.ts](file://app/api/ai/questions/route.ts) - *问题生成API路由*
 - [ai-service.ts](file://lib/ai-service.ts)
 - [ark-helper.ts](file://lib/ark-helper.ts)
-- [text-expansion.ts](file://lib/text-expansion.ts)
-- [difficulty-service.ts](file://lib/difficulty-service.ts)
-- [types.ts](file://lib/types.ts)
-- [main-app.tsx](file://components/main-app.tsx)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- **架构重构**：引入了`cerebras-client-manager.ts`和`cerebras-service.ts`作为AI调用的新核心，替代了原有的`ark-helper.ts`直接调用模式
-- **新功能添加**：增加了代理容错机制、结构化调用接口和覆盖重试策略
-- **代码重构**：对`transcript-expansion.ts`、`prompt-templates.ts`和`schemas.ts`进行了重构，提高了代码的可维护性
-- **依赖更新**：现有文档中提到的`ai-service.ts`和`ark-helper.ts`的调用方式已过时，需要更新为新的调用链
+- **架构变更**：移除了动态代理及其健康检查功能，改为硬编码使用生产代理地址
+- **配置简化**：`CerebrasClientManager`不再需要动态代理健康检查，`getProxyStatus`方法返回静态健康状态
+- **代码重构**：`cerebras-client-manager.ts`和`retry-strategy.ts`文件进行了重构，简化了代理管理逻辑
+- **依赖更新**：现有文档中关于动态代理健康检查的描述已过时，需要更新为新的静态代理配置模式
 
 ## 目录
 1. [简介](#简介)
@@ -80,11 +72,11 @@ E --> H
 系统的核心组件包括四个主要的AI生成模块：话题生成、听力稿生成、问题生成和文本扩写。这些组件通过标准化的JSON Schema进行数据交换，确保接口的一致性和可靠性。每个组件都实现了完善的错误处理机制和重试策略，能够应对网络波动和API调用失败等异常情况。此外，系统还集成了上下文长度管理和结果缓存策略，有效提升了用户体验和系统性能。
 
 **章节来源**
-- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L1-L65)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L1-L61)
 - [types.ts](file://lib/types.ts#L0-L215)
 
 ## 架构概述
-系统采用前后端分离架构，前端通过`ai-service.ts`提供的高级API与后端交互，所有敏感操作均在服务器端完成。当用户发起请求时，前端首先验证输入参数的有效性，然后通过fetch API调用对应的Next.js路由。后端路由接收到请求后，根据预设的提示工程模板构造AI调用参数，并通过`cerebras-service.ts`中的`invokeStructured`函数与Cerebras云平台通信。新的架构引入了`CerebrasClientManager`进行客户端管理，支持直接连接和代理连接两种模式，并具备代理健康检查功能。
+系统采用前后端分离架构，前端通过`ai-service.ts`提供的高级API与后端交互，所有敏感操作均在服务器端完成。当用户发起请求时，前端首先验证输入参数的有效性，然后通过fetch API调用对应的Next.js路由。后端路由接收到请求后，根据预设的提示工程模板构造AI调用参数，并通过`cerebras-service.ts`中的`invokeStructured`函数与Cerebras云平台通信。新的架构中，`CerebrasClientManager`被简化为使用硬编码的代理地址，不再进行动态健康检查。
 
 ```mermaid
 sequenceDiagram
@@ -98,7 +90,7 @@ participant Cerebras云 as Cerebras云平台
 客户端服务->>服务端路由 : POST /api/ai/topics
 服务端路由->>AI服务 : invokeStructured(prompt, schema)
 AI服务->>客户端管理器 : getClient()
-客户端管理器->>Cerebras云 : 发送请求
+客户端管理器->>Cerebras云 : 发送请求(通过硬编码代理)
 Cerebras云-->>客户端管理器 : 返回响应
 客户端管理器-->>AI服务 : 解析结果
 AI服务-->>服务端路由 : 返回结构化数据
@@ -107,8 +99,8 @@ AI服务-->>服务端路由 : 返回结构化数据
 ```
 
 **图示来源**
-- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L33-L64)
-- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L17-L189)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L33-L60)
+- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L15-L78)
 - [topics/route.ts](file://app/api/ai/topics/route.ts#L1-L122)
 
 ## 详细组件分析
@@ -241,18 +233,18 @@ F --> I[CerebrasClientManager]
 ```
 
 **图示来源**
-- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L33-L64)
-- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L17-L189)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L33-L60)
+- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L15-L78)
 
 **章节来源**
-- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L1-L65)
-- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L1-L196)
+- [cerebras-service.ts](file://lib/ai/cerebras-service.ts#L1-L61)
+- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L1-L85)
 
 ## 性能考虑
 系统在性能方面采取了多项优化措施。首先，通过`CerebrasClientManager`实现了客户端连接复用和TCP连接保持，显著减少了连接建立的开销。其次，使用`executeWithCoverageRetry`策略避免了不必要的重复请求。对于耗时较长的AI生成任务，系统提供了加载状态指示和进度反馈，改善用户体验。此外，内存管理模块定期清理过期缓存，防止内存泄漏。
 
 **章节来源**
-- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L17-L189)
+- [cerebras-client-manager.ts](file://lib/ai/cerebras-client-manager.ts#L15-L78)
 - [retry-strategy.ts](file://lib/ai/retry-strategy.ts#L1-L102)
 
 ## 故障排除指南

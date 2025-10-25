@@ -22,18 +22,6 @@ export interface LanguageConfig {
   displayName: string    // Display name in English
 }
 
-// 自定义练习模板结构
-export interface PracticeTemplate {
-  id: string
-  name: string
-  createdAt: string
-  difficulty: DifficultyLevel
-  language: ListeningLanguage
-  duration: number
-  autoGenerateTopic: boolean
-  topic: string
-}
-
 // 考察点标签类型
 export type FocusArea = 
   | "main-idea" 

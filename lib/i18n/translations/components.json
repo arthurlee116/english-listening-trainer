@@ -976,10 +976,6 @@
       "en": "Saved locally on this device",
       "zh": "已在此设备本地保存"
     },
-    "shortcutSaveHint": {
-      "en": "Shortcut: Cmd/Ctrl + Enter to save",
-      "zh": "快捷键：Cmd/Ctrl + Enter 保存"
-    },
     "lengthHint": {
       "en": "Length: {current}/{max}",
       "zh": "字数：{current}/{max}"

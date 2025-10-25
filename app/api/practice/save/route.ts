@@ -81,15 +81,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 合并专项练习数据
+    // 合并专项练习数据 (保留以兼容历史数据)
     const enhancedExerciseData = {
       ...parsedExerciseData,
       achievementMetadata: achievementMetadata || null,
-      // 专项练习字段
+      // 专项练习字段 (已废弃,但保留以兼容历史数据)
       ...(specializedMode && {
         focusAreas: focusAreas || [],
         focusCoverage: focusCoverage || null,
-        specializedMode: true,
+        specializedMode,
         perFocusAccuracy
       })
     }

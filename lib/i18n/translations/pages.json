@@ -5,8 +5,8 @@
       "zh": "英语听力训练器"
     },
     "subtitle": {
-      "en": "AI-powered listening practice for K12 students",
-      "zh": "为K12学生提供的AI驱动听力练习"
+      "en": "Make learning fun with bite-sized AI listening practice",
+      "zh": "轻松练听力，让 AI 帮你进步更有趣"
     },
     "generateExercise": {
       "en": "Generate Exercise",
@@ -152,26 +152,5 @@
       "en": "Settings",
       "zh": "设置"
     }
-  }
-  ,
-  "templates": {
-    "title": { "en": "Templates", "zh": "模板库" },
-    "deviceNotice": { "en": "Stored only on this device", "zh": "模板仅保存在此设备" },
-    "emptyPlaceholder": { "en": "No templates yet. Save your favorite configurations.", "zh": "暂无模板，保存您常用的配置。" },
-    "saveButton": { "en": "Save as Template", "zh": "保存为模板" },
-    "applyButton": { "en": "Apply", "zh": "应用" },
-    "rename": { "en": "Rename", "zh": "重命名" },
-    "confirmRename": { "en": "Confirm", "zh": "确认" },
-    "delete": { "en": "Delete", "zh": "删除" },
-    "renamePlaceholder": { "en": "Enter new name", "zh": "输入新名称" },
-    "createdAt": { "en": "Created", "zh": "创建于" },
-    "applySuccess": { "en": "Template applied", "zh": "已应用模板" },
-    "saveSuccess": { "en": "Template saved", "zh": "模板已保存" },
-    "nameDuplicate": { "en": "Template name already exists", "zh": "已存在同名模板" },
-    "deleteConfirm": { "en": "Delete this template?", "zh": "确认删除该模板？" },
-    "deleteSuccess": { "en": "Template deleted", "zh": "模板已删除" },
-    "renameSuccess": { "en": "Template renamed", "zh": "模板已重命名" },
-    "unavailable": { "en": "Local storage unavailable; templates not supported.", "zh": "本地存储不可用，模板功能无法使用。" },
-    "languageFallback": { "en": "Language not supported; defaulted to American English.", "zh": "模板语言不受支持，已回退为美式英语。" }
   }
 }

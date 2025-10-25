@@ -1,4 +1,3 @@
-
 # TTS语音合成
 
 <cite>
@@ -6,7 +5,6 @@
 - [route.ts](file://app/api/tts/route.ts)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)
 - [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
-- [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 - [kokoro-env.ts](file://lib/kokoro-env.ts)
 - [audio-utils.ts](file://lib/audio-utils.ts)
@@ -18,6 +16,13 @@
 - [KOKORO_SETUP_GUIDE.md](file://documents/KOKORO_SETUP_GUIDE.md)
 </cite>
 
+## 更新摘要
+**已更改内容**
+- 移除了对CPU模式TTS服务的支持，系统现在完全基于GPU模式运行。
+- `route-optimized.ts`文件已更新，不再使用独立的CPU服务，而是调用`kokoroTTSGPU`服务实例。
+- 所有API路径（包括`route.ts`和`route-optimized.ts`）现在都使用`kokoroTTSGPU`服务，统一了GPU加速的TTS处理流程。
+- 文档中的架构图和流程图已更新，以反映单一GPU服务的调用路径。
+
 ## 目录
 1. [引言](#引言)
 2. [API路径设计差异与适用场景](#api路径设计差异与适用场景)
@@ -27,7 +32,7 @@
 6. [结论](#结论)
 
 ## 引言
-本项目实现了一个基于Kokoro TTS引擎的语音合成系统，通过Node.js后端调用本地Python脚本，为用户提供高质量的文本转语音服务。系统设计了两种API路径以适应不同的硬件环境，并集成了复杂的容错、缓存和性能优化机制。
+本项目实现了一个基于Kokoro TTS引擎的语音合成系统，通过Node.js后端调用本地Python脚本，为用户提供高质量的文本转语音服务。系统现已完全迁移至GPU模式，通过`kokoroTTSGPU`服务实例提供高性能的音频生成能力，并集成了复杂的容错、缓存和性能优化机制。
 
 **TTS语音合成模块的核心架构如下：**
 
@@ -40,7 +45,6 @@ subgraph "Node.js 后端"
 API["/api/tts"]
 OptimizedRoute["route-optimized.ts"]
 StandardRoute["route.ts"]
-KokoroService["kokoro-service.ts"]
 GPUService["kokoro-service-gpu.ts"]
 EnvConfig["kokoro-env.ts"]
 end
@@ -56,9 +60,8 @@ GeneratedAudio[(生成的音频文件)]
 end
 UI --> |HTTP请求| OptimizedRoute
 UI --> |HTTP请求| StandardRoute
-OptimizedRoute --> |调用| KokoroService
+OptimizedRoute --> |调用| GPUService
 StandardRoute --> |调用| GPUService
-KokoroService --> |spawn| PythonProcess
 GPUService --> |spawn| PythonProcess
 PythonProcess --> |执行| WrapperScript
 WrapperScript --> |调用| KokoroEngine
@@ -70,28 +73,27 @@ OptimizedRoute --> |读写| AudioCache
 **Diagram sources**
 - [route.ts](file://app/api/tts/route.ts)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)
-- [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 - [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
 
 ## API路径设计差异与适用场景
-系统提供了`route.ts`和`route-optimized.ts`两个API入口，分别针对GPU和CPU模式进行了优化。
+系统提供了`route.ts`和`route-optimized.ts`两个API入口，但两者现在均基于GPU模式进行优化。
 
-### CPU模式 (route-optimized.ts)
-`route-optimized.ts`是为CPU服务器设计的优化路径，其主要特点包括：
+### 优化路径 (route-optimized.ts)
+`route-optimized.ts`是为提升性能和用户体验而设计的优化路径，其主要特点包括：
 
 *   **请求缓存**: 使用MD5哈希对文本和语速参数生成缓存键，将已生成的音频结果存储在内存中（默认30分钟TTL），显著减少重复请求的处理时间。
-*   **并发限制**: 通过`concurrencyLimiter`确保同一时间只有一个TTS请求在处理，防止CPU过载。
+*   **并发限制**: 通过`concurrencyLimiter`确保同一时间只有一个TTS请求在处理，防止服务器过载。
 *   **性能中间件**: 集成`createTTSApiHandler`，提供防抖、错误处理和性能监控功能。
 *   **健康检查**: 提供GET端点，返回服务状态和缓存统计信息。
 
-该路径适用于没有GPU加速的普通服务器，通过缓存和并发控制来保证服务的稳定性和响应速度。
+该路径适用于所有部署环境，通过缓存和并发控制来保证服务的稳定性和响应速度，同时利用GPU的高性能。
 
-### GPU模式 (route.ts)
-`route.ts`是为GPU服务器设计的高性能路径，其主要特点包括：
+### 标准路径 (route.ts)
+`route.ts`是标准的高性能路径，其主要特点包括：
 
-*   **无缓存**: 不使用应用层缓存，每次请求都直接调用GPU进行实时生成，确保能处理最长文本并利用GPU的全部算力。
-*   **专用服务实例**: 调用`kokoroTTSGPU`服务，该服务配置了更长的初始化超时（3分钟）以适应GPU驱动加载。
+*   **直接调用**: 不使用应用层缓存，每次请求都直接调用GPU进行实时生成，确保能处理最长文本并利用GPU的全部算力。
+*   **专用服务实例**: 调用`kokoroTTSGPU`服务，该服务配置了更长的初始化超时（10分钟）以适应GPU驱动加载。
 *   **设备感知**: 通过`detectKokoroDevicePreference`自动检测NVIDIA GPU并优先使用CUDA加速。
 *   **快速失败**: 当GPU服务未就绪时，立即返回503状态码，避免长时间等待。
 
@@ -102,17 +104,17 @@ OptimizedRoute --> |读写| AudioCache
 ```mermaid
 flowchart TD
 Start([客户端发起TTS请求]) --> CheckMode{"选择模式?"}
-CheckMode --> |CPU服务器| UseOptimized["使用 /api/tts (route-optimized.ts)"]
+CheckMode --> |性能优化模式| UseOptimized["使用 /api/tts (route-optimized.ts)"]
 UseOptimized --> CheckCache["检查缓存"]
 CheckCache --> |命中| ReturnCached["返回缓存音频"]
 CheckCache --> |未命中| ApplyConcurrency["应用并发限制器"]
-ApplyConcurrency --> CallCPUService["调用 kokoroTTS.generateAudio()"]
-CallCPUService --> SaveToCache["保存到缓存"]
+ApplyConcurrency --> CallGPUService["调用 kokoroTTSGPU.generateAudio()"]
+CallGPUService --> SaveToCache["保存到缓存"]
 SaveToCache --> ReturnResult["返回音频结果"]
-CheckMode --> |GPU服务器| UseStandard["使用 /api/tts (route.ts)"]
+CheckMode --> |标准模式| UseStandard["使用 /api/tts (route.ts)"]
 UseStandard --> CheckReady["检查GPU服务是否就绪"]
 CheckReady --> |未就绪| FailFast["立即返回503"]
-CheckReady --> |就绪| CallGPUService["调用 kokoroTTSGPU.generateAudio()"]
+CheckReady --> |就绪| CallGPUService
 CallGPUService --> ReturnResult
 ReturnCached --> End([完成])
 ReturnResult --> End
@@ -122,7 +124,6 @@ FailFast --> End
 **Diagram sources**
 - [route.ts](file://app/api/tts/route.ts)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)
-- [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 
 **Section sources**
@@ -133,7 +134,7 @@ FailFast --> End
 Node.js后端通过创建子进程的方式与Python编写的`kokoro_wrapper.py`脚本进行通信，整个流程高效且健壮。
 
 ### 进程启动与环境配置
-当`kokoroTTS`或`kokoroTTSGPU`服务实例化时，会调用`startPythonProcess()`方法：
+当`kokoroTTSGPU`服务实例化时，会调用`startPythonProcess()`方法：
 1.  **解析路径**: 确定`kokoro_wrapper.py`脚本的绝对路径。
 2.  **构建环境**: `buildKokoroPythonEnv`函数根据`KOKORO_DEVICE`等环境变量，构建一个包含`PYTHONPATH`、`PATH`和库路径的完整环境对象，确保Python进程能找到所有依赖。
 3.  **启动子进程**: 使用`child_process.spawn`创建Python子进程，标准输入(stdin)、输出(stdout)和错误(stderr)均被重定向，以便Node.js主进程可以读写。
@@ -162,14 +163,13 @@ Node.js后端通过创建子进程的方式与Python编写的`kokoro_wrapper.py`
 *   **时长估算**: 调用`getWavAudioMetadata(audioBuffer)`函数。该函数解析WAV文件头，提取采样率、声道数和位深度，然后根据音频数据的总字节数精确计算出播放时长，避免了在前端播放前无法预知时长的问题。
 
 **Section sources**
-- [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 - [kokoro_wrapper.py](file://kokoro_local/kokoro_wrapper.py)
 - [audio-utils.ts](file://lib/audio-utils.ts)
 - [kokoro-env.ts](file://lib/kokoro-env.ts)
 
 ## kokoro-service中的容错与并发控制机制
-`kokoro-service.ts`和`kokoro-service-gpu.ts`是TTS服务的核心，它们实现了高级的容错和并发控制机制。
+`kokoro-service-gpu.ts`是TTS服务的核心，它实现了高级的容错和并发控制机制。
 
 ### 电路断路器模式
 为了防止级联故障，服务内置了电路断路器(Circuit Breaker)：
@@ -179,14 +179,14 @@ Node.js后端通过创建子进程的方式与Python编写的`kokoro_wrapper.py`
 *   **指数退避**: 重启尝试的延迟时间随失败次数指数增长，避免对故障服务造成过大压力。
 
 ### 并发控制
-*   **单例模式**: `kokoroTTS`和`kokoroTTSGPU`都是全局单例，确保整个应用只有一个与Python引擎的连接。
+*   **单例模式**: `kokoroTTSGPU`是全局单例，确保整个应用只有一个与Python引擎的连接。
 *   **请求队列**: 所有生成音频的请求都被放入一个`pendingRequests`映射中，每个请求都有唯一的ID。
 *   **串行处理**: 由于底层TTS引擎可能不支持高并发，服务通过管理请求队列，确保在同一时刻只处理一个请求，避免竞争条件。
 
 ### 异常捕获与降级策略
 *   **全面异常捕获**: 从API路由到服务内部，每一层都使用`try-catch`捕获异步错误。
 *   **精细化错误处理**: 在`route.ts`中，根据错误信息的关键词（如`timeout`, `cuda`, `not ready`）进行归类，并返回更具指导性的用户提示和相应的HTTP状态码。
-*   **降级策略**: 当GPU服务不可用时，系统不会自动切换到CPU模式，但清晰的错误信息（如“GPU加速服务异常”）引导管理员进行排查或手动降级部署。
+*   **降级策略**: 当GPU服务不可用时，系统不会自动切换到其他模式，但清晰的错误信息（如“GPU加速服务异常”）引导管理员进行排查。
 
 ### 日志追踪方案
 *   **结构化日志**: 大量使用`console.log`和`console.error`输出关键信息，如服务启动、请求处理、错误详情等。
@@ -194,7 +194,6 @@ Node.js后端通过创建子进程的方式与Python编写的`kokoro_wrapper.py`
 *   **状态报告**: `getServiceStatus()`方法提供了服务当前的状态、失败次数、重启尝试次数等信息，可用于健康检查和监控。
 
 **Section sources**
-- [kokoro-service.ts](file://lib/kokoro-service.ts)
 - [kokoro-service-gpu.ts](file://lib/kokoro-service-gpu.ts)
 - [route.ts](file://app/api/tts/route.ts)
 - [route-optimized.ts](file://app/api/tts/route-optimized.ts)

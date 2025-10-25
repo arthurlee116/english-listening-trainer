@@ -8,13 +8,18 @@ export interface TopicsPromptParams {
   difficultyDescriptor: string
   focusAreasPrompt: string
   focusAreas: FocusArea[]
+  excludedTopics?: string[]
 }
 
 export function buildTopicsPrompt(params: TopicsPromptParams): string {
-  const { languageName, wordCount, difficultyDescriptor, focusAreasPrompt, focusAreas } = params
+  const { languageName, wordCount, difficultyDescriptor, focusAreasPrompt, focusAreas, excludedTopics } = params
 
   const focusRequirement = focusAreas.length > 0
     ? `- Topics should be suitable for practicing the specified focus areas: ${focusAreas.join(', ')}`
+    : ''
+
+  const excludeRequirement = excludedTopics && excludedTopics.length > 0
+    ? `\n- DO NOT generate topics similar to these: ${excludedTopics.join('; ')}`
     : ''
 
   return `You are a listening comprehension topic generator. Generate 5 topics suitable for ${languageName} listening practice with approximately ${wordCount} words. 
@@ -27,7 +32,7 @@ Requirements:
 - Each topic should be a phrase or short sentence
 - Topics should be engaging and practical
 - Consider the vocabulary complexity and subject matter appropriate for this level
-${focusRequirement}
+${focusRequirement}${excludeRequirement}
 
 Return exactly 5 topics in ${languageName}.`
 }

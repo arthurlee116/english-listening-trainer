@@ -22,7 +22,8 @@ async function handleTopics(request: NextRequest): Promise<NextResponse> {
     wordCount,
     language = 'en-US',
     difficultyLevel,
-    focusAreas
+    focusAreas,
+    excludedTopics
   } = await request.json()
 
   if (!difficulty || !wordCount) {
@@ -45,7 +46,8 @@ async function handleTopics(request: NextRequest): Promise<NextResponse> {
     wordCount,
     difficultyDescriptor,
     focusAreasPrompt: context.focusAreasPrompt,
-    focusAreas: context.validatedFocusAreas
+    focusAreas: context.validatedFocusAreas,
+    excludedTopics
   })
 
   const maxAttempts = context.validatedFocusAreas.length > 0 ? 2 : 1
