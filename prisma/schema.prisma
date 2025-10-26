@@ -15,13 +15,14 @@ datasource db {
 // 用户表 - 邮箱密码认证系统
 // ==========================================
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String    // bcrypt 加密
-  name      String?
-  isAdmin   Boolean   @default(false)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id                String    @id @default(cuid())
+  email             String    @unique
+  password          String    // bcrypt 加密
+  name              String?
+  isAdmin           Boolean   @default(false)
+  preferredLanguage String    @default("zh") @map("preferred_language") // 用户语言偏好 ('zh' / 'en')
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
   
   // 关联关系
   practiceSessions PracticeSession[]

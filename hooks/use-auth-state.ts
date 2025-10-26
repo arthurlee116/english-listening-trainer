@@ -7,6 +7,7 @@ export interface AuthUserInfo {
   email: string
   name?: string | null
   isAdmin: boolean
+  preferredLanguage?: string
   createdAt: string
   updatedAt: string
 }

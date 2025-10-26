@@ -92,3 +92,107 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Sidebar Elastic Animations (Apple-style spring effect) */
+@keyframes sidebar-expand {
+  0% {
+    transform: translateX(-100%);
+  }
+  60% {
+    transform: translateX(8px);
+  }
+  80% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes sidebar-collapse {
+  0% {
+    transform: translateX(0);
+  }
+  60% {
+    transform: translateX(-8px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes sidebar-width-expand {
+  0% {
+    width: 4rem;
+  }
+  60% {
+    width: 17rem;
+  }
+  80% {
+    width: 15.5rem;
+  }
+  100% {
+    width: 16rem;
+  }
+}
+
+@keyframes sidebar-width-collapse {
+  0% {
+    width: 16rem;
+  }
+  60% {
+    width: 3.5rem;
+  }
+  80% {
+    width: 4.5rem;
+  }
+  100% {
+    width: 4rem;
+  }
+}
+
+.animate-sidebar-expand {
+  animation: sidebar-expand 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-sidebar-collapse {
+  animation: sidebar-collapse 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-sidebar-width-expand {
+  animation: sidebar-width-expand 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-sidebar-width-collapse {
+  animation: sidebar-width-collapse 350ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Overlay fade animations */
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-overlay-fade-in {
+  animation: overlay-fade-in 200ms ease-out;
+}
+
+.animate-overlay-fade-out {
+  animation: overlay-fade-out 150ms ease-in;
+}

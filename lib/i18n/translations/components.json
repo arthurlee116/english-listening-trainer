@@ -1,4 +1,14 @@
 {
+  "languageSwitcher": {
+    "ariaLabel": {
+      "en": "Switch language",
+      "zh": "切换语言"
+    },
+    "switchingTo": {
+      "en": "Switching to {language}",
+      "zh": "正在切换到{language}"
+    }
+  },
   "audioPlayer": {
     "title": {
       "en": "Listening Practice",
@@ -726,17 +736,61 @@
       "en": "Practice",
       "zh": "练习"
     },
-    "history": {
-      "en": "History",
-      "zh": "历史"
+    "practiceHistory": {
+      "en": "Practice History",
+      "zh": "练习历史"
     },
     "wrongAnswers": {
-      "en": "Wrong Answers",
+      "en": "Wrong Answers Book",
       "zh": "错题本"
     },
     "assessment": {
-      "en": "Assessment",
-      "zh": "评估"
+      "en": "Test My Level",
+      "zh": "自测英文水平"
+    },
+    "admin": {
+      "en": "Admin",
+      "zh": "管理"
+    },
+    "logout": {
+      "en": "Logout",
+      "zh": "退出"
+    },
+    "language": {
+      "en": "Language",
+      "zh": "语言"
+    },
+    "mainSection": {
+      "en": "Main",
+      "zh": "主要功能"
+    },
+    "userSection": {
+      "en": "Account",
+      "zh": "账户"
+    },
+    "toggleSidebar": {
+      "en": "Toggle sidebar",
+      "zh": "切换侧边栏"
+    },
+    "collapseSidebar": {
+      "en": "Collapse sidebar",
+      "zh": "折叠侧边栏"
+    },
+    "expandSidebar": {
+      "en": "Expand sidebar",
+      "zh": "展开侧边栏"
+    },
+    "closeSidebar": {
+      "en": "Close sidebar",
+      "zh": "关闭侧边栏"
+    },
+    "sidebarAriaLabel": {
+      "en": "Main navigation sidebar",
+      "zh": "主导航侧边栏"
+    },
+    "overlayAriaLabel": {
+      "en": "Close sidebar overlay",
+      "zh": "关闭侧边栏遮罩"
     },
     "profile": {
       "en": "Profile",

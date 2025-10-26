@@ -4,11 +4,6 @@ import React from "react"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
-import { BilingualText } from "@/components/ui/bilingual-text"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-
-import { Sparkles, History, User, Settings, LogOut, Book } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
@@ -22,13 +17,16 @@ import { AssessmentInterface } from "@/components/assessment-interface"
 import { AuthenticationGate } from "@/components/home/authentication-gate"
 import { PracticeConfiguration } from "@/components/home/practice-configuration"
 import { PracticeWorkspace } from "@/components/home/practice-workspace"
+import { AppLayoutWithSidebar } from "@/components/app-layout-with-sidebar"
+import { MobileSidebarWrapper } from "@/components/navigation/mobile-sidebar-wrapper"
 
 import { AudioPlayerControls } from "@/components/audio-player"
 import type { 
   Exercise, 
   Question, 
   DifficultyLevel, 
-  AchievementNotification
+  AchievementNotification,
+  NavigationAction,
 } from "@/lib/types"
 import { usePracticeSetup } from "@/hooks/use-practice-setup"
 import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
@@ -742,6 +740,26 @@ function HomePage() {
   // 如果正在加载认证状态或未完成客户端挂载，显示加载界面
   console.log(`🔄 渲染状态检查: isLoading=${isLoading}, hasMounted=${hasMounted}, isAuthenticated=${isAuthenticated}`)
   
+  // Handle navigation actions from sidebar
+  const handleNavigate = useCallback((action: NavigationAction) => {
+    switch (action.type) {
+      case 'setState':
+        setStep(action.targetState as typeof step)
+        break
+      case 'callback':
+        // Handle callback by name
+        if (action.callbackName === 'handleLogout') {
+          handleLogout()
+        }
+        // handleLanguageSwitch is handled in sidebar component directly
+        break
+      case 'external':
+        window.open(action.href, action.openInNewTab ? '_blank' : '_self')
+        break
+    }
+  }, [handleLogout])
+
+  // 使用条件渲染代替提前返回，避免违反 Hooks 规则
   if (step === "history") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -806,101 +824,43 @@ function HomePage() {
       showAuthDialog={showAuthDialog}
       onUserAuthenticated={handleUserAuthenticated}
     >
+      {/* Mobile Sidebar Wrapper (visible only on mobile) */}
+      <MobileSidebarWrapper
+        currentStep={step}
+        onNavigate={handleNavigate}
+        assessmentResult={assessmentResult}
+      />
+      
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="container mx-auto px-4 py-8">
-        {/* Main Header Panel */}
-        <div className="mb-8 flex justify-center">
-          <div className="bg-slate-900/50 backdrop-blur rounded-3xl p-6 md:p-8 shadow-2xl max-w-5xl w-full">
-            {/* Main Title Section */}
-            <div className="text-center mb-6">
-              <div className="space-y-2 mb-4">
-                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-sky-400 leading-tight" style={{maxWidth: '560px', margin: '0 auto', textWrap: 'balance'}}>
-                  English Listening Trainer
-                </h1>
-                <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-sky-400 leading-tight" style={{maxWidth: '560px', margin: '0 auto', textWrap: 'balance'}}>
-                  英语听力训练器
-                </h2>
-              </div>
-              <div className="text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed">
-                <p className="mb-1">Make learning fun with bite-sized AI listening practice</p>
-                <p>轻松练听力，让 AI 帮你进步更有趣</p>
-              </div>
-            </div>
-            
-            {/* Action Buttons Section */}
-            <div className="flex flex-wrap gap-3 justify-center items-center lg:gap-4">
-              {/* User Info Row */}
-              <div className="flex flex-wrap gap-2 w-full justify-center sm:w-auto">
-                {/* User Info */}
-                {isAuthenticated && user && (
-                  <Badge variant="secondary" className="bg-slate-900/60 text-sky-400 border-slate-700">
-                    <User className="w-4 h-4 mr-2" />
-                    <span className="text-sm">{user.name || user.email}</span>
-                    {user.isAdmin && (
-                      <span className="ml-2 text-xs text-green-400">Admin</span>
-                    )}
-                  </Badge>
-                )}
-                
-                {/* Personalized Difficulty Badge */}
-                {assessmentResult && (
-                  <Badge variant="secondary" className="bg-slate-900/60 text-sky-400 border-slate-700">
-                    <span className="text-sm">
-                      个性化难度：{assessmentResult.difficultyRange.name}
-                      <span className="ml-1">({assessmentResult.difficultyRange.min}-{assessmentResult.difficultyRange.max})</span>
-                    </span>
-                  </Badge>
-                )}
-
-              </div>
-              
-              {/* Primary Action Buttons Row */}
-              <div className="flex flex-wrap gap-2 justify-center sm:gap-3">
-                <Button variant="outline" size="sm" onClick={() => setStep("assessment")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.assessment" /></span>
-                  <span className="sm:hidden"><BilingualText translationKey="buttons.assessment" /></span>
-                </Button>
-                
-                <Button variant="outline" size="sm" onClick={() => setStep("history")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
-                  <History className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.history" /></span>
-                  <span className="sm:hidden"><BilingualText translationKey="buttons.history" /></span>
-                </Button>
-                
-                <Button variant="outline" size="sm" onClick={() => setStep("wrong-answers")} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
-                  <Book className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.wrongAnswersBook" /></span>
-                  <span className="sm:hidden">错题本</span>
-                </Button>
-              </div>
-              
-              {/* Secondary Action Buttons Row */}
-              <div className="flex flex-wrap gap-2 justify-center sm:gap-3">
-                {user?.isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => window.open('/admin', '_blank')} className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80">
-                    <Settings className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline"><BilingualText translationKey="buttons.admin" /></span>
-                    <span className="sm:hidden">Admin</span>
-                  </Button>
-                )}
-                
-
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleLogout}
-                  className="bg-slate-900/60 text-sky-400 border-slate-700 hover:bg-slate-800/80"
-                  title={t("buttons.logout")}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline"><BilingualText translationKey="buttons.logout" /></span>
-                  <span className="sm:hidden">登出</span>
-                </Button>
+        {/* Desktop Layout with Sidebar */}
+        <AppLayoutWithSidebar
+          currentStep={step}
+          onNavigate={handleNavigate}
+          assessmentResult={assessmentResult}
+        >
+          <div className="container mx-auto px-4 py-8">
+            {/* Main Header Panel - Reduced Title Size */}
+            <div className="mb-8 flex justify-center">
+              <div className="bg-slate-900/50 backdrop-blur rounded-3xl p-6 md:p-8 shadow-2xl max-w-5xl w-full">
+                {/* Main Title Section */}
+                <div className="text-center mb-6">
+                  <div className="space-y-2 mb-4">
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-sky-400 leading-tight" style={{maxWidth: '560px', margin: '0 auto', textWrap: 'balance'}}>
+                      English Listening Trainer
+                    </h1>
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-sky-400 leading-tight" style={{maxWidth: '560px', margin: '0 auto', textWrap: 'balance'}}>
+                      英语听力训练器
+                    </h2>
+                  </div>
+                  <div className="text-base sm:text-lg text-slate-300 leading-relaxed">
+                    <p className="mb-1">Make learning fun with bite-sized AI listening practice</p>
+                    <p>轻松练听力，让 AI 帮你进步更有趣</p>
+                  </div>
+                </div>
+                {/* Language Switcher Removed - Now in Sidebar */}
+                <div />
               </div>
             </div>
-          </div>
-        </div>
 
 
         {step === "setup" && (
@@ -933,35 +893,34 @@ function HomePage() {
           />
         )}
 
-        <PracticeWorkspace
-          step={step}
-          audioPlayerRef={audioPlayerRef}
-          transcript={transcript}
-          difficulty={difficulty}
-          topic={topic}
-          wordCount={wordCount}
-          audioUrl={audioUrl}
-          audioError={audioError}
-          onGenerateAudio={handleGenerateAudio}
-          onStartQuestions={handleStartQuestions}
-          onRegenerate={handleGenerateTranscript}
-          canRegenerate={canRegenerate}
-          loading={loading}
-          loadingMessage={loadingMessage}
-          audioDuration={audioDuration}
-          questions={questions}
-          answers={answers}
-          onAnswerChange={setAnswers}
-          onSubmitAnswers={handleSubmitAnswers}
-          currentExercise={currentExercise}
-          onRestart={handleRestart}
-          onExport={handleExport}
-        />
-      </div>
+            <PracticeWorkspace
+              step={step}
+              audioPlayerRef={audioPlayerRef}
+              transcript={transcript}
+              difficulty={difficulty}
+              topic={topic}
+              wordCount={wordCount}
+              audioUrl={audioUrl}
+              audioError={audioError}
+              onGenerateAudio={handleGenerateAudio}
+              onStartQuestions={handleStartQuestions}
+              onRegenerate={handleGenerateTranscript}
+              canRegenerate={canRegenerate}
+              loading={loading}
+              loadingMessage={loadingMessage}
+              audioDuration={audioDuration}
+              questions={questions}
+              answers={answers}
+              onAnswerChange={setAnswers}
+              onSubmitAnswers={handleSubmitAnswers}
+              currentExercise={currentExercise}
+              onRestart={handleRestart}
+              onExport={handleExport}
+            />
+          </div>
+        </AppLayoutWithSidebar>
 
-
-
-      <Toaster />
+        <Toaster />
       </div>
     </AuthenticationGate>
   )

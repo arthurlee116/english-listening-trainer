@@ -14,6 +14,7 @@ export interface User {
   email: string
   name?: string | null
   isAdmin: boolean
+  preferredLanguage?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -49,6 +50,7 @@ const BASE_USER_SELECT = {
   email: true,
   name: true,
   isAdmin: true,
+  preferredLanguage: true,
   createdAt: true,
   updatedAt: true,
 } as const
@@ -76,9 +78,9 @@ function getNextVersion(): number {
  * 缓存用户信息，使用版本号
  */
 function cacheUser(user: User, version: number = getNextVersion()): void {
-  const { id, email, name, isAdmin, createdAt, updatedAt } = user
+  const { id, email, name, isAdmin, preferredLanguage, createdAt, updatedAt } = user
   userCache.set(id, {
-    user: { id, email, name, isAdmin, createdAt, updatedAt },
+    user: { id, email, name, isAdmin, preferredLanguage, createdAt, updatedAt },
     expiresAt: Date.now() + USER_CACHE_TTL,
     version,
   })

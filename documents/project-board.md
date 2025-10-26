@@ -1,14 +1,51 @@
 # 工作流与功能看板
 
 ## To-Do
-- [ ] 建立数据库驱动的语言切换体系  
+- [x] 建立数据库驱动的语言切换体系  
       - `users` 表新增语言偏好字段（默认中文），实现"仅显示当前语言"渲染逻辑  
       - 右上角新增纯图标地球切换器（无文字/tooltip），切换后即时刷新所有双语文案  
       - 语言偏好需写回数据库并在登录流程中自动应用，复用现有 i18n 能力
 - [ ] 改造首页为可折叠左侧导航布局  
-      - 左栏收纳原标题区域所有入口，点击折叠/展开并采用苹果风格弹性动画  
-      - 移动端同样展示侧栏，展开时覆盖主内容并提供易触控关闭操作  
-      - 缩小主标题/宣传语排版，确保在新布局下层级与可访问性良好
+      - [x] **Phase 1**: 审计现有导航按钮、状态流转、翻译键与依赖关系（已完成，见 `documents/requirements/left-sidebar-layout.md`）
+      - [x] **Phase 2**: 创建共享导航配置与确保翻译字符串
+        - 创建 `lib/navigation/config.ts` 导出类型化导航项数组
+        - 扩展 `lib/types.ts` 添加 `NavigationItem`、`NavigationAction` 等类型
+        - 确保所有导航标签在 `lib/i18n/translations/components.json` 中有双语翻译
+        - 文档已同步更新
+      - [x] **Phase 3**: 实现桌面端侧边栏组件结构
+        - 创建 `components/navigation/sidebar.tsx` (198行)
+        - 创建 `components/navigation/sidebar-toggle.tsx` (68行)
+        - 创建 `components/navigation/sidebar-context.tsx` (95行)
+        - 创建 `components/app-layout-with-sidebar.tsx` (77行)
+        - 更新 `app/layout.tsx` 添加 SidebarProvider
+        - 基础 CSS transition 动画（duration-300 ease-out）
+        - 完整 ARIA 无障碍属性
+        - 文档已同步更新（详见 requirements 文件 Desktop Layout Notes 章节）
+      - [x] **Phase 4**: 弹性动画与移动端遮罩（Animation & Mobile Overlay）
+        - 在 `styles/globals.css` 添加 Apple 风格弹性动画 keyframes（104行动画代码）
+        - 创建 `components/navigation/sidebar-overlay.tsx` 移动端遮罩组件（87行）
+        - 创建 `components/navigation/mobile-sidebar-wrapper.tsx` 移动端包装器（84行）
+        - 更新 `sidebar-context.tsx` 添加 mobileOpen 状态和 body overflow 控制
+        - 更新 `sidebar.tsx` 集成弹性动画（`animate-sidebar-expand`、`animate-sidebar-width-expand/collapse`）
+        - 更新 `sidebar-toggle.tsx` 支持响应式按钮（移动端汉堡菜单、桌面端折叠按钮）
+        - 实现 Escape 键关闭、遮罩点击关闭、导航后自动关闭等交互
+        - 文档已同步更新（详见 requirements 文件 Animation & Mobile Notes 章节）
+      - [x] **Phase 4 后半段**: 集成侧边栏到主页面
+        - 移除 `app/page.tsx` 中的旧导航按钮（第856-909行）
+        - 使用 `AppLayoutWithSidebar` 包装主页内容
+        - 添加 `handleNavigate` 处理器连接侧边栏动作到页面状态
+        - 集成 `MobileSidebarWrapper` 到主页面
+        - 缩小主标题字号（text-4xl sm:text-5xl md:text-6xl lg:text-7xl → text-3xl sm:text-4xl md:text-5xl）
+        - 运行时测试与调试
+      - [ ] **Phase 5**: 移动端适配与无障碍增强
+        - 添加移动端侧边栏（覆盖式布局）
+        - 实现遮罩层（点击关闭）
+        - 滑入/滑出动画
+        - 触控区域优化（安全区适配）
+        - 键盘导航（Escape 关闭侧边栏）
+        - 焦点管理（折叠后焦点回到触发按钮）
+        - 高对比度模式测试
+        - 无障碍审计
 
 ## In Progress
 - [ ] （暂无）

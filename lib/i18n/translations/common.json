@@ -396,6 +396,18 @@
       "en": "Please try again",
       "zh": "请重试"
     },
+    "languageSwitched": {
+      "en": "Language switched",
+      "zh": "语言已切换"
+    },
+    "languageUpdateFailed": {
+      "en": "Failed to update language preference",
+      "zh": "语言设置更新失败"
+    },
+    "invalidLanguage": {
+      "en": "Invalid language option",
+      "zh": "无效的语言选项"
+    },
     "validationRequired": {
       "en": "This field is required",
       "zh": "此字段为必填项"

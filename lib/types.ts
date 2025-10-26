@@ -480,3 +480,62 @@ export interface PracticeNotesEntry {
   note: string
   updatedAt: string
 }
+
+// =============== Navigation System Types ===============
+
+/**
+ * Navigation action types
+ */
+export type NavigationActionType = "setState" | "callback" | "external"
+
+/**
+ * Navigation action for setState type
+ */
+export interface SetStateAction {
+  type: "setState"
+  targetState: string  // The step state to navigate to (e.g., "setup", "history", "assessment")
+}
+
+/**
+ * Navigation action for callback type
+ */
+export interface CallbackAction {
+  type: "callback"
+  callbackName: string  // Name of the callback function to invoke (e.g., "handleLogout")
+}
+
+/**
+ * Navigation action for external link type
+ */
+export interface ExternalAction {
+  type: "external"
+  href: string  // External URL or route path
+  openInNewTab?: boolean  // Whether to open in a new tab
+}
+
+/**
+ * Union type for all navigation actions
+ */
+export type NavigationAction = SetStateAction | CallbackAction | ExternalAction
+
+/**
+ * Navigation item definition
+ */
+export interface NavigationItem {
+  id: string  // Unique identifier for the navigation item
+  translationKey: string  // i18n key for the label (e.g., "navigation.assessment")
+  icon: React.ComponentType<{ className?: string }>  // Lucide icon component
+  action: NavigationAction  // Action to perform when clicked
+  requiresAuth: boolean  // Whether the item requires authentication
+  adminOnly: boolean  // Whether the item is only visible to admins
+  badge?: string | number  // Optional badge to display (e.g., notification count)
+}
+
+/**
+ * Navigation section definition
+ */
+export interface NavigationSection {
+  id: string  // Unique identifier for the section
+  labelKey: string  // i18n key for the section label
+  items: NavigationItem[]  // Navigation items in this section
+}

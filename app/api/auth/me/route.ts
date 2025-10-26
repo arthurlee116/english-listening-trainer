@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         name: user.name,
         isAdmin: user.isAdmin,
+        preferredLanguage: user.preferredLanguage,
         createdAt: user.createdAt.toISOString(),
         updatedAt: lastModified
       },

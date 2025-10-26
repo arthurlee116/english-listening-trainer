@@ -1,5 +1,6 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { FormatOptions, TranslationKey, UseBilingualTextReturn, bilingualConfig } from '@/lib/i18n/types';
+import { useLanguage, Language } from '@/components/providers/language-provider';
 
 import { translationCache } from '@/lib/i18n/memory-management';
 import { i18nPerformanceMonitor } from '@/lib/i18n/performance';
@@ -18,6 +19,13 @@ const translationsLoaded = true;
 const achievementsTranslations: Record<string, unknown> = achievementsTranslationsData as Record<string, unknown>;
 const achievementsSection: Record<string, unknown> =
   (achievementsTranslations['achievements'] as Record<string, unknown>) || {};
+
+/**
+ * Select language text based on current language preference
+ */
+const selectLanguage = (en: string, zh: string, currentLanguage: Language): string => {
+  return currentLanguage === 'en' ? en : zh;
+};
 
 const applyTemplateValues = (
   text: string,
@@ -39,15 +47,22 @@ const applyTemplateValues = (
 
 /**
  * Custom hook for bilingual text formatting with performance optimizations
- * Provides utilities to format text in "English 中文" format
+ * Provides utilities to format text in single language based on user preference
  */
 export function useBilingualText(): UseBilingualTextReturn {
+  const { currentLanguage } = useLanguage();
+  
+  // 当语言切换时清理旧语言的翻译缓存
+  useEffect(() => {
+    translationCache.clear();
+    i18nPerformanceMonitor.updateMemoryUsage(0, 0);
+  }, [currentLanguage]);
   
   /**
    * Format bilingual text from English and Chinese strings with memoization
+   * Now returns single language based on currentLanguage
    */
   const formatBilingual = useCallback((en: string, zh: string, options?: FormatOptions): string => {
-    const separator = options?.separator || bilingualConfig.separator;
     const withUnit = options?.withUnit;
     const withParentheses = options?.withParentheses;
     const values = options?.values;
@@ -55,7 +70,8 @@ export function useBilingualText(): UseBilingualTextReturn {
     const formattedEn = applyTemplateValues(en, values);
     const formattedZh = applyTemplateValues(zh, values);
 
-    let formatted = `${formattedEn}${separator}${formattedZh}`;
+    // Select language based on current preference
+    let formatted = selectLanguage(formattedEn, formattedZh, currentLanguage);
 
     if (withUnit) {
       if (withParentheses) {
@@ -66,7 +82,7 @@ export function useBilingualText(): UseBilingualTextReturn {
     }
 
     return formatted;
-  }, []);
+  }, [currentLanguage]);
 
   /**
    * Get bilingual value from a TranslationKey object with memoization
@@ -79,7 +95,7 @@ export function useBilingualText(): UseBilingualTextReturn {
    * Get nested object value by dot notation path with optimized caching
    */
   const getNestedValue = useCallback((obj: any, path: string): any => {
-    const cacheKey = `nested:${path}`;
+    const cacheKey = `nested:${currentLanguage}:${path}`;
     
     const cached = translationCache.get(cacheKey);
     if (cached) {
@@ -98,14 +114,14 @@ export function useBilingualText(): UseBilingualTextReturn {
     i18nPerformanceMonitor.updateMemoryUsage(translationCache.size(), 0);
 
     return result;
-  }, []);
+  }, [currentLanguage]);
 
   /**
    * Get translation using key path and format as bilingual text with memoization
    */
   const t = useCallback((key: string, options?: FormatOptions): string => {
-    // Check cache first
-    const cacheKey = `t:${key}:${JSON.stringify(options || {})}`;
+    // Check cache first with language-specific key
+    const cacheKey = `t:${currentLanguage}:${key}:${JSON.stringify(options || {})}`;
     const cached = translationCache.get(cacheKey);
     if (cached) {
       i18nPerformanceMonitor.recordCacheHit('translation');
