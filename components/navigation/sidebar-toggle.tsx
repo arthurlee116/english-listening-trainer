@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, forwardRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Menu } from 'lucide-react'
 import { useBilingualText } from '@/hooks/use-bilingual-text'
@@ -27,12 +27,15 @@ interface SidebarToggleProps {
   className?: string
 }
 
-export function SidebarToggle({
-  collapsed,
-  onToggle,
-  isMobile = false,
-  className = '',
-}: SidebarToggleProps) {
+export const SidebarToggle = forwardRef<HTMLButtonElement, SidebarToggleProps>(function SidebarToggle(
+  {
+    collapsed,
+    onToggle,
+    isMobile = false,
+    className = '',
+  },
+  ref,
+) {
   const { t } = useBilingualText()
   const [isMobileView, setIsMobileView] = useState(false)
   
@@ -57,16 +60,21 @@ export function SidebarToggle({
         variant="ghost"
         size="icon"
         className={`
-          h-10
-          w-10
+          h-11
+          w-11
+          min-h-[44px]
+          min-w-[44px]
           text-sky-400
           hover:bg-slate-800/60
           ${className}
+          sidebar-toggle-button
         `}
         onClick={onToggle}
         aria-label={t('navigation.toggleSidebar')}
         aria-expanded={!collapsed}
         aria-controls="main-sidebar"
+        aria-pressed={!collapsed}
+        ref={ref}
       >
         <Menu className="h-5 w-5" />
         <span className="sr-only">
@@ -95,12 +103,14 @@ export function SidebarToggle({
         hover:bg-slate-700
         text-sky-400
         ${className}
+        sidebar-toggle-button
       `}
       onClick={onToggle}
       aria-label={collapsed ? t('navigation.expandSidebar') : t('navigation.collapseSidebar')}
       aria-expanded={!collapsed}
       aria-controls="main-sidebar"
       aria-pressed={!collapsed}
+      ref={ref}
     >
       {collapsed ? (
         <ChevronRight className="h-4 w-4" />
@@ -112,4 +122,4 @@ export function SidebarToggle({
       </span>
     </Button>
   )
-}
+})

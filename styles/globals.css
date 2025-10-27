@@ -196,3 +196,24 @@ body {
 .animate-overlay-fade-out {
   animation: overlay-fade-out 150ms ease-in;
 }
+
+@media (prefers-contrast: more) {
+  .sidebar-surface {
+    background-color: rgba(15, 23, 42, 0.9);
+    border-color: rgba(148, 163, 184, 0.85);
+  }
+
+  .sidebar-nav-button {
+    border-width: 1px;
+    border-color: rgba(148, 163, 184, 0.85);
+  }
+
+  .sidebar-toggle-button {
+    border-color: rgba(148, 163, 184, 0.85);
+    background-color: rgba(15, 23, 42, 0.85);
+  }
+
+  .sidebar-overlay {
+    background-color: rgba(0, 0, 0, 0.75);
+  }
+}

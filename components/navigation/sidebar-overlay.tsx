@@ -64,6 +64,7 @@ export function SidebarOverlay({
         z-30
         md:hidden
         animate-overlay-fade-in
+        sidebar-overlay
         ${className}
       `}
       onClick={onClose}

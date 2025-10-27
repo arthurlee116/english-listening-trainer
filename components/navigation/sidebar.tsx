@@ -13,7 +13,7 @@ import {
 import type { NavigationItem, NavigationAction } from '@/lib/types'
 import { User } from 'lucide-react'
 
-interface SidebarProps {
+export interface SidebarProps {
   /**
    * Whether the sidebar is collapsed
    */
@@ -57,15 +57,18 @@ interface SidebarProps {
   onLanguageSwitch?: () => void
 }
 
-export function Sidebar({
-  collapsed,
-  currentStep,
-  onNavigate,
-  variant = 'desktop',
-  className = '',
-  assessmentResult,
-  onLanguageSwitch,
-}: SidebarProps) {
+export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
+  {
+    collapsed,
+    currentStep,
+    onNavigate,
+    variant = 'desktop',
+    className = '',
+    assessmentResult,
+    onLanguageSwitch,
+  },
+  ref,
+) => {
   const { user, isAuthenticated } = useAuthState()
   const { t } = useBilingualText()
   const { currentLanguage, switchLanguage } = useLanguage()
@@ -116,9 +119,19 @@ export function Sidebar({
       ? 'w-64' 
       : 'w-64'
   
+  const safeAreaStyles = isMobile
+    ? {
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px))',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px))',
+      }
+    : undefined
+
   return (
     <aside
       id="main-sidebar"
+      ref={ref}
       className={`
         ${widthClass}
         ${animationClass}
@@ -130,8 +143,13 @@ export function Sidebar({
         border-slate-700
         ${isMobile ? 'fixed inset-y-0 left-0 z-40' : 'relative'}
         ${className}
+        sidebar-surface
       `}
       aria-label={t('navigation.sidebarAriaLabel')}
+      role={isMobile ? 'dialog' : undefined}
+      aria-modal={isMobile ? 'true' : undefined}
+      tabIndex={isMobile ? -1 : undefined}
+      style={safeAreaStyles}
     >
       {/* User Info Section (if authenticated) */}
       {isAuthenticated && user && !collapsed && (
@@ -198,6 +216,7 @@ export function Sidebar({
                       size={collapsed ? 'icon' : 'sm'}
                       className={`
                         w-full
+                        sidebar-nav-button
                         ${collapsed ? 'justify-center' : 'justify-start'}
                         ${isActive 
                           ? 'bg-slate-800/80 text-sky-400' 
@@ -225,4 +244,6 @@ export function Sidebar({
       </nav>
     </aside>
   )
-}
+})
+
+Sidebar.displayName = 'Sidebar'

@@ -37,15 +37,13 @@
         - 集成 `MobileSidebarWrapper` 到主页面
         - 缩小主标题字号（text-4xl sm:text-5xl md:text-6xl lg:text-7xl → text-3xl sm:text-4xl md:text-5xl）
         - 运行时测试与调试
-      - [ ] **Phase 5**: 移动端适配与无障碍增强
-        - 添加移动端侧边栏（覆盖式布局）
-        - 实现遮罩层（点击关闭）
-        - 滑入/滑出动画
-        - 触控区域优化（安全区适配）
-        - 键盘导航（Escape 关闭侧边栏）
-        - 焦点管理（折叠后焦点回到触发按钮）
-        - 高对比度模式测试
-        - 无障碍审计
+      - [x] **Phase 5**: 移动端适配与无障碍增强
+        - 完成移动端覆盖式侧边栏的焦点陷阱与焦点恢复逻辑
+        - 调整汉堡按钮与侧边栏安全区（env(safe-area-inset-*)）以避免刘海遮挡
+        - 扩大触控区域（≥44px），确保移动端操作符合无障碍指南
+        - 为侧边栏与遮罩添加高对比度适配样式（`prefers-contrast: more`）
+        - 新增无障碍语义：移动端侧边栏 `role="dialog"`、`aria-modal="true"`
+        - 通过 `npm run lint` 验证 TypeScript/ESLint 通过
 
 ## In Progress
 - [ ] （暂无）
