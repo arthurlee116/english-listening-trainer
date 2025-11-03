@@ -149,8 +149,232 @@
       "zh": "系统统计"
     },
     "settings": {
-      "en": "Settings",
-      "zh": "设置"
+    "en": "Settings",
+    "zh": "设置"
+    }
+    },
+  "challenges": {
+    "title": {
+      "en": "Focused Listening Challenges",
+      "zh": "专题听力挑战"
+    },
+    "subtitle": {
+      "en": "Create themed challenges to track your progress across multiple practice sessions",
+      "zh": "创建主题挑战，在多个练习中跟踪您的进步"
+    },
+    "createNew": {
+      "en": "Create Challenge",
+      "zh": "创建挑战"
+    },
+    "createFirst": {
+      "en": "Create Your First Challenge",
+      "zh": "创建您的第一个挑战"
+    },
+    "noChallenges": {
+      "en": "No challenges yet",
+      "zh": "还没有挑战"
+    },
+    "noChallengesDesc": {
+      "en": "Start your learning journey with a focused challenge",
+      "zh": "从一个专注的挑战开始您的学习之旅"
+    },
+    "createChallenge": {
+      "en": "Create Challenge",
+      "zh": "创建挑战"
+    },
+    "topic": {
+      "en": "Topic",
+      "zh": "主题"
+    },
+    "topicPlaceholder": {
+      "en": "e.g., Business English, Academic Writing",
+      "zh": "例如：商务英语、学术写作"
+    },
+    "minDifficulty": {
+      "en": "Min Difficulty",
+      "zh": "最低难度"
+    },
+    "maxDifficulty": {
+      "en": "Max Difficulty",
+      "zh": "最高难度"
+    },
+    "targetSessions": {
+      "en": "Target Sessions",
+      "zh": "目标练习次数"
+    },
+    "sessionCountHelp": {
+      "en": "Number of practice sessions to complete (1-100)",
+      "zh": "要完成的练习次数 (1-100)"
+    },
+    "difficultyRange": {
+      "en": "Difficulty Range",
+      "zh": "难度范围"
+    },
+    "progress": {
+      "en": "Progress",
+      "zh": "进度"
+    },
+    "completion": {
+      "en": "Completion",
+      "zh": "完成度"
+    },
+    "avgAccuracy": {
+      "en": "Avg Accuracy",
+      "zh": "平均准确率"
+    },
+    "totalTime": {
+      "en": "Total Time",
+      "zh": "总时长"
+    },
+    "sessions": {
+      "en": "Sessions",
+      "zh": "练习次数"
+    },
+    "completed": {
+      "en": "completed",
+      "zh": "已完成"
+    },
+    "accuracyTrend": {
+      "en": "Accuracy Trend",
+      "zh": "准确率趋势"
+    },
+    "difficultyDistribution": {
+      "en": "Difficulty Distribution",
+      "zh": "难度分布"
+    },
+    "aiInsights": {
+      "en": "AI Insights",
+      "zh": "AI洞察"
+    },
+    "generateInsights": {
+      "en": "Generate AI Insights",
+      "zh": "生成AI洞察"
+    },
+    "generateInsightsDesc": {
+      "en": "Get personalized feedback and recommendations based on your challenge performance",
+      "zh": "基于您的挑战表现获得个性化反馈和建议"
+    },
+    "generateSummary": {
+      "en": "Generate Summary",
+      "zh": "生成总结"
+    },
+    "completeToSeeInsights": {
+      "en": "Complete the challenge to see AI-generated insights",
+      "zh": "完成挑战以查看AI生成的洞察"
+    },
+    "regenerate": {
+      "en": "Regenerate",
+      "zh": "重新生成"
+    },
+    "sessionHistory": {
+      "en": "Session History",
+      "zh": "练习历史"
+    },
+    "sessionTopic": {
+      "en": "Topic",
+      "zh": "主题"
+    },
+    "difficulty": {
+      "en": "Difficulty",
+      "zh": "难度"
+    },
+    "accuracy": {
+      "en": "Accuracy",
+      "zh": "准确率"
+    },
+    "duration": {
+      "en": "Duration",
+      "zh": "时长"
+    },
+    "date": {
+      "en": "Date",
+      "zh": "日期"
+    },
+    "backToList": {
+      "en": "Back to Challenges",
+      "zh": "返回挑战列表"
+    },
+    "notFound": {
+      "en": "Challenge not found",
+      "zh": "挑战未找到"
+    },
+    "completeChallenge": {
+      "en": "Complete Challenge",
+      "zh": "完成挑战"
+    },
+    "viewSummary": {
+      "en": "View Summary",
+      "zh": "查看总结"
+    },
+    "continue": {
+      "en": "Continue",
+      "zh": "继续"
+    },
+    "status": {
+      "active": {
+        "en": "Active",
+        "zh": "进行中"
+      },
+      "completed": {
+        "en": "Completed",
+        "zh": "已完成"
+      },
+      "paused": {
+        "en": "Paused",
+        "zh": "已暂停"
+      }
+    },
+    "trend": {
+      "improving": {
+        "en": "Improving",
+        "zh": "提升中"
+      },
+      "declining": {
+        "en": "Declining",
+        "zh": "下降中"
+      },
+      "stable": {
+        "en": "Stable",
+        "zh": "稳定"
+      }
+    },
+    "validation": {
+      "title": {
+        "en": "Validation Error",
+        "zh": "验证错误"
+      },
+      "required": {
+        "en": "Please fill in all required fields",
+        "zh": "请填写所有必填字段"
+      },
+      "sessionCount": {
+        "en": "Target sessions must be between 1 and 100",
+        "zh": "目标练习次数必须在1-100之间"
+      }
+    },
+    "createSuccess": {
+      "en": "Challenge Created",
+      "zh": "挑战创建成功"
+    },
+    "createSuccessDesc": {
+      "en": "Your new challenge has been created successfully",
+      "zh": "您的挑战已成功创建"
+    },
+    "createError": {
+      "en": "Creation Failed",
+      "zh": "创建失败"
+    },
+    "createErrorDesc": {
+      "en": "Failed to create challenge. Please try again.",
+      "zh": "创建挑战失败。请重试。"
+    },
+    "networkError": {
+      "en": "Network error. Please check your connection and try again.",
+      "zh": "网络错误。请检查您的连接并重试。"
+    },
+    "selectDifficulty": {
+      "en": "Select difficulty",
+      "zh": "选择难度"
     }
   }
 }

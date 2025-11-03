@@ -103,6 +103,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 检查是否有匹配的活跃挑战
+    let linkedChallenge = null
+    if (difficulty && topic) {
+      const activeChallenges = await prisma.challenge.findMany({
+        where: {
+          userId: authResult.user!.userId,
+          status: 'active',
+          minDifficulty: { lte: difficulty },
+          maxDifficulty: { gte: difficulty },
+          topic: {
+            // 简单的话题匹配 - 可以根据需要改进匹配逻辑
+            contains: topic.split(' ').slice(0, 3).join(' ') // 匹配前几个词
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      // 选择最相关的挑战（这里选择最新的）
+      linkedChallenge = activeChallenges[0] || null
+    }
+
     // 使用事务保存练习记录和题目数据
     const result = await prisma.$transaction(async (tx) => {
       // 保存练习会话
@@ -175,6 +196,26 @@ export async function POST(request: NextRequest) {
             })
           }
         }
+      }
+
+      // 如果找到匹配的挑战，创建关联并更新挑战进度
+      if (linkedChallenge) {
+        await tx.challengeSession.create({
+          data: {
+            challengeId: linkedChallenge.id,
+            sessionId: practiceSession.id
+          }
+        })
+
+        // 更新挑战的完成会话数
+        await tx.challenge.update({
+          where: { id: linkedChallenge.id },
+          data: {
+            completedSessionCount: {
+              increment: 1
+            }
+          }
+        })
       }
 
       return practiceSession

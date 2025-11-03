@@ -466,6 +466,56 @@ export interface GoalProgress {
   }
 }
 
+// =============== Challenge System Types ===============
+
+export interface Challenge {
+  id: string
+  userId: string
+  topic: string
+  minDifficulty: DifficultyLevel
+  maxDifficulty: DifficultyLevel
+  targetSessionCount: number
+  completedSessionCount: number
+  status: 'active' | 'completed' | 'paused'
+  lastSummaryAt?: string
+  summaryText?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChallengeProgressStats {
+  completedSessions: number
+  targetSessions: number
+  completionPercentage: number
+  averageAccuracy: number | null
+  accuracyTrend: 'improving' | 'declining' | 'stable'
+  totalDuration: number
+  averageDuration: number | null
+  lastSessionAt: Date | null
+  difficultyDistribution: Record<string, number>
+}
+
+export interface ChallengeSession {
+  id: string
+  challengeId: string
+  sessionId: string
+  createdAt: string
+}
+
+export interface ChallengeWithStats extends Challenge {
+  stats: ChallengeProgressStats
+  sessions: Array<{
+    id: string
+    topic: string
+    difficulty: DifficultyLevel
+    accuracy: number | null
+    score: number | null
+    duration: number | null
+    createdAt: string
+    linkedAt: string
+  }>
+}
+
 // Dashboard summary data
 export interface DashboardSummary {
   progressMetrics: UserProgressMetrics

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp, Zap, Star } from "lucide-react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
+import PracticeHistoryDashboard from "@/components/results/practice-history-dashboard"
 import type { Exercise, UserProgressMetrics } from "@/lib/types"
 import { getProgressMetrics, isStorageAvailable, getPracticeNote, savePracticeNote } from "@/lib/storage"
 import { useToast } from "@/hooks/use-toast"
@@ -204,6 +205,9 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           </div>
         </Card>
       )}
+
+      {/* Multilingual Practice History Dashboard */}
+      <PracticeHistoryDashboard />
 
       {/* Specialized Practice Statistics - REMOVED
          专项练习统计已移除,但保留类型定义以兼容历史数据展示

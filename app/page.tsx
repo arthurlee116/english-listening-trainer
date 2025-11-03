@@ -305,7 +305,22 @@ function HomePage() {
   // Enhanced memoized computations to avoid unnecessary re-renders
   // isSetupComplete is already provided by usePracticeSetup hook
 
-
+  const handleApplySuggestion = useCallback((suggestion: {
+    difficulty: string;
+    topic: string;
+    duration: number;
+  }) => {
+    setDifficulty(suggestion.difficulty as DifficultyLevel)
+    setTopic(suggestion.topic)
+    setDuration(suggestion.duration)
+    toast({
+      title: t("messages.recommendationApplied"),
+      description: formatToastMessage("messages.recommendationAppliedDesc", {
+        difficulty: suggestion.difficulty,
+        topic: suggestion.topic,
+      }),
+    })
+  }, [setDifficulty, setTopic, setDuration, toast, t, formatToastMessage])
 
   const _currentExerciseStats = useMemo(() => {
     if (!currentExercise) return null
@@ -890,6 +905,7 @@ function HomePage() {
               onToggleGoalPanel: () => setIsGoalPanelOpen((prev) => !prev),
               isAuthenticated,
             }}
+            onApplySuggestion={handleApplySuggestion}
           />
         )}
 

@@ -1,4 +1,3 @@
-import 'server-only'
 import type { ArkMessage, ArkCallOptions } from '../ark-helper'
 import { callArkAPI } from '../ark-helper'
 

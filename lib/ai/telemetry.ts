@@ -1,4 +1,4 @@
-import 'server-only'
+
 
 export type TelemetryClientVariant = 'proxy' | 'direct'
 

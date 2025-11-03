@@ -1,0 +1,181 @@
+import 'server-only';
+import { invokeStructured } from '@/lib/ai/cerebras-service';
+import type { PracticeSummaryPoint } from '@/lib/practice/history-summary';
+import type { DifficultyLevel } from '@/lib/types';
+import type { ArkMessage } from '@/lib/ark-helper';
+
+export class StrategyGenerationError extends Error {
+  constructor(message: string, public readonly originalError?: Error) {
+    super(message);
+    this.name = 'StrategyGenerationError';
+  }
+}
+
+export type PracticeStrategyRecommendation = {
+  summary: string;
+  suggestedDifficulty: DifficultyLevel;
+  suggestedTopic: string;
+  suggestedDurationMin: number;
+  confidence: 'low' | 'medium' | 'high';
+};
+
+const DEFAULT_TOPICS = [
+  'Daily Conversation', 'Business English', 'Academic Lectures',
+  'News Broadcasts', 'Podcasts', 'Movie Clips', 'Interview Dialogues',
+  'Scientific Presentations', 'Travel Conversations'
+] as const;
+
+const DIFFICULTY_LEVELS: DifficultyLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+export function buildStrategyPrompt(recentStats: PracticeSummaryPoint[]): ArkMessage[] {
+  const statsSummary = recentStats.map(stat => ({
+    sessionId: stat.id,
+    language: stat.language,
+    score: stat.score,
+    answerTimeSec: stat.answerTimeSec,
+    ttsLatencyMs: stat.ttsLatencyMs,
+    finishedAt: new Date(stat.finishedAt).toLocaleDateString()
+  }));
+
+  const systemPrompt: ArkMessage = {
+    role: 'system',
+    content: `You are an expert English listening coach. Based on the user's recent practice statistics, provide personalized recommendations for their next listening session.
+
+Recent Practice Statistics:
+${JSON.stringify(statsSummary, null, 2)}
+
+Please analyze these patterns and provide a recommendation with the following structure:
+- A concise summary of the user's performance and areas for improvement
+- A suggested difficulty level from this list: ${DIFFICULTY_LEVELS.join(', ')}
+- A suggested topic from this list: ${DEFAULT_TOPICS.join(', ')}
+- A suggested session duration in minutes (between 10 and 30)
+- Your confidence level in this recommendation (low, medium, or high)
+
+Return your response as a valid JSON object with the keys: summary, suggestedDifficulty, suggestedTopic, suggestedDurationMin, confidence.`
+  };
+
+  const userPrompt: ArkMessage = {
+    role: 'user',
+    content: 'Generate the practice strategy recommendation as a JSON object.'
+  };
+
+  return [systemPrompt, userPrompt];
+}
+
+export function parseStrategyResponse(aiText: string): PracticeStrategyRecommendation {
+  try {
+    // Attempt to parse the entire response as JSON
+    const parsed = JSON.parse(aiText);
+
+    // Validate the structure and required fields
+    if (
+      typeof parsed.summary === 'string' &&
+      DIFFICULTY_LEVELS.includes(parsed.suggestedDifficulty) &&
+      DEFAULT_TOPICS.includes(parsed.suggestedTopic) &&
+      typeof parsed.suggestedDurationMin === 'number' &&
+      ['low', 'medium', 'high'].includes(parsed.confidence)
+    ) {
+      return {
+        summary: parsed.summary,
+        suggestedDifficulty: parsed.suggestedDifficulty,
+        suggestedTopic: parsed.suggestedTopic,
+        suggestedDurationMin: parsed.suggestedDurationMin,
+        confidence: parsed.confidence
+      };
+    }
+  } catch (e) {
+    console.error('Failed to parse AI response as JSON:', e);
+  }
+
+  // Fallback: Try to extract information using regex patterns
+  try {
+    const summaryMatch = aiText.match(/"summary"\s*:\s*"([^"]*)"/);
+    const difficultyMatch = aiText.match(/"suggestedDifficulty"\s*:\s*"([^"]*)"/);
+    const topicMatch = aiText.match(/"suggestedTopic"\s*:\s*"([^"]*)"/);
+    const durationMatch = aiText.match(/"suggestedDurationMin"\s*:\s*(\d+)/);
+    const confidenceMatch = aiText.match(/"confidence"\s*:\s*"([^"]*)"/);
+
+    if (
+      summaryMatch && difficultyMatch && topicMatch && durationMatch && confidenceMatch
+    ) {
+      const suggestedDifficulty = difficultyMatch[1] as DifficultyLevel;
+      const suggestedTopic = topicMatch[1] as typeof DEFAULT_TOPICS[number];
+      if (DIFFICULTY_LEVELS.includes(suggestedDifficulty) && DEFAULT_TOPICS.includes(suggestedTopic)) {
+        return {
+          summary: summaryMatch[1],
+          suggestedDifficulty,
+          suggestedTopic,
+          suggestedDurationMin: parseInt(durationMatch[1], 10),
+          confidence: confidenceMatch[1] as 'low' | 'medium' | 'high'
+        };
+      }
+    }
+  } catch (e) {
+    console.error('Failed to extract information using regex:', e);
+  }
+
+  // If all parsing attempts fail, return a fallback recommendation
+  console.warn('Failed to parse AI response, using fallback recommendation');
+  return {
+    summary: 'Based on your recent performance, continue practicing at your current level with varied topics to build comprehensive listening skills.',
+    suggestedDifficulty: 'B1',
+    suggestedTopic: 'Daily Conversation',
+    suggestedDurationMin: 15,
+    confidence: 'low'
+  };
+}
+
+export async function getLatestStrategy({
+  userId,
+  recentStats,
+}: {
+  userId: string;
+  recentStats: PracticeSummaryPoint[];
+}): Promise<PracticeStrategyRecommendation> {
+  try {
+    if (recentStats.length === 0) {
+      console.warn('No recent stats available for user:', userId);
+      // Provide a default recommendation for new users
+      return {
+        summary: 'Welcome! Start with A1 level daily conversations to build your listening foundation.',
+        suggestedDifficulty: 'A1',
+        suggestedTopic: 'Daily Conversation',
+        suggestedDurationMin: 10,
+        confidence: 'high'
+      };
+    }
+
+    const messages = buildStrategyPrompt(recentStats);
+    
+    const aiResponse = await invokeStructured<string>({
+      messages,
+      schema: {
+        type: 'object',
+        properties: {
+          summary: { type: 'string' },
+          suggestedDifficulty: { type: 'string', enum: DIFFICULTY_LEVELS },
+          suggestedTopic: { type: 'string', enum: DEFAULT_TOPICS },
+          suggestedDurationMin: { type: 'number', minimum: 10, maximum: 30 },
+          confidence: { type: 'string', enum: ['low', 'medium', 'high'] }
+        },
+        required: ['summary', 'suggestedDifficulty', 'suggestedTopic', 'suggestedDurationMin', 'confidence']
+      },
+      schemaName: 'practiceStrategyRecommendation'
+    });
+
+    if (!aiResponse || typeof aiResponse !== 'string') {
+      throw new Error('AI service returned an invalid response');
+    }
+
+    return parseStrategyResponse(aiResponse);
+  } catch (error) {
+    console.error('Error generating strategy:', error);
+    if (error instanceof StrategyGenerationError) {
+      throw error;
+    }
+    throw new StrategyGenerationError(
+      'Failed to generate practice strategy',
+      error instanceof Error ? error : undefined
+    );
+  }
+}

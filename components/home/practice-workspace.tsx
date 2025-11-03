@@ -3,6 +3,8 @@ import { type Dispatch, type RefObject, type SetStateAction } from "react"
 import { AudioPlayer, type AudioPlayerControls } from "@/components/audio-player"
 import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
+import { ModelMetricsCard } from "@/components/ai/model-metrics-card"
+import { ModelTelemetryWidget } from "@/components/ai/model-telemetry-widget"
 import type { DifficultyLevel, Exercise, Question } from "@/lib/types"
 
 interface PracticeWorkspaceProps {
@@ -56,7 +58,9 @@ export function PracticeWorkspace({
 }: PracticeWorkspaceProps) {
   if (step === "listening") {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <ModelMetricsCard />
+        <ModelTelemetryWidget />
         <AudioPlayer
           ref={audioPlayerRef}
           transcript={transcript}

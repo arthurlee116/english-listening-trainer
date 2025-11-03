@@ -1,4 +1,3 @@
-import 'server-only'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import Cerebras from '@cerebras/cerebras_cloud_sdk'
 import type { AIServiceConfig } from '../config-manager'

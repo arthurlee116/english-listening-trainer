@@ -1,5 +1,4 @@
 // 该文件仅在服务端运行
-import 'server-only'
 import type CerebrasSdk from '@cerebras/cerebras_cloud_sdk'
 import { configManager, type AIServiceConfig } from './config-manager'
 import { getCerebrasClientManager, type ProxyStatusSnapshot } from './ai/cerebras-client-manager'

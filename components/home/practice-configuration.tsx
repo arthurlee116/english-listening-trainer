@@ -1,6 +1,6 @@
-import { type RefObject } from "react"
+import { type RefObject, useState } from "react"
 
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Sparkles, Target } from "lucide-react"
 
 import { AchievementPanel } from "@/components/achievement-panel"
 import { BilingualText } from "@/components/ui/bilingual-text"
@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { StrategyRecommendationCard } from "@/components/home/strategy-recommendation-card"
+import { CreateChallengeDialog } from "@/components/challenges/create-challenge-dialog"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import {
   DIFFICULTY_LEVELS,
@@ -61,24 +63,54 @@ interface PracticeConfigurationProps {
   practiceSetup: PracticeSetupProps
   operations: PracticeOperationsProps
   achievements: AchievementsProps
+  onApplySuggestion?: (suggestion: {
+    difficulty: string;
+    topic: string;
+    duration: number;
+  }) => void
 }
 
 export function PracticeConfiguration({
-  practiceSetup,
-  operations,
-  achievements,
+practiceSetup,
+operations,
+achievements,
+onApplySuggestion,
 }: PracticeConfigurationProps) {
-  const { t } = useBilingualText()
+const { t } = useBilingualText()
+  const [showChallengeDialog, setShowChallengeDialog] = useState(false)
+
+  const handleApplySuggestion = (suggestion: {
+    difficulty: string;
+    topic: string;
+    duration: number;
+  }) => {
+    if (onApplySuggestion) {
+      onApplySuggestion(suggestion);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      {onApplySuggestion && (
+        <StrategyRecommendationCard onApplySuggestion={handleApplySuggestion} />
+      )}
 
       <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-8">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
           <Sparkles className="w-6 h-6 text-sky-400" />
-          <h2 className="text-2xl font-bold text-sky-400">
+        <h2 className="text-2xl font-bold text-sky-400">
             <BilingualText translationKey="labels.createExercise" />
-          </h2>
+            </h2>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowChallengeDialog(true)}
+            className="gap-2"
+          >
+            <Target className="w-4 h-4" />
+            <BilingualText translationKey="challenges.createChallenge" />
+          </Button>
         </div>
 
         <div className="space-y-6">
@@ -255,9 +287,15 @@ export function PracticeConfiguration({
       </Card>
 
       <AchievementPanel
-        isOpen={achievements.isGoalPanelOpen}
-        onToggle={achievements.onToggleGoalPanel}
-        userAuthenticated={achievements.isAuthenticated}
+      isOpen={achievements.isGoalPanelOpen}
+      onToggle={achievements.onToggleGoalPanel}
+      userAuthenticated={achievements.isAuthenticated}
+      />
+
+          <CreateChallengeDialog
+        open={showChallengeDialog}
+        onOpenChange={setShowChallengeDialog}
+        onSuccess={() => setShowChallengeDialog(false)}
       />
     </div>
   )

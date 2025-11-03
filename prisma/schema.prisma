@@ -26,7 +26,8 @@ model User {
   
   // 关联关系
   practiceSessions PracticeSession[]
-  
+  challenges       Challenge[]
+
   // 优化索引
   @@index([isAdmin]) // 管理员查询优化
   @@index([createdAt]) // 用户注册时间统计
@@ -53,7 +54,8 @@ model PracticeSession {
   // 关联关系
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions    PracticeQuestion[]
-  
+  challengeSessions ChallengeSession[]
+
   // 优化索引 - 针对常见查询模式
   @@index([userId, createdAt(sort: Desc)]) // 用户练习历史查询（按时间倒序）
   @@index([createdAt(sort: Desc)]) // 全局最新练习查询
@@ -121,3 +123,51 @@ model PracticeAnswer {
   @@index([isCorrect, attemptedAt(sort: Desc)], map: "wrong_answers_list_idx") // 错误答案列表查询优化
   @@map("practice_answers")
 }
+
+// ==========================================
+// 挑战表 - 专题听力挑战
+// ==========================================
+model Challenge {
+  id                   String   @id @default(cuid())
+  userId               String   @map("user_id")
+  topic                String   // 挑战主题
+  minDifficulty        String   // 最小难度级别 (A1, A2, B1, B2, C1, C2)
+  maxDifficulty        String   // 最大难度级别
+  targetSessionCount   Int      @map("target_session_count") // 目标练习次数
+  completedSessionCount Int     @default(0) @map("completed_session_count") // 已完成练习次数
+  status               String @default("active") // 挑战状态: active, completed, paused
+  lastSummaryAt        DateTime? @map("last_summary_at") // 最后生成总结时间
+  summaryText          String?  @map("summary_text") // AI生成的挑战总结文本
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  // 关联关系
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeSessions    ChallengeSession[]
+
+  // 优化索引 - 针对常见查询模式
+  @@index([userId, status, createdAt(sort: Desc)]) // 用户活跃挑战查询
+  @@index([userId, createdAt(sort: Desc)]) // 用户所有挑战历史查询
+  @@index([status, updatedAt]) // 按状态统计分析
+  @@map("challenges")
+}
+
+// ==========================================
+// 挑战会话关联表 - 关联挑战与练习会话
+// ==========================================
+model ChallengeSession {
+  id          String   @id @default(cuid())
+  challengeId String   @map("challenge_id")
+  sessionId   String   @map("session_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // 关联关系
+  challenge Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  session   PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // 优化索引
+  @@index([challengeId, createdAt(sort: Desc)]) // 挑战内会话列表查询
+  @@index([sessionId]) // 检查会话是否属于挑战
+  @@map("challenge_sessions")
+}
+
