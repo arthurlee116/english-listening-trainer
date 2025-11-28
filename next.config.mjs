@@ -4,10 +4,12 @@ const nextConfig = {
   output: 'standalone',
   
   eslint: {
-    ignoreDuringBuilds: true,
+    // 生产构建保留校验，阻止问题代码进入产物
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // 构建时必须通过类型检查
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

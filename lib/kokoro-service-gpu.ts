@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
+import { audioCleanupService } from './audio-cleanup-service'
 
 import {
   buildKokoroPythonEnv,
@@ -129,10 +130,12 @@ class CircuitBreaker {
  * 支持CUDA加速和真实Kokoro模型
  * 集成电路断路器防止级联故障
  */
+const globalForKokoro = globalThis as typeof globalThis & { __kokoroTTSGPU?: KokoroTTSGPUService, __kokoroTTSGPU_CREATED?: boolean }
+
 export class KokoroTTSGPUService extends EventEmitter {
   private process: ChildProcess | null = null
   private initialized = false
-  private pendingRequests: Map<number, { resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => void; reject: (error: Error) => void; startTime: number }> = new Map()
+  private pendingRequests: Map<number, { resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string; request_id?: number }) => void; reject: (error: Error) => void; startTime: number; timeout: NodeJS.Timeout }> = new Map()
   private requestIdCounter = 0
   private circuitBreaker: CircuitBreaker
   private restartAttempts = 0
@@ -153,6 +156,11 @@ export class KokoroTTSGPUService extends EventEmitter {
   constructor() {
     super()
 
+    if (globalForKokoro.__kokoroTTSGPU_CREATED) {
+      throw new Error('KokoroTTSGPUService is a singleton; use kokoroTTSGPU instance instead.')
+    }
+    globalForKokoro.__kokoroTTSGPU_CREATED = true
+
     // 初始化电路断路器
     this.circuitBreaker = new CircuitBreaker({
       failureThreshold: 5,        // 5次失败后打开
@@ -164,6 +172,12 @@ export class KokoroTTSGPUService extends EventEmitter {
     })
 
     console.log('🚀 Initializing Kokoro GPU TTS Service...')
+    // 启动一次清理服务（幂等）
+    try {
+      audioCleanupService.start()
+    } catch (err) {
+      console.warn('⚠️ Failed to start audio cleanup service:', err)
+    }
     this.startPythonProcess().catch(error => console.error('Init failed:', error instanceof Error ? error.message : String(error)))
   }
 
@@ -228,27 +242,19 @@ export class KokoroTTSGPUService extends EventEmitter {
         this.process.stdout.on('data', (data: Buffer) => {
           const output = data.toString()
           jsonBuffer += output
-          
-          try {
-            const response = JSON.parse(jsonBuffer) as { success: boolean; error?: string; audio_data?: string; device?: string }
-            this.handleResponse(response)
-            jsonBuffer = ''
-          } catch (e) {
-            // 处理分块的JSON数据
-            if (e instanceof Error && e.message.includes('Unterminated string')) {
-              return
+
+          const lines = jsonBuffer.split('\n')
+          jsonBuffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed) continue
+            try {
+              const response = JSON.parse(trimmed) as { success: boolean; error?: string; audio_data?: string; device?: string; request_id?: number }
+              this.handleResponse(response)
+            } catch (err) {
+              console.warn('⚠️ Failed to parse Kokoro response line:', err, trimmed)
             }
-            
-            const lines = jsonBuffer.split('\n').filter(line => line.trim())
-            lines.forEach(line => {
-              try {
-                const response = JSON.parse(line) as { success: boolean; error?: string; audio_data?: string; device?: string }
-                this.handleResponse(response)
-                jsonBuffer = ''
-              } catch {
-                // ignore invalid JSON lines
-              }
-            })
           }
         })
       }
@@ -315,26 +321,35 @@ export class KokoroTTSGPUService extends EventEmitter {
     }
   }
 
-  private handleResponse(response: { success: boolean; error?: string; audio_data?: string; device?: string }): void {
-    if (this.pendingRequests.size > 0) {
-      const requestId = Array.from(this.pendingRequests.keys())[0]
-      const { resolve, reject, startTime } = this.pendingRequests.get(requestId)!
-      const responseTime = Date.now() - startTime
-      this.pendingRequests.delete(requestId)
-
-      if (response.success) {
-        this.recordRequestStats({ requestId, success: true, responseTime })
-        resolve(response)
-      } else {
-        const errorMessage = response.error || 'Unknown error'
-        this.recordRequestStats({
-          requestId,
-          success: false,
-          responseTime,
-          errorMessage
-        })
-        reject(new Error(response.error || 'Unknown error'))
+  private handleResponse(response: { success: boolean; error?: string; audio_data?: string; device?: string; request_id?: number }): void {
+    let requestId = response.request_id
+    if (requestId === undefined || !this.pendingRequests.has(requestId)) {
+      // 尝试回退到队列中的第一个请求，避免悬挂
+      const firstPending = this.pendingRequests.keys().next().value as number | undefined
+      if (firstPending === undefined) {
+        console.warn('⚠️ Received response with no matching pending request', response)
+        return
       }
+      requestId = firstPending
+    }
+
+    const { resolve, reject, startTime, timeout } = this.pendingRequests.get(requestId)!
+    clearTimeout(timeout)
+    const responseTime = Date.now() - startTime
+    this.pendingRequests.delete(requestId)
+
+    if (response.success) {
+      this.recordRequestStats({ requestId, success: true, responseTime })
+      resolve(response)
+    } else {
+      const errorMessage = response.error || 'Unknown error'
+      this.recordRequestStats({
+        requestId,
+        success: false,
+        responseTime,
+        errorMessage
+      })
+      reject(new Error(response.error || 'Unknown error'))
     }
   }
 
@@ -536,9 +551,12 @@ export class KokoroTTSGPUService extends EventEmitter {
       const requestId = this.requestIdCounter++
       const startTime = Date.now()
 
+      const estimatedChunks = Math.max(1, Math.ceil(text.length / 100))
+      const estimatedTimeout = Math.min(300000, Math.max(60000, estimatedChunks * 4000))
+
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId)
-        const timeoutError = 'GPU audio generation timeout after 5 minutes'
+        const timeoutError = `GPU audio generation timeout after ${Math.round(estimatedTimeout / 1000)} seconds`
         this.recordRequestStats({
           requestId,
           success: false,
@@ -549,59 +567,55 @@ export class KokoroTTSGPUService extends EventEmitter {
         this.circuitBreaker.recordFailure()
         this.lastError = 'Audio generation timeout'
         reject(new Error(timeoutError))
-      }, 300000) // 5分钟超时
+      }, estimatedTimeout)
 
       this.pendingRequests.set(requestId, {
         startTime,
-        resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => {
-          clearTimeout(timeout)
-
+        timeout,
+        resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string; request_id?: number }) => {
           if (response.success && response.audio_data) {
-            try {
-              const audioBuffer = Buffer.from(response.audio_data, 'hex')
+            ;(async () => {
+              try {
+                const audioBuffer = Buffer.from(response.audio_data, 'hex')
 
-              if (audioBuffer.length === 0) {
-                const error = new Error('Audio buffer is empty after hex decoding')
-                this.addRecentError(error.message, requestId)
+                if (audioBuffer.length === 0) {
+                  throw new Error('Audio buffer is empty after hex decoding')
+                }
+
+                if (audioBuffer.length < 100) {
+                  console.warn(`⚠️ Audio buffer suspiciously small: ${audioBuffer.length} bytes`)
+                }
+
+                const timestamp = Date.now()
+                const filename = `tts_audio_${timestamp}.wav`
+                const filepath = path.join(process.cwd(), 'public', filename)
+
+                await fs.promises.writeFile(filepath, audioBuffer)
+
+                console.log(`💾 GPU Audio saved: ${filename} (${audioBuffer.length} bytes)`)
+                console.log(`🔥 Generated using device: ${response.device || 'unknown'}`)
+
+                const metadata = getWavAudioMetadata(audioBuffer)
+
+                // 成功时记录到电路断路器
+                this.circuitBreaker.recordSuccess()
+                this.restartAttempts = 0 // 重置重启计数
+                this.lastError = '' // 清除错误
+
+                resolve({
+                  audioUrl: `/${filename}`,
+                  duration: metadata.duration,
+                  byteLength: audioBuffer.length
+                })
+              } catch (error) {
+                console.error('❌ Failed to save GPU audio file:', error)
+                const errorMessage = error instanceof Error ? error.message : String(error)
+                this.addRecentError(`File save error: ${errorMessage}`, requestId)
                 this.circuitBreaker.recordFailure()
-                this.lastError = error.message
-                reject(error)
-                return
+                this.lastError = `File save error: ${errorMessage}`
+                reject(new Error(`Failed to save GPU audio file: ${errorMessage}`))
               }
-
-              if (audioBuffer.length < 100) {
-                console.warn(`⚠️ Audio buffer suspiciously small: ${audioBuffer.length} bytes`)
-              }
-
-              const timestamp = Date.now()
-              const filename = `tts_audio_${timestamp}.wav`
-              const filepath = path.join(process.cwd(), 'public', filename)
-
-              fs.writeFileSync(filepath, audioBuffer)
-
-              console.log(`💾 GPU Audio saved: ${filename} (${audioBuffer.length} bytes)`)
-              console.log(`🔥 Generated using device: ${response.device || 'unknown'}`)
-
-              const metadata = getWavAudioMetadata(audioBuffer)
-
-              // 成功时记录到电路断路器
-              this.circuitBreaker.recordSuccess()
-              this.restartAttempts = 0 // 重置重启计数
-              this.lastError = '' // 清除错误
-
-              resolve({
-                audioUrl: `/${filename}`,
-                duration: metadata.duration,
-                byteLength: audioBuffer.length
-              })
-            } catch (error) {
-              console.error('❌ Failed to save GPU audio file:', error)
-              const errorMessage = error instanceof Error ? error.message : String(error)
-              this.addRecentError(`File save error: ${errorMessage}`, requestId)
-              this.circuitBreaker.recordFailure()
-              this.lastError = `File save error: ${errorMessage}`
-              reject(new Error(`Failed to save GPU audio file: ${errorMessage}`))
-            }
+            })().catch(reject)
           } else {
             const errorMsg = response.error || 'Failed to generate GPU audio'
             console.error('❌ GPU audio generation failed:', errorMsg)
@@ -611,7 +625,6 @@ export class KokoroTTSGPUService extends EventEmitter {
           }
         },
         reject: (error: Error) => {
-          clearTimeout(timeout)
           console.error('❌ GPU audio generation error:', error)
           this.circuitBreaker.recordFailure()
           this.lastError = error.message
@@ -630,6 +643,7 @@ export class KokoroTTSGPUService extends EventEmitter {
       console.log(`🎙️ GPU voice configuration → lang: ${effectiveLanguage} (${langCodeForPython}), voice: ${voiceForPython}`)
 
       const request = {
+        request_id: requestId,
         text,
         speed,
         lang_code: langCodeForPython,
@@ -657,8 +671,8 @@ export class KokoroTTSGPUService extends EventEmitter {
   }
 }
 
-// 导出增强版服务
-export const kokoroTTSGPU = new KokoroTTSGPUService()
+// 导出增强版服务（全局单例，避免HMR/多实例重复启动子进程）
+export const kokoroTTSGPU = globalForKokoro.__kokoroTTSGPU ?? (globalForKokoro.__kokoroTTSGPU = new KokoroTTSGPUService())
 
 // 优雅关闭处理
 process.on('SIGINT', async () => {

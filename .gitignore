@@ -174,3 +174,8 @@ my-v0-project@0.1.0
 
 .env.local
 
+/node_modules
+/node_modules.backup
+*.backup
+*.log
+/.next

@@ -528,3 +528,32 @@ Please describe the steps that led to this error 请描述导致错误的操作�
 }
 
 export default BilingualEnhancedErrorBoundary
+
+// HOC包装器，保持与旧版 EnhancedErrorBoundary 的兼容
+export function withEnhancedErrorBoundary<P extends object>(
+  Wrapped: React.ComponentType<P>,
+  boundaryProps?: Omit<Props, 'children'>
+) {
+  return function WrappedComponent(props: P) {
+    return (
+      <BilingualEnhancedErrorBoundary {...boundaryProps}>
+        <Wrapped {...props} />
+      </BilingualEnhancedErrorBoundary>
+    )
+  }
+}
+
+// 异步错误捕获Hook，供现有调用复用
+export function useAsyncErrorHandler() {
+  const throwError = (error: Error) => {
+    setTimeout(() => {
+      throw error
+    }, 0)
+  }
+
+  const handleAsyncError = (asyncFn: () => Promise<unknown>) => {
+    return asyncFn().catch(throwError)
+  }
+
+  return { throwError, handleAsyncError }
+}

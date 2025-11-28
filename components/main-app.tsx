@@ -57,7 +57,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
     showAuthDialog,
     handleUserAuthenticated: setAuthenticatedUser,
     handleLogout: performLogout
-  } = useAuthState()
+  } = authState
 
   const { t } = useBilingualText()
   const { shouldShowNotification } = useLegacyMigration()

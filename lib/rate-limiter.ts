@@ -32,15 +32,19 @@ export function clearRateLimitStore(): void {
   rateLimitStore.clear()
 }
 
-// Cleanup old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (entry.resetTime < now) {
-      rateLimitStore.delete(key)
+// Cleanup old entries every 5 minutes (guarded to avoid multiple timers in serverless/HMR)
+const globalRateLimitTimers = globalThis as typeof globalThis & { __rateLimitCleanupStarted?: boolean }
+if (!globalRateLimitTimers.__rateLimitCleanupStarted && process.env.NEXT_RUNTIME !== 'edge') {
+  globalRateLimitTimers.__rateLimitCleanupStarted = true
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, entry] of rateLimitStore.entries()) {
+      if (entry.resetTime < now) {
+        rateLimitStore.delete(key)
+      }
     }
-  }
-}, 5 * 60 * 1000)
+  }, 5 * 60 * 1000)
+}
 
 /**
  * Default key generator using IP address and user ID

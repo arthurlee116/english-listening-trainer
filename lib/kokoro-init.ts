@@ -18,18 +18,5 @@ if (typeof process !== 'undefined') {
   } else if (process.env.NODE_ENV === 'development') {
     console.log('🎯 Development environment detected, Kokoro will be loaded on first request')
   }
-
-  // 启动音频清理服务
-  // 注意：这里使用动态导入以避免在Edge Runtime中出现问题
-  import('./audio-cleanup-service').then(({ audioCleanupService }) => {
-    console.log('🧹 Starting audio cleanup service...')
-    try {
-      audioCleanupService.start()
-      console.log('✅ Audio cleanup service started successfully')
-    } catch (error: unknown) {
-      console.error('❌ Failed to start audio cleanup service:', error)
-    }
-  }).catch((error: unknown) => {
-    console.error('❌ Failed to import audio cleanup service:', error)
-  })
+  // 音频清理现由 KokoroTTSGPUService 初始化时启动，避免重复定时器
 }

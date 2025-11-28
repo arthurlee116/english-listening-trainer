@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
-import { isLanguageSupported } from '@/lib/language-config'
+import { getLanguageConfig, isLanguageSupported } from '@/lib/language-config'
 import { ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
 import crypto from 'crypto'
 import type { GeneratedAudioResult } from '@/lib/audio-utils'
 
-// 生成音频缓存键
-function generateCacheKey(text: string, speed: number, language: string): string {
-  const content = `${text}:${speed}:${language}`
+// 生成音频缓存键（包含语音与可选模型版本）
+function generateCacheKey(text: string, speed: number, language: string, voice: string): string {
+  const modelVersion = process.env.KOKORO_MODEL_VERSION || 'default'
+  const content = `${text}:${speed}:${language}:${voice}:${modelVersion}`
   return crypto.createHash('md5').update(content).digest('hex')
 }
 
@@ -18,8 +19,9 @@ export async function POST(request: NextRequest) {
     text = body.text
     const speed = body.speed || 1.0
     const language = body.language || 'en-US'
+    const effectiveSpeed = Number(speed)
 
-    if (!text) {
+    if (!text || typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: '文本内容不能为空' }, { status: 400 })
     }
 
@@ -34,8 +36,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `不支持的语言: ${language}` }, { status: 400 })
     }
 
+    if (!Number.isFinite(effectiveSpeed) || effectiveSpeed <= 0.2 || effectiveSpeed > 3) {
+      return NextResponse.json({ error: '语速超出范围（0.2 ~ 3.0）' }, { status: 400 })
+    }
+
+    const languageConfig = getLanguageConfig(language)
+    const voice = languageConfig.voice
+
     // 生成缓存键并检查缓存
-    const cacheKey = generateCacheKey(text, speed, language)
+    const cacheKey = generateCacheKey(text, effectiveSpeed, language, voice)
     const cachedAudio = audioCache.get(cacheKey) as GeneratedAudioResult | undefined
     if (cachedAudio) {
       const filename = cachedAudio.audioUrl.replace('/', '')
@@ -62,7 +71,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 生成音频
-      return await kokoroTTSGPU.generateAudio(text, speed, language)
+      return await kokoroTTSGPU.generateAudio(text, effectiveSpeed, language)
     })
 
     // 缓存音频结果
@@ -89,6 +98,11 @@ export async function POST(request: NextRequest) {
 
     let statusCode = 500
     let userFacingMessage = 'GPU音频生成失败'
+
+    if (normalizedMessage.includes('queue is full')) {
+      statusCode = 429
+      userFacingMessage = 'TTS请求排队已满，请稍后重试'
+    }
 
     if (normalizedMessage.includes('timeout')) {
       statusCode = 504

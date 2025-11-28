@@ -57,15 +57,19 @@ const BASE_USER_SELECT = {
 
 export type UserWithPassword = User & { password: string }
 
-// 定期清理过期缓存
-setInterval(() => {
-  const now = Date.now()
-  for (const [id, entry] of userCache.entries()) {
-    if (entry.expiresAt < now) {
-      userCache.delete(id)
+// 定期清理过期缓存（单例防止重复计时器，Edge 环境跳过）
+const globalAuthTimers = globalThis as typeof globalThis & { __authCacheCleanupStarted?: boolean }
+if (!globalAuthTimers.__authCacheCleanupStarted && process.env.NEXT_RUNTIME !== 'edge') {
+  globalAuthTimers.__authCacheCleanupStarted = true
+  setInterval(() => {
+    const now = Date.now()
+    for (const [id, entry] of userCache.entries()) {
+      if (entry.expiresAt < now) {
+        userCache.delete(id)
+      }
     }
-  }
-}, CACHE_CLEANUP_INTERVAL)
+  }, CACHE_CLEANUP_INTERVAL)
+}
 
 /**
  * 获取新的缓存版本号

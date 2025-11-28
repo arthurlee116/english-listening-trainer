@@ -354,66 +354,43 @@ class KokoroTTSWrapper:
         return complete_wav.hex()
     
     async def generate_speech_single(self, text: str, speed: float = 1.0) -> str:
-        """生成单个文本块的音频（原来的generate_speech逻辑）"""
+        """生成单个文本块的音频（单次流水线遍历）"""
         try:
             import torch
-            import concurrent.futures
-            
-            # 首先收集所有文本块
-            text_chunks = []
-            for i, (graphemes, phonemes, audio) in enumerate(
-                self.pipeline(
-                    text, 
-                    voice=self.voice, 
-                    speed=speed,
-                    split_pattern=r'\n+'
-                )
-            ):
-                if audio is not None:
-                    text_chunks.append((i, graphemes, phonemes))
-                    print(f"🎵 Found chunk {i+1}: {len(graphemes)} chars, {len(phonemes)} phonemes", file=sys.stderr)
-            
-            if not text_chunks:
-                raise Exception("No audio chunks were generated")
-            
-            print(f"🎵 Total {len(text_chunks)} chunks to process", file=sys.stderr)
-            
-            # 串行处理（单块音频不需要并行）
-            print(f"📝 Processing {len(text_chunks)} chunks sequentially...", file=sys.stderr)
-            
-            audio_chunks = []
-            for i, (graphemes, phonemes, audio) in enumerate(
-                self.pipeline(
-                    text, 
-                    voice=self.voice, 
-                    speed=speed,
-                    split_pattern=r'\n+'
-                )
-            ):
-                if audio is not None:
-                    if self.device == 'mps':
-                        audio = audio.to('cpu')
-                    audio_chunks.append(audio)
-                    print(f"✅ Chunk {i+1} completed", file=sys.stderr)
-            
-            if not audio_chunks:
-                raise Exception("No audio chunks were generated successfully")
-            
-            # 拼接所有音频块
-            combined_audio = torch.cat(audio_chunks)
-            
-            # 转换为字节数据
             import io
             import soundfile as sf
+
+            audio_chunks = []
+
+            for i, (_, _, audio) in enumerate(
+                self.pipeline(
+                    text,
+                    voice=self.voice,
+                    speed=speed,
+                    split_pattern=r'\n+'
+                )
+            ):
+                if audio is None:
+                    continue
+                if self.device == 'mps':
+                    audio = audio.to('cpu')
+                audio_chunks.append(audio)
+                print(f"✅ Chunk {i+1} completed", file=sys.stderr)
+
+            if not audio_chunks:
+                raise Exception("No audio chunks were generated successfully")
+
+            combined_audio = torch.cat(audio_chunks)
+
             buffer = io.BytesIO()
             sf.write(buffer, combined_audio.numpy(), 24000, format='WAV')
             audio_data = buffer.getvalue()
-            
+
             total_duration = len(combined_audio) / 24000
             print(f"🎵 Generated {len(audio_chunks)} chunks, total length: {total_duration:.2f}s", file=sys.stderr)
-            
+
             return audio_data.hex()
-            
+
         except Exception as e:
             print(f"❌ Error in generate_speech_single: {e}", file=sys.stderr)
             import traceback
@@ -447,8 +424,11 @@ async def main():
                 request = json.loads(line)
                 
                 # 获取语言和语音配置
-                lang_code = request.get('lang_code', 'a')
-                voice = request.get('voice', 'af_heart')
+                request_id = request.get('request_id')
+                lang_code = request.get('lang_code')
+                voice = request.get('voice')
+                if not lang_code or not voice:
+                    raise ValueError("Missing lang_code or voice in request")
                 
                 # 重新初始化服务（如果需要）
                 await service.initialize(lang_code=lang_code, voice=voice)
@@ -462,6 +442,7 @@ async def main():
                 # 返回结果
                 response = {
                     "success": True,
+                    "request_id": request_id,
                     "audio_data": result,
                     "device": service.device or "unknown",
                     "lang_code": service.lang_code,
@@ -476,6 +457,7 @@ async def main():
             except json.JSONDecodeError:
                 error_response = {
                     "success": False,
+                    "request_id": None,
                     "error": "Invalid JSON format"
                 }
                 print(json.dumps(error_response))
@@ -484,6 +466,7 @@ async def main():
             except Exception as e:
                 error_response = {
                     "success": False,
+                    "request_id": request.get('request_id') if 'request' in locals() else None,
                     "error": str(e)
                 }
                 print(json.dumps(error_response))

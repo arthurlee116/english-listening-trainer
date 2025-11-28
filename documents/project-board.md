@@ -52,6 +52,16 @@
 - [ ] （留空，提交 PR 后填入）
 
 ## Done
+- [x] 2025-01-05 **TTS 管线加固与冗余清理**
+  - 限制 TTS 并发为 1、排队上限 4，队列满返回 429；缓存键加入 voice/model 维度，速度/文本校验更严格
+  - Kokoro GPU 服务改为全局单例并阻止额外实例；请求使用 request_id 路由，动态超时（按文本长度估算）；音频写入改异步
+  - Python wrapper 强制要求 lang_code/voice、回传 request_id，单次遍历生成音频（移除双 pass）
+  - 清理服务启动集中在 Kokoro 服务内，移除 kokoro-init 重复启动；生成音频日志落地 `logs/tts-refactor-log.md`
+- [x] 2025-01-05 **登录状态与构建安全修复**
+  - 主页面直接复用上层传入的登录状态，避免重复请求和状态冲突
+  - 构建阶段恢复 TypeScript/ESLint 强校验，阻止带问题的代码进入产物
+  - 内存定时器增加单例保护并跳过 Edge 环境，避免在无状态部署里泄漏计时器
+  - 新增 `.gitignore` 忽略 node_modules/、备份文件、日志，减少仓库膨胀
 - [x] 2025-10-25 **移除专项练习模式**
   - 删除 `lib/specialized-preset-storage.ts`、`lib/focus-metrics.ts`、`lib/focus-metrics-cache.ts` 专项模式服务文件
   - 从 `app/page.tsx` 移除专项模式状态、hooks、事件处理函数和API调用中的focusAreas参数

@@ -212,7 +212,7 @@ export class ConcurrencyLimiter {
   private running: number = 0
   private queue: Array<() => void> = []
   
-  constructor(private maxConcurrency: number) {}
+  constructor(private maxConcurrency: number, private queueLimit: number = Number.POSITIVE_INFINITY) {}
   
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -231,8 +231,10 @@ export class ConcurrencyLimiter {
       
       if (this.running < this.maxConcurrency) {
         execute()
-      } else {
+      } else if (this.queue.length < this.queueLimit) {
         this.queue.push(execute)
+      } else {
+        reject(new Error('Request queue is full. Please try again later.'))
       }
     })
   }
@@ -247,7 +249,7 @@ export class ConcurrencyLimiter {
 
 // 创建限制器实例
 export const aiRequestLimiter = new ConcurrencyLimiter(3) // AI请求限制为3并发
-export const ttsRequestLimiter = new ConcurrencyLimiter(1) // TTS请求限制为1并发
+export const ttsRequestLimiter = new ConcurrencyLimiter(1, 4) // TTS请求限制为1并发，最多排队4个
 export const dbRequestLimiter = new ConcurrencyLimiter(10) // 数据库请求限制为10并发
 
 // 内存使用监控
