@@ -165,10 +165,21 @@ health-check.log
 dist/
 build/
 
-# Kiro IDE configuration files with sensitive data
-.kiro/settings/mcp.json
-mcp.jsonnext/
-my-v0-project@0.1.0
+# AI IDE configuration directories
+.kiro/
+.lingma/
+.qoder/
+.qoderignore
+.codex/
+
+# Qdrant vector database storage
+/qdrant_storage/
+
+# Test results and reports
+/test-results/
+
+# Logs directory
+/logs/
 
 .venv*
 
@@ -179,3 +190,14 @@ my-v0-project@0.1.0
 *.backup
 *.log
 /.next
+
+# Temporary test/debug files
+*_cookies.txt
+test_session.txt
+dev-server.log
+.next-dev.pid
+code-quality-report.md
+
+# Accidentally created files (from CLI mishaps)
+--help
+--version
