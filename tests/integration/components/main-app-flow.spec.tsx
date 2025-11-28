@@ -5,88 +5,126 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../helpers/render-utils'
 import { createMockExercise, createMockPracticeSession } from '../../helpers/mock-utils'
 import { MainApp } from '../../../components/main-app'
+import { createMockAuthState } from '@/tests/helpers/mock-auth-state'
 import type { Exercise, PracticeSessionData } from '../../../lib/types'
 
 // Mock external dependencies
-vi.mock('../../lib/ai-service', () => ({
+vi.mock('@/lib/ai-service', () => ({
   generateTopics: vi.fn(),
   generateTranscript: vi.fn(),
   generateQuestions: vi.fn(),
   gradeAnswers: vi.fn(),
 }))
 
-vi.mock('../../lib/tts-service', () => ({
+vi.mock('@/lib/tts-service', () => ({
   generateAudio: vi.fn(),
 }))
 
-vi.mock('../../lib/storage', () => ({
+vi.mock('@/lib/storage', () => ({
   saveToHistory: vi.fn(),
   getHistory: vi.fn(() => []),
 }))
 
-vi.mock('../../../hooks/use-auth-state', () => ({
-  useAuthState: () => ({
-    user: { id: 'test-user', name: 'Test User', email: 'test@example.com' },
-    isAuthenticated: true,
-    isLoading: false,
-    showAuthDialog: false,
-    handleUserAuthenticated: vi.fn(),
-    handleLogout: vi.fn(),
-  }),
+vi.mock('@/lib/achievement-service', () => ({
+  handlePracticeCompleted: vi.fn(() => ({ newAchievements: [], goalProgress: { daily: { isCompleted: false }, weekly: { isCompleted: false } } })),
+  initializeAchievements: vi.fn(),
+  migrateFromHistory: vi.fn(),
 }))
 
-vi.mock('../../../hooks/use-legacy-migration', () => ({
+vi.mock('@/lib/export', () => ({
+  exportToTxt: vi.fn(),
+}))
+
+vi.mock('@/hooks/use-legacy-migration', () => ({
   useLegacyMigration: () => ({
-    migrationStatus: { isComplete: false, hasError: false },
+    migrationStatus: { 
+      isComplete: false, 
+      hasError: false, 
+      imported: undefined, 
+      message: '',
+      isChecking: false,
+      canRetry: false,
+    },
     shouldShowNotification: () => false,
   }),
 }))
 
+vi.mock('@/hooks/use-bilingual-text', () => ({
+  useBilingualText: () => ({
+    t: (key: string) => key,
+    formatBilingual: (en: string, _zh?: string) => en,
+    getBilingualValue: (obj: any) => obj?.en || obj?.zh || '',
+  }),
+}))
+
+vi.mock('@/hooks/use-theme-classes', () => ({
+  useThemeClasses: () => ({
+    isLight: true,
+    isDark: false,
+    themeClass: (light: string, _dark?: string) => light,
+    textClass: () => '',
+    iconClass: () => '',
+    borderClass: () => '',
+    separatorClass: () => '',
+  }),
+  combineThemeClasses: (...classes: string[]) => classes.filter(Boolean).join(' '),
+}))
+
 describe('MainApp Integration Tests', () => {
   const user = userEvent.setup()
+  let authState = createMockAuthState()
   
-  beforeEach(() => {
+  beforeEach(async () => {
+    authState = createMockAuthState()
     // Clear localStorage before each test
     localStorage.clear()
     
     // Reset all mocks
     vi.clearAllMocks()
     
-    // Mock successful API responses
-    const { generateTopics, generateTranscript, generateQuestions, gradeAnswers } = require('../../lib/ai-service')
-    const { generateAudio } = require('../../../lib/tts-service')
+    // Import and setup API mocks
+    const { generateTopics, generateTranscript, generateQuestions, gradeAnswers } = await import('@/lib/ai-service')
+    const { generateAudio } = await import('@/lib/tts-service')
     
-    generateTopics.mockResolvedValue({
+    // Mock successful API responses
+    vi.mocked(generateTopics).mockResolvedValue({
+      success: true,
       topics: ['Technology Trends', 'Business Innovation', 'Digital Transformation']
     })
     
-    generateTranscript.mockResolvedValue(
-      'In today\'s rapidly evolving technological landscape, artificial intelligence and machine learning are transforming how we work and live.'
-    )
+    vi.mocked(generateTranscript).mockResolvedValue({
+      success: true,
+      transcript: 'In today\'s rapidly evolving technological landscape, artificial intelligence and machine learning are transforming how we work and live.'
+    })
     
-    generateQuestions.mockResolvedValue([
-      {
-        type: 'single',
-        question: 'What is the main topic discussed?',
-        options: ['Technology', 'Business', 'Education', 'Travel'],
-        answer: 'Technology',
-        focus_areas: ['main-idea'],
-        explanation: 'The passage focuses on technological advancement.'
-      }
-    ])
+    vi.mocked(generateQuestions).mockResolvedValue({
+      success: true,
+      questions: [
+        {
+          type: 'single',
+          question: 'What is the main topic discussed?',
+          options: ['Technology', 'Business', 'Education', 'Travel'],
+          answer: 'Technology',
+          focus_areas: ['main-idea'],
+          explanation: 'The passage focuses on technological advancement.'
+        }
+      ]
+    })
     
-    gradeAnswers.mockResolvedValue([
-      {
-        type: 'single',
-        user_answer: 'Technology',
-        correct_answer: 'Technology',
-        is_correct: true,
-        question_id: 0,
-        error_tags: [],
-      }
-    ])
+    vi.mocked(gradeAnswers).mockResolvedValue({
+      results: [
+        {
+          type: 'single',
+          user_answer: 'Technology',
+          correct_answer: 'Technology',
+          is_correct: true,
+          question_id: 0,
+          error_tags: [],
+        }
+      ]
+    })
     
-    generateAudio.mockResolvedValue({
+    vi.mocked(generateAudio).mockResolvedValue({
       audioUrl: 'blob:mock-audio-url',
       duration: 45
     })
@@ -104,7 +142,7 @@ describe('MainApp Integration Tests', () => {
         totalDurationSec: 180
       })
 
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Navigate to setup and enable specialized mode
       expect(screen.getByText('创建听力练习')).toBeInTheDocument()
@@ -162,7 +200,7 @@ describe('MainApp Integration Tests', () => {
         lastCalculated: new Date().toISOString()
       }))
 
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Check if recommendations are displayed when specialized mode is enabled
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
@@ -187,7 +225,7 @@ describe('MainApp Integration Tests', () => {
 
   describe('Component Interaction with Mocked Children', () => {
     it('should properly interact with AudioPlayer component', async () => {
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Complete setup to reach listening step
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
@@ -211,17 +249,17 @@ describe('MainApp Integration Tests', () => {
       // Verify audio generation can be triggered
       const generateAudioButton = screen.queryByRole('button', { name: /generate.*audio/i })
       if (generateAudioButton) {
+        const { generateAudio } = await import('@/lib/tts-service')
         await user.click(generateAudioButton)
         
         await waitFor(() => {
-  const { generateAudio } = require('../../lib/tts-service')
-          expect(generateAudio).toHaveBeenCalled()
+          expect(vi.mocked(generateAudio)).toHaveBeenCalled()
         })
       }
     })
 
     it('should handle QuestionInterface component interaction', async () => {
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Navigate through the flow to reach questions
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
@@ -266,7 +304,7 @@ describe('MainApp Integration Tests', () => {
     it('should handle ResultsDisplay component interaction', async () => {
       const mockExercise = createMockExercise()
       
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Complete the full flow to reach results
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
@@ -311,9 +349,10 @@ describe('MainApp Integration Tests', () => {
 
   describe('Data Flow with Specialized Fields', () => {
     it('should preserve specialized fields throughout the exercise flow', async () => {
-      const { saveToHistory } = require('../../../lib/storage')
+      const { saveToHistory } = await import('@/lib/storage')
+      const mockSaveToHistory = vi.mocked(saveToHistory)
       
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Set up specialized exercise
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
@@ -354,8 +393,8 @@ describe('MainApp Integration Tests', () => {
 
       // Verify that saveToHistory was called with specialized fields
       await waitFor(() => {
-        if (saveToHistory.mock.calls.length > 0) {
-          const savedExercise = saveToHistory.mock.calls[0][0]
+        if (mockSaveToHistory.mock.calls.length > 0) {
+          const savedExercise = mockSaveToHistory.mock.calls[0][0]
           expect(savedExercise).toHaveProperty('topic', 'Technology Innovation')
           expect(savedExercise).toHaveProperty('difficulty', 'B1')
           expect(savedExercise).toHaveProperty('createdAt')
@@ -365,7 +404,7 @@ describe('MainApp Integration Tests', () => {
     })
 
     it('should handle duration recording for specialized practice sessions', async () => {
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Track start time by monitoring localStorage
       const initialTime = Date.now()
@@ -375,7 +414,7 @@ describe('MainApp Integration Tests', () => {
       await user.click(difficultySelect)
       await user.click(screen.getByText('B1 - Intermediate'))
 
-      const topicInput = screen.getByPlaceholderInput(/enter a topic/i)
+      const topicInput = screen.getByPlaceholderText(/enter a topic/i)
       await user.type(topicInput, 'Technology')
 
       const generateButton = screen.getByRole('button', { name: /generate listening exercise/i })
@@ -402,9 +441,10 @@ describe('MainApp Integration Tests', () => {
       }, { timeout: 10000 })
 
       // Check if duration was recorded
-      const { saveToHistory } = require('../../../lib/storage')
-      if (saveToHistory.mock.calls.length > 0) {
-        const savedExercise = saveToHistory.mock.calls[0][0]
+      const { saveToHistory } = await import('@/lib/storage')
+      const mockSaveToHistory = vi.mocked(saveToHistory)
+      if (mockSaveToHistory.mock.calls.length > 0) {
+        const savedExercise = mockSaveToHistory.mock.calls[0][0]
         expect(savedExercise).toHaveProperty('createdAt')
         
         // Verify the timestamp is reasonable (within the last few seconds)
@@ -418,10 +458,10 @@ describe('MainApp Integration Tests', () => {
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle API failures gracefully', async () => {
-      const { generateTopics } = require('../../../lib/ai-service')
-      generateTopics.mockRejectedValue(new Error('Network error'))
+      const { generateTopics } = await import('@/lib/ai-service')
+      vi.mocked(generateTopics).mockRejectedValue(new Error('Network error'))
 
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)
@@ -448,7 +488,7 @@ describe('MainApp Integration Tests', () => {
         throw new Error('Storage unavailable')
       })
 
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       // Should still render without crashing
       expect(screen.getByText('创建听力练习')).toBeInTheDocument()
@@ -462,7 +502,7 @@ describe('MainApp Integration Tests', () => {
       localStorage.removeItem('english-listening-specialized-mode')
       localStorage.removeItem('english-listening-focus-area-cache')
 
-      renderWithProviders(<MainApp />)
+      renderWithProviders(<MainApp authState={authState} />)
 
       const difficultySelect = screen.getByRole('combobox', { name: /difficulty/i })
       await user.click(difficultySelect)

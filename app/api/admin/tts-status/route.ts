@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
 import { detectSystemDevices, getCurrentDeviceConfig, validateDeviceConfig, generateDeviceReport, SystemInfo } from '@/lib/device-detection'
+import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
 
 export async function GET(request: NextRequest) {
   try {
     // 验证管理员权限
     const authResult = await requireAdmin(request)
-    
+
     if (authResult.error || !authResult.user) {
       return NextResponse.json(
         { error: authResult.error || '需要管理员权限' },
@@ -21,6 +22,14 @@ export async function GET(request: NextRequest) {
       generateDeviceReport()
     ])
 
+    // 获取真实TTS服务状态
+    const realServiceStats = {
+      stats: kokoroTTSGPU.getStats(),
+      queueInfo: kokoroTTSGPU.getQueueInfo(),
+      healthInfo: kokoroTTSGPU.getHealthInfo(),
+      recentErrors: kokoroTTSGPU.getRecentErrors()
+    }
+
     const currentConfig = getCurrentDeviceConfig()
 
     // 构建响应数据
@@ -32,7 +41,7 @@ export async function GET(request: NextRequest) {
         valid: deviceValidation.valid,
         message: deviceValidation.message
       },
-      
+
       // 系统信息
       system: {
         platform: systemInfo.platform,
@@ -41,7 +50,7 @@ export async function GET(request: NextRequest) {
         cpuCount: systemInfo.cpuCount,
         recommendedDevice: systemInfo.recommendedDevice
       },
-      
+
       // 设备详情
       devices: systemInfo.devices.map(device => ({
         type: device.type,
@@ -50,17 +59,17 @@ export async function GET(request: NextRequest) {
         memory: device.memory,
         capabilities: device.capabilities,
         recommended: device.recommended,
-        status: device.available ? 
-          (device.type === deviceValidation.device ? 'active' : 'available') : 
+        status: device.available ?
+          (device.type === deviceValidation.device ? 'active' : 'available') :
           'unavailable'
       })),
-      
+
       // 性能建议
       recommendations: generateRecommendations(systemInfo),
-      
+
       // 设备报告
       report: deviceReport,
-      
+
       // TTS 服务状态
       service: {
         enabled: process.env.ENABLE_TTS === 'true',
@@ -68,7 +77,26 @@ export async function GET(request: NextRequest) {
         timeout: parseInt(process.env.TTS_TIMEOUT || '30000'),
         maxConcurrent: parseInt(process.env.TTS_MAX_CONCURRENT || '1')
       },
-      
+
+      // 真实服务统计
+      realServiceStats: {
+        requestsTotal: realServiceStats.stats.totalRequests,
+        requestsSuccess: realServiceStats.stats.successfulRequests,
+        requestsFailed: realServiceStats.stats.failedRequests,
+        successRate: realServiceStats.stats.successRate,
+        averageResponseTime: realServiceStats.stats.averageResponseTime,
+        responseTimeP50: realServiceStats.stats.responseTimeP50,
+        responseTimeP90: realServiceStats.stats.responseTimeP90,
+        responseTimeP99: realServiceStats.stats.responseTimeP99,
+        queueLength: realServiceStats.queueInfo.queueLength,
+        activeRequests: realServiceStats.queueInfo.activeRequests,
+        circuitBreakerState: realServiceStats.healthInfo.circuitBreakerState,
+        isHealthy: realServiceStats.healthInfo.isHealthy,
+        lastError: realServiceStats.healthInfo.lastError,
+        recentErrors: realServiceStats.recentErrors,
+        lastUpdated: realServiceStats.stats.lastUpdated
+      },
+
       // 环境变量
       environment: {
         KOKORO_DEVICE: process.env.KOKORO_DEVICE,
@@ -86,7 +114,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Get TTS status error:', error)
     return NextResponse.json(
-      { 
+      {
         error: '获取TTS状态失败',
         details: error instanceof Error ? error.message : '未知错误'
       },

@@ -1,88 +1,119 @@
 /**
  * 练习流程管理 Hook
- * 从主页面组件中提取的练习流程状态管理逻辑
+ * 集中管理所有练习相关的状态与业务逻辑
  */
 
-import { useCallback, useReducer, useMemo } from "react"
+import { useCallback, useReducer, useMemo, useRef, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
 import { generateAudio } from "@/lib/tts-service"
-import { saveToHistory } from "@/lib/storage"
-import { mapDifficultyToCEFR } from "@/lib/difficulty-service"
-import type { Exercise, Question, DifficultyLevel, GradingResult } from "@/lib/types"
-// 移除已删除的邀请码hook引用
+import { saveToHistory, getHistory } from "@/lib/storage"
+import { exportToTxt } from "@/lib/export"
+import { handlePracticeCompleted, initializeAchievements, migrateFromHistory } from "@/lib/achievement-service"
+import type { 
+  Exercise, 
+  Question, 
+  DifficultyLevel, 
+  GradingResult,
+  ListeningLanguage,
+  AchievementNotification
+} from "@/lib/types"
 
-export type ExerciseStep = 'setup' | 'listening' | 'questions' | 'results'
-
-export interface ExerciseFormData {
-  topic: string
-  customTopic: string
-  difficulty: DifficultyLevel
-  duration: number
-  focus: string
-}
-
-export interface AssessmentInfo {
-  hasAssessment: boolean
-  difficultyLevel: number
-}
+export type ExerciseStep = 
+  | 'setup' 
+  | 'listening' 
+  | 'questions' 
+  | 'results' 
+  | 'history' 
+  | 'wrong-answers' 
+  | 'assessment' 
+  | 'assessment-result'
 
 interface ExerciseState {
   currentStep: ExerciseStep
-  formData: ExerciseFormData
-  isGenerating: boolean
-  generationProgress: string
+  difficulty: DifficultyLevel | ""
+  duration: number
+  language: ListeningLanguage
+  topic: string
+  suggestedTopics: string[]
   transcript: string
   audioUrl: string
+  audioDuration: number | null
+  audioError: boolean
   questions: Question[]
-  userAnswers: string[]
-  results: GradingResult[] | null
-  exercise: Exercise | null
-  suggestedTopics: string[]
+  answers: Record<number, string>
+  currentExercise: Exercise | null
+  loading: boolean
+  loadingMessage: string
+  canRegenerate: boolean
+  assessmentResult: AssessmentResultType | null
+  newAchievements: AchievementNotification[]
   error: string | null
+}
+
+export interface AssessmentResultType {
+  difficultyLevel: number
+  difficultyRange: {
+    min: number
+    max: number
+    name: string
+    nameEn: string
+    description: string
+  }
+  scores: number[]
+  summary: string
+  details: Array<{
+    audioId: number
+    topic: string
+    userScore: number
+    difficulty: number
+    performance: string
+  }>
+  recommendation: string
 }
 
 type ExerciseAction =
   | { type: 'SET_STEP'; payload: ExerciseStep }
-  | { type: 'SET_FORM_DATA'; payload: Partial<ExerciseFormData> }
-  | { type: 'SET_GENERATING'; payload: boolean }
-  | { type: 'SET_PROGRESS'; payload: string }
+  | { type: 'SET_DIFFICULTY'; payload: DifficultyLevel | "" }
+  | { type: 'SET_DURATION'; payload: number }
+  | { type: 'SET_LANGUAGE'; payload: ListeningLanguage }
+  | { type: 'SET_TOPIC'; payload: string }
+  | { type: 'SET_SUGGESTED_TOPICS'; payload: string[] }
   | { type: 'SET_TRANSCRIPT'; payload: string }
   | { type: 'SET_AUDIO_URL'; payload: string }
+  | { type: 'SET_AUDIO_DURATION'; payload: number | null }
+  | { type: 'SET_AUDIO_ERROR'; payload: boolean }
   | { type: 'SET_QUESTIONS'; payload: Question[] }
-  | { type: 'SET_USER_ANSWERS'; payload: string[] }
-  | { type: 'SET_RESULTS'; payload: GradingResult[] }
-  | { type: 'SET_EXERCISE'; payload: Exercise }
-  | { type: 'SET_SUGGESTED_TOPICS'; payload: string[] }
+  | { type: 'SET_ANSWERS'; payload: Record<number, string> }
+  | { type: 'SET_CURRENT_EXERCISE'; payload: Exercise | null }
+  | { type: 'SET_LOADING'; payload: { loading: boolean; message?: string } }
+  | { type: 'SET_CAN_REGENERATE'; payload: boolean }
+  | { type: 'SET_ASSESSMENT_RESULT'; payload: AssessmentResultType | null }
+  | { type: 'SET_NEW_ACHIEVEMENTS'; payload: AchievementNotification[] }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET' }
 
-function createInitialState(assessmentInfo?: AssessmentInfo): ExerciseState {
-  // 根据用户评估结果设置推荐难度，如果没有评估则使用默认的B1
-  let recommendedDifficulty: DifficultyLevel = 'B1'
-  
-  if (assessmentInfo?.hasAssessment && assessmentInfo.difficultyLevel) {
-    recommendedDifficulty = mapDifficultyToCEFR(assessmentInfo.difficultyLevel) as DifficultyLevel
-  }
-
+function createInitialState(): ExerciseState {
   return {
     currentStep: 'setup',
-    formData: {
-      topic: '',
-      customTopic: '',
-      difficulty: recommendedDifficulty,
-      duration: 120,
-      focus: ''
-    },
-    isGenerating: false,
-    generationProgress: '',
+    difficulty: '',
+    duration: 120,
+    language: 'en-US',
+    topic: '',
+    suggestedTopics: [],
     transcript: '',
     audioUrl: '',
+    audioDuration: null,
+    audioError: false,
     questions: [],
-    userAnswers: [],
-    results: null,
-    exercise: null,
-    suggestedTopics: [],
+    answers: {},
+    currentExercise: null,
+    loading: false,
+    loadingMessage: '',
+    canRegenerate: true,
+    assessmentResult: null,
+    newAchievements: [],
     error: null
   }
 }
@@ -91,268 +122,520 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
   switch (action.type) {
     case 'SET_STEP':
       return { ...state, currentStep: action.payload }
-    case 'SET_FORM_DATA':
-      return { 
-        ...state, 
-        formData: { ...state.formData, ...action.payload },
-        error: null
-      }
-    case 'SET_GENERATING':
-      return { ...state, isGenerating: action.payload }
-    case 'SET_PROGRESS':
-      return { ...state, generationProgress: action.payload }
+    case 'SET_DIFFICULTY':
+      return { ...state, difficulty: action.payload, error: null }
+    case 'SET_DURATION':
+      return { ...state, duration: action.payload }
+    case 'SET_LANGUAGE':
+      return { ...state, language: action.payload }
+    case 'SET_TOPIC':
+      return { ...state, topic: action.payload }
+    case 'SET_SUGGESTED_TOPICS':
+      return { ...state, suggestedTopics: action.payload }
     case 'SET_TRANSCRIPT':
       return { ...state, transcript: action.payload }
     case 'SET_AUDIO_URL':
       return { ...state, audioUrl: action.payload }
+    case 'SET_AUDIO_DURATION':
+      return { ...state, audioDuration: action.payload }
+    case 'SET_AUDIO_ERROR':
+      return { ...state, audioError: action.payload }
     case 'SET_QUESTIONS':
       return { ...state, questions: action.payload }
-    case 'SET_USER_ANSWERS':
-      return { ...state, userAnswers: action.payload }
-    case 'SET_RESULTS':
-      return { ...state, results: action.payload }
-    case 'SET_EXERCISE':
-      return { ...state, exercise: action.payload }
-    case 'SET_SUGGESTED_TOPICS':
-      return { ...state, suggestedTopics: action.payload }
+    case 'SET_ANSWERS':
+      return { ...state, answers: action.payload }
+    case 'SET_CURRENT_EXERCISE':
+      return { ...state, currentExercise: action.payload }
+    case 'SET_LOADING':
+      return { 
+        ...state, 
+        loading: action.payload.loading,
+        loadingMessage: action.payload.message || ''
+      }
+    case 'SET_CAN_REGENERATE':
+      return { ...state, canRegenerate: action.payload }
+    case 'SET_ASSESSMENT_RESULT':
+      return { ...state, assessmentResult: action.payload }
+    case 'SET_NEW_ACHIEVEMENTS':
+      return { ...state, newAchievements: action.payload }
     case 'SET_ERROR':
-      return { ...state, error: action.payload, isGenerating: false }
+      return { ...state, error: action.payload, loading: false }
     case 'RESET':
-      return { ...createInitialState(), formData: state.formData }
+      return createInitialState()
     default:
       return state
   }
 }
 
-export function useExerciseWorkflow(assessmentInfo?: AssessmentInfo) {
-  const [state, dispatch] = useReducer(exerciseReducer, createInitialState(assessmentInfo))
+// Type guard for Error objects
+function isError(error: unknown): error is Error {
+  return error instanceof Error
+}
+
+export function useExerciseWorkflow() {
+  const [state, dispatch] = useReducer(exerciseReducer, createInitialState())
   const { toast } = useToast()
+  const { t } = useBilingualText()
+  const exerciseStartTimeRef = useRef<number | null>(null)
+  const apiRequestCache = useMemo(() => new Map<string, Promise<unknown>>(), [])
 
-  // 生成话题建议
-  const generateTopicSuggestions = useCallback(async () => {
+  // Initialize achievement system
+  useEffect(() => {
     try {
-      dispatch({ type: 'SET_GENERATING', payload: true })
-      dispatch({ type: 'SET_PROGRESS', payload: '正在生成话题建议...' })
-      
-      const topics = await generateTopics(state.formData.difficulty, state.formData.duration)
-      dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: topics })
-      
-      toast({
-        title: "话题生成成功",
-        description: "已为您生成了话题建议，请选择一个开始练习",
-      })
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '生成话题失败'
-      dispatch({ type: 'SET_ERROR', payload: errorMessage })
-      
-      toast({
-        title: "生成失败",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      dispatch({ type: 'SET_GENERATING', payload: false })
-    }
-  }, [state.formData.difficulty, state.formData.duration, toast])
-
-  // 开始练习
-  const startExercise = useCallback(async () => {
-    const selectedTopic = state.formData.topic === 'custom' ? state.formData.customTopic : state.formData.topic
-    
-    if (!selectedTopic.trim()) {
-      toast({
-        title: "请选择话题",
-        description: "请选择一个话题或输入自定义话题",
-        variant: "destructive",
-      })
-      return false
-    }
-
-    try {
-      dispatch({ type: 'SET_GENERATING', payload: true })
-      dispatch({ type: 'SET_ERROR', payload: null })
-
-      // 生成文稿
-      dispatch({ type: 'SET_PROGRESS', payload: '正在生成听力文稿...' })
-      const transcript = await generateTranscript(
-        state.formData.difficulty,
-        state.formData.duration * 50, // 估算字数，50字/分钟
-        selectedTopic,
-        'en-US',
-        20 // 默认难度等级
-      )
-      dispatch({ type: 'SET_TRANSCRIPT', payload: transcript })
-
-      // 生成音频
-      dispatch({ type: 'SET_PROGRESS', payload: '正在生成音频...' })
-      const audioResult = await generateAudio(transcript)
-      dispatch({ type: 'SET_AUDIO_URL', payload: audioResult.audioUrl })
-
-      // 生成问题  
-      dispatch({ type: 'SET_PROGRESS', payload: '正在生成问题...' })
-      const questions = await generateQuestions(
-        state.formData.difficulty,
-        transcript,
-        'en-US',
-        state.formData.duration,
-        20 // 默认难度等级
-      )
-      dispatch({ type: 'SET_QUESTIONS', payload: questions })
-
-      // 创建练习对象
-      const exercise: Exercise = {
-        id: Date.now().toString(),
-        difficulty: state.formData.difficulty,
-        language: 'en-US',
-        topic: selectedTopic,
-        transcript,
-        questions,
-        answers: {},
-        results: [],
-        createdAt: new Date().toISOString()
+      initializeAchievements()
+      const history = getHistory()
+      if (history.length > 0) {
+        migrateFromHistory(history)
       }
-      dispatch({ type: 'SET_EXERCISE', payload: exercise })
-
-      // 保存到历史记录
-      saveToHistory(exercise)
-
-      dispatch({ type: 'SET_STEP', payload: 'listening' })
-      
-      toast({
-        title: "练习准备完成",
-        description: "听力材料已生成，请开始听音频",
-      })
-      
-      return true
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '生成练习失败'
-      dispatch({ type: 'SET_ERROR', payload: errorMessage })
-      
-      toast({
-        title: "生成失败",
-        description: errorMessage,
-        variant: "destructive",
-      })
-      
-      return false
-    } finally {
-      dispatch({ type: 'SET_GENERATING', payload: false })
+      console.error("Failed to initialize achievement system:", error)
     }
-  }, [state.formData, toast])
-
-  // 开始答题
-  const startQuestions = useCallback(() => {
-    dispatch({ type: 'SET_STEP', payload: 'questions' })
-    dispatch({ type: 'SET_USER_ANSWERS', payload: new Array(state.questions.length).fill('') })
-  }, [state.questions.length])
-
-  // 提交答案
-  const submitAnswers = useCallback(async () => {
-    if (!state.exercise) {
-      toast({
-        title: "错误",
-        description: "练习数据丢失，请重新开始",
-        variant: "destructive",
-      })
-      return false
-    }
-
-    try {
-      dispatch({ type: 'SET_GENERATING', payload: true })
-      dispatch({ type: 'SET_PROGRESS', payload: '正在评分...' })
-
-      const results = await gradeAnswers(
-        state.exercise.transcript,
-        state.exercise.questions,
-        state.userAnswers.reduce((acc, answer, index) => ({ ...acc, [index]: answer }), {}),
-        'en-US'
-      )
-
-      dispatch({ type: 'SET_RESULTS', payload: results })
-      dispatch({ type: 'SET_STEP', payload: 'results' })
-
-      const correctCount = results.filter(r => r.is_correct).length
-      
-      toast({
-        title: "评分完成",
-        description: `您的得分：${correctCount}/${results.length}`,
-      })
-
-      return true
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '评分失败'
-      dispatch({ type: 'SET_ERROR', payload: errorMessage })
-      
-      toast({
-        title: "评分失败",
-        description: errorMessage,
-        variant: "destructive",
-      })
-      
-      return false
-    } finally {
-      dispatch({ type: 'SET_GENERATING', payload: false })
-    }
-  }, [state.exercise, state.userAnswers, toast])
-
-  // 重新开始
-  const resetExercise = useCallback(() => {
-    dispatch({ type: 'RESET' })
-    toast({
-      title: "已重置",
-      description: "练习已重置，可以开始新的练习",
-    })
-  }, [toast])
-
-  // 更新表单数据
-  const updateFormData = useCallback((data: Partial<ExerciseFormData>) => {
-    dispatch({ type: 'SET_FORM_DATA', payload: data })
   }, [])
 
-  // 更新用户答案
-  const updateUserAnswer = useCallback((index: number, answer: string) => {
-    const newAnswers = [...state.userAnswers]
-    newAnswers[index] = answer
-    dispatch({ type: 'SET_USER_ANSWERS', payload: newAnswers })
-  }, [state.userAnswers])
-
-  // 计算进度
-  const progress = useMemo(() => {
-    switch (state.currentStep) {
-      case 'setup': return 0
-      case 'listening': return 33
-      case 'questions': return 66
-      case 'results': return 100
-      default: return 0
+  // Display new achievement notifications
+  useEffect(() => {
+    state.newAchievements.forEach((notification) => {
+      toast({
+        title: t("achievements.notifications.achievementEarned.title"),
+        description: t("achievements.notifications.achievementEarned.description", {
+          values: { title: t(notification.achievement.titleKey) },
+        }),
+        duration: 5000,
+      })
+    })
+    if (state.newAchievements.length > 0) {
+      dispatch({ type: 'SET_NEW_ACHIEVEMENTS', payload: [] })
     }
-  }, [state.currentStep])
+  }, [state.newAchievements, toast, t])
 
-  // 检查是否可以继续下一步
-  const canProceed = useMemo(() => {
-    switch (state.currentStep) {
-      case 'setup':
-        return !state.isGenerating && (state.formData.topic !== '' || state.formData.customTopic.trim() !== '')
-      case 'listening':
-        return !state.isGenerating && state.audioUrl !== ''
-      case 'questions':
-        return state.userAnswers.every(answer => answer.trim() !== '')
-      case 'results':
-        return true
-      default:
-        return false
+  // Cached API call wrapper
+  const cachedApiCall = useCallback(async (
+    cacheKey: string,
+    apiCall: () => Promise<unknown>,
+    ttl: number = 30000
+  ): Promise<unknown> => {
+    if (apiRequestCache.has(cacheKey)) {
+      return apiRequestCache.get(cacheKey) as Promise<unknown>
     }
-  }, [state.currentStep, state.isGenerating, state.formData, state.audioUrl, state.userAnswers])
+
+    const promise = apiCall()
+    apiRequestCache.set(cacheKey, promise)
+
+    setTimeout(() => {
+      apiRequestCache.delete(cacheKey)
+    }, ttl)
+
+    try {
+      const result = await promise
+      return result
+    } catch (error) {
+      apiRequestCache.delete(cacheKey)
+      throw error
+    }
+  }, [apiRequestCache])
+
+  // 计算字数
+  const wordCount = useMemo(() => state.duration * 2, [state.duration])
+
+  // 判断setup是否完成
+  const isSetupComplete = useMemo(() => {
+    return Boolean(state.difficulty && state.topic)
+  }, [state.difficulty, state.topic])
+
+  // Actions
+  const actions = useMemo(() => ({
+    setStep: (step: ExerciseStep) => dispatch({ type: 'SET_STEP', payload: step }),
+    setDifficulty: (difficulty: DifficultyLevel | "") => dispatch({ type: 'SET_DIFFICULTY', payload: difficulty }),
+    setDuration: (duration: number) => dispatch({ type: 'SET_DURATION', payload: duration }),
+    setLanguage: (language: ListeningLanguage) => dispatch({ type: 'SET_LANGUAGE', payload: language }),
+    setTopic: (topic: string) => dispatch({ type: 'SET_TOPIC', payload: topic }),
+    setSuggestedTopics: (topics: string[]) => dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: topics }),
+    setAnswers: (answers: Record<number, string>) => dispatch({ type: 'SET_ANSWERS', payload: answers }),
+    setAssessmentResult: (result: AssessmentResultType | null) => dispatch({ type: 'SET_ASSESSMENT_RESULT', payload: result }),
+  }), [])
+
+  // 生成话题建议
+  const handleGenerateTopics = useCallback(async () => {
+    if (!state.difficulty) return
+
+    dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating topic suggestions...' } })
+
+    try {
+      const response = await cachedApiCall(
+        `topics-${state.difficulty}-${wordCount}-${state.language}`,
+        () => generateTopics(state.difficulty as DifficultyLevel, wordCount, state.language),
+        60000
+      ) as { topics: string[]; degradationReason?: string }
+      
+      dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: response.topics })
+      
+      toast({
+        title: t("messages.topicGenerationSuccess"),
+        description: t("messages.topicGenerationSuccessDesc", { values: { count: response.topics.length } }),
+      })
+    } catch (error) {
+      console.error("Failed to generate topics:", error)
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.topicGenerationFailed"),
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { loading: false } })
+    }
+  }, [state.difficulty, wordCount, state.language, toast, cachedApiCall, t])
+
+  // 刷新话题
+  const handleRefreshTopics = useCallback(async () => {
+    if (!state.difficulty || state.suggestedTopics.length === 0) return
+
+    dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating new topic suggestions...' } })
+
+    try {
+      const response = await generateTopics(
+        state.difficulty as DifficultyLevel, 
+        wordCount, 
+        state.language, 
+        undefined, 
+        undefined,
+        state.suggestedTopics
+      )
+      
+      dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: response.topics })
+      
+      toast({
+        title: t("messages.topicGenerationSuccess"),
+        description: t("messages.topicGenerationSuccessDesc", { values: { count: response.topics.length } }),
+      })
+    } catch (error) {
+      console.error("Failed to refresh topics:", error)
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.topicGenerationFailed"),
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { loading: false } })
+    }
+  }, [state.difficulty, wordCount, state.language, state.suggestedTopics, toast, t])
+
+  // 生成听力文稿
+  const handleGenerateTranscript = useCallback(async () => {
+    if (!state.difficulty || !state.topic) return
+
+    dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating listening transcript...' } })
+
+    const attemptGeneration = async (attempt: number): Promise<void> => {
+      try {
+        const response = await cachedApiCall(
+          `transcript-${state.difficulty}-${wordCount}-${state.topic}-${state.language}`,
+          () => generateTranscript(
+            state.difficulty as DifficultyLevel,
+            wordCount,
+            state.topic,
+            state.language
+          ),
+          120000
+        ) as { transcript: string; degradationReason?: string }
+        
+        dispatch({ type: 'SET_TRANSCRIPT', payload: response.transcript })
+        dispatch({ type: 'SET_CAN_REGENERATE', payload: true })
+      } catch (error) {
+        console.error(`Transcript generation attempt ${attempt} failed:`, error)
+        if (attempt < 3) {
+          await attemptGeneration(attempt + 1)
+        } else {
+          throw new Error("AI output failed after 3 attempts")
+        }
+      }
+    }
+
+    try {
+      await attemptGeneration(1)
+      exerciseStartTimeRef.current = Date.now()
+      dispatch({ type: 'SET_STEP', payload: 'listening' })
+      toast({
+        title: t("messages.transcriptGenerationSuccess"),
+        description: t("messages.transcriptGenerationSuccessDesc"),
+      })
+    } catch (error) {
+      console.error("Failed to generate transcript:", error)
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.transcriptGenerationFailed"),
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { loading: false } })
+    }
+  }, [state.difficulty, state.topic, wordCount, state.language, toast, cachedApiCall, t])
+
+  // 生成音频
+  const handleGenerateAudio = useCallback(async () => {
+    if (!state.transcript) return
+
+    dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating audio...' } })
+    dispatch({ type: 'SET_AUDIO_ERROR', payload: false })
+    dispatch({ type: 'SET_AUDIO_DURATION', payload: null })
+
+    try {
+      console.log(`🎤 开始生成音频，文本长度: ${state.transcript.length}`)
+      const audioResult = await generateAudio(state.transcript, { language: state.language })
+      console.log(`✅ 音频生成完成，URL: ${audioResult.audioUrl}`)
+      
+      dispatch({ type: 'SET_AUDIO_URL', payload: audioResult.audioUrl })
+      
+      const duration = typeof audioResult.duration === 'number' && audioResult.duration > 0 
+        ? audioResult.duration 
+        : null
+      dispatch({ type: 'SET_AUDIO_DURATION', payload: duration })
+      
+      if (!exerciseStartTimeRef.current) {
+        exerciseStartTimeRef.current = Date.now()
+      }
+      
+      toast({
+        title: t("messages.audioGenerationSuccess"),
+        description: t("messages.audioGenerationSuccessDesc", { 
+          values: { 
+            duration: duration ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}` : '未知'
+          }
+        }),
+      })
+    } catch (error) {
+      console.error("Failed to generate audio:", error)
+      dispatch({ type: 'SET_AUDIO_ERROR', payload: true })
+      dispatch({ type: 'SET_AUDIO_DURATION', payload: null })
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.audioGenerationFailed"),
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { loading: false } })
+    }
+  }, [state.transcript, state.language, toast, t])
+
+  // 开始答题
+  const handleStartQuestions = useCallback(async () => {
+    if (!state.transcript || !state.difficulty) return
+
+    dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating questions...' } })
+
+    try {
+      const transcriptHash = state.transcript.slice(0, 50)
+      const cacheKey = `questions-${state.difficulty}-${transcriptHash}-${state.language}-${state.duration}`
+      
+      const response = await cachedApiCall(
+        cacheKey,
+        () => generateQuestions(
+          state.difficulty as DifficultyLevel, 
+          state.transcript, 
+          state.language, 
+          state.duration
+        ),
+        180000
+      ) as { questions: Question[]; degradationReason?: string }
+      
+      dispatch({ type: 'SET_QUESTIONS', payload: response.questions })
+      dispatch({ type: 'SET_ANSWERS', payload: {} })
+      dispatch({ type: 'SET_STEP', payload: 'questions' })
+      
+      toast({
+        title: t("messages.questionsGenerationSuccess"),
+        description: t("messages.questionsGenerationSuccessDesc", { values: { count: response.questions.length } }),
+      })
+    } catch (error) {
+      console.error("Failed to generate questions:", error)
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.questionsGenerationFailed"),
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { loading: false } })
+    }
+  }, [state.transcript, state.difficulty, state.language, state.duration, toast, cachedApiCall, t])
+
+  // 提交答案
+  const handleSubmitAnswers = useCallback(async (user?: { id: string; name?: string; email: string }) => {
+    if (state.questions.length === 0 || !user) return
+
+    dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Grading your answers...' } })
+
+    try {
+      const gradingResponse = await gradeAnswers(state.transcript, state.questions, state.answers, state.language)
+      const gradingResults = gradingResponse.results
+
+      const now = Date.now()
+      let practiceDurationSec: number
+
+      if (state.audioDuration && state.audioDuration > 0) {
+        practiceDurationSec = Math.round(state.audioDuration)
+      } else if (state.duration && state.duration > 0) {
+        practiceDurationSec = state.duration
+      } else if (exerciseStartTimeRef.current) {
+        const elapsedSeconds = Math.round((now - exerciseStartTimeRef.current) / 1000)
+        practiceDurationSec = elapsedSeconds > 0 ? elapsedSeconds : 60
+      } else {
+        practiceDurationSec = 60
+      }
+
+      const exercise: Exercise = {
+        id: Date.now().toString(),
+        difficulty: state.difficulty as DifficultyLevel,
+        language: state.language,
+        topic: state.topic,
+        transcript: state.transcript,
+        questions: state.questions,
+        answers: state.answers,
+        results: gradingResults,
+        createdAt: new Date(now).toISOString(),
+        ...(practiceDurationSec > 0 ? { totalDurationSec: practiceDurationSec } : {})
+      }
+
+      dispatch({ type: 'SET_CURRENT_EXERCISE', payload: exercise })
+      saveToHistory(exercise)
+      
+      // Achievement processing
+      try {
+        const achievementResult = handlePracticeCompleted(exercise)
+        
+        if (achievementResult.newAchievements.length > 0) {
+          dispatch({ type: 'SET_NEW_ACHIEVEMENTS', payload: achievementResult.newAchievements })
+        }
+        
+        if (achievementResult.goalProgress.daily.isCompleted) {
+          toast({
+            title: t("achievements.notifications.goalCompleted.title"),
+            description: t("achievements.notifications.goalCompleted.dailyGoal", {
+              values: { target: achievementResult.goalProgress.daily.target },
+            }),
+            duration: 5000,
+          })
+        }
+        
+        if (achievementResult.goalProgress.weekly.isCompleted) {
+          toast({
+            title: t("achievements.notifications.goalCompleted.title"),
+            description: t("achievements.notifications.goalCompleted.weeklyGoal", {
+              values: { target: achievementResult.goalProgress.weekly.target },
+            }),
+            duration: 5000,
+          })
+        }
+      } catch (error) {
+        console.error('Failed to process achievements:', error)
+      }
+      
+      // Save to database
+      try {
+        const correctCount = gradingResults.filter(result => result.is_correct).length
+        const accuracy = correctCount / gradingResults.length
+        const score = Math.round(accuracy * 100)
+
+        await fetch('/api/practice/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            exerciseData: exercise,
+            difficulty: state.difficulty,
+            language: state.language,
+            topic: state.topic,
+            accuracy: accuracy,
+            score: score,
+            duration: practiceDurationSec
+          })
+        })
+      } catch (error) {
+        console.error('Failed to save exercise to database:', error)
+      }
+      
+      dispatch({ type: 'SET_STEP', payload: 'results' })
+      exerciseStartTimeRef.current = null
+      
+      toast({
+        title: t("messages.answersSubmissionSuccess"),
+        description: t("messages.answersSubmissionSuccessDesc"),
+      })
+    } catch (error) {
+      console.error("Grading failed:", error)
+      const errorMessage = isError(error) ? error.message : String(error)
+      toast({
+        title: t("messages.gradingFailed"),
+        description: t("messages.gradingFailedDesc", { values: { error: errorMessage } }),
+        variant: "destructive",
+      })
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { loading: false } })
+    }
+  }, [state.questions, state.transcript, state.answers, state.difficulty, state.language, state.topic, state.audioDuration, state.duration, toast, t])
+
+  // 重新开始
+  const handleRestart = useCallback(() => {
+    dispatch({ type: 'RESET' })
+    exerciseStartTimeRef.current = null
+  }, [])
+
+  // 导出练习
+  const handleExport = useCallback(() => {
+    if (state.currentExercise) {
+      exportToTxt(state.currentExercise)
+      toast({
+        title: t("messages.exportSuccess"),
+        description: t("messages.exportSuccessDesc"),
+      })
+    }
+  }, [state.currentExercise, toast, t])
+
+  // 恢复历史练习
+  const handleRestoreExercise = useCallback((exercise: Exercise) => {
+    dispatch({ type: 'SET_DIFFICULTY', payload: exercise.difficulty })
+    dispatch({ type: 'SET_TOPIC', payload: exercise.topic })
+    dispatch({ type: 'SET_TRANSCRIPT', payload: exercise.transcript })
+    dispatch({ type: 'SET_QUESTIONS', payload: exercise.questions })
+    dispatch({ type: 'SET_CURRENT_EXERCISE', payload: exercise })
+    
+    const restoredAnswers: Record<number, string> = {}
+    exercise.results.forEach((result, index) => {
+      const key = result.question_id ?? index
+      restoredAnswers[key] = result.user_answer || ""
+    })
+    dispatch({ type: 'SET_ANSWERS', payload: restoredAnswers })
+    
+    dispatch({ type: 'SET_AUDIO_URL', payload: '' })
+    dispatch({ type: 'SET_AUDIO_DURATION', payload: null })
+    dispatch({ type: 'SET_AUDIO_ERROR', payload: false })
+    dispatch({ type: 'SET_STEP', payload: 'results' })
+    exerciseStartTimeRef.current = null
+  }, [])
 
   return {
+    // State
     state,
-    progress,
-    canProceed,
-    generateTopicSuggestions,
-    startExercise,
-    startQuestions,
-    submitAnswers,
-    resetExercise,
-    updateFormData,
-    updateUserAnswer
+    
+    // Computed
+    wordCount,
+    isSetupComplete,
+    
+    // Actions
+    ...actions,
+    
+    // Handlers
+    handleGenerateTopics,
+    handleRefreshTopics,
+    handleGenerateTranscript,
+    handleGenerateAudio,
+    handleStartQuestions,
+    handleSubmitAnswers,
+    handleRestart,
+    handleExport,
+    handleRestoreExercise,
   }
 }

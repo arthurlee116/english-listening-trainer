@@ -1,21 +1,16 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book, RefreshCw } from "lucide-react"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthDialog } from "@/components/auth-dialog"
 import { MigrationNotification } from "@/components/migration-notification"
-import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
-import { generateAudio } from "@/lib/tts-service"
-import { saveToHistory } from "@/lib/storage"
-import { exportToTxt } from "@/lib/export"
 import { AudioPlayer } from "@/components/audio-player"
 import { QuestionInterface } from "@/components/question-interface"
 import { ResultsDisplay } from "@/components/results-display"
@@ -23,34 +18,16 @@ import { HistoryPanel } from "@/components/history-panel"
 import { WrongAnswersBook } from "@/components/wrong-answers-book"
 import { AssessmentResult } from "@/components/assessment-result"
 import { AssessmentInterface } from "@/components/assessment-interface"
-import { LANGUAGE_OPTIONS, DEFAULT_LANGUAGE } from "@/lib/language-config"
-import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { MobileSidebarWrapper } from "@/components/navigation/mobile-sidebar-wrapper"
+import { AppLayoutWithSidebar } from "@/components/app-layout-with-sidebar"
+import { LANGUAGE_OPTIONS } from "@/lib/language-config"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { useLegacyMigration } from "@/hooks/use-legacy-migration"
-import type { Exercise, Question, DifficultyLevel, ListeningLanguage } from "@/lib/types"
-import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
+import { useAuthState, type AuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
+import type { DifficultyLevel, ListeningLanguage, NavigationAction } from "@/lib/types"
 import { useThemeClasses, combineThemeClasses } from "@/hooks/use-theme-classes"
-
-interface AssessmentResultData {
-  difficultyLevel: number;
-  difficultyRange: {
-    min: number;
-    max: number;
-    name: string;
-    nameEn: string;
-    description: string;
-  };
-  scores: number[];
-  summary: string;
-  details: Array<{
-    audioId: number;
-    topic: string;
-    userScore: number;
-    difficulty: number;
-    performance: string;
-  }>;
-  recommendation: string;
-}
+import { useExerciseWorkflow, type ExerciseStep } from "@/hooks/use-exercise-workflow"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 const DIFFICULTY_LEVELS = [
   { value: "A1", label: "A1 - Beginner" },
@@ -68,12 +45,11 @@ const DURATION_OPTIONS = [
   { value: 300, label: "5 minutes (~600 words)" },
 ]
 
-// Type guard for Error objects
-function isError(error: unknown): error is Error {
-  return error instanceof Error
+type MainAppProps = {
+  authState: AuthState
 }
 
-export const MainApp = () => {
+export const MainApp = ({ authState }: MainAppProps) => {
   const {
     user,
     isAuthenticated,
@@ -83,271 +59,67 @@ export const MainApp = () => {
     handleLogout: performLogout
   } = useAuthState()
 
-  const { toast } = useToast()
   const { t } = useBilingualText()
   const { shouldShowNotification } = useLegacyMigration()
   const { textClass, iconClass, borderClass } = useThemeClasses()
+  
+  // 使用统一的workflow hook
+  const {
+    state,
+    wordCount,
+    isSetupComplete,
+    setStep,
+    setDifficulty,
+    setDuration,
+    setLanguage,
+    setTopic,
+    setAnswers,
+    setAssessmentResult,
+    handleGenerateTopics,
+    handleRefreshTopics,
+    handleGenerateTranscript,
+    handleGenerateAudio,
+    handleStartQuestions,
+    handleSubmitAnswers,
+    handleRestart,
+    handleExport,
+    handleRestoreExercise,
+  } = useExerciseWorkflow()
 
   const handleUserAuthenticated = useCallback((userData: AuthUserInfo, token: string) => {
     setAuthenticatedUser(userData, token)
-    toast({
-      title: t("common.messages.loginSuccess"),
-      description: t("common.messages.welcomeUser", {
-        values: { name: userData.name || userData.email },
-      }),
-    })
-  }, [setAuthenticatedUser, toast, t])
+  }, [setAuthenticatedUser])
 
   const handleLogout = useCallback(async () => {
-    const success = await performLogout()
-    toast({
-      title: success ? t("common.messages.logoutSuccess") : t("common.messages.logoutFailed"),
-      description: success ? t("common.messages.logoutSuccessDesc") : t("common.messages.logoutFailedDesc"),
-      ...(success ? {} : { variant: "destructive" as const })
-    })
-  }, [performLogout, toast, t])
+    await performLogout()
+  }, [performLogout])
 
-  // 原有状态
-  const [step, setStep] = useState<"setup" | "listening" | "questions" | "results" | "history" | "wrong-answers" | "assessment" | "assessment-result">("setup")
-  const [difficulty, setDifficulty] = useState<DifficultyLevel | "">("")
-  const [duration, setDuration] = useState<number>(120)
-  const [language, setLanguage] = useState<ListeningLanguage>(DEFAULT_LANGUAGE)
-  const [topic, setTopic] = useState<string>("")
-  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
-  const [transcript, setTranscript] = useState<string>("")
-  const [audioUrl, setAudioUrl] = useState<string>("")
-  const [audioDuration, setAudioDuration] = useState<number | null>(null)
-  const [audioError, setAudioError] = useState<boolean>(false)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [answers, setAnswers] = useState<Record<number, string>>({})
-  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
-  const [loadingMessage, setLoadingMessage] = useState<string>("")
-  const [canRegenerate, setCanRegenerate] = useState<boolean>(true)
-
-  // Assessment 相关状态
-  const [assessmentResult, setAssessmentResult] = useState<AssessmentResultData | null>(null)
-
-  const wordCount = useMemo(() => duration * 2, [duration])
-
-  // 记忆化计算，避免不必要的重新渲染
-  const isSetupComplete = useMemo(() => {
-    return Boolean(difficulty && topic)
-  }, [difficulty, topic])
-
-
-  const handleGenerateTopics = useCallback(async () => {
-    if (!difficulty) return
-
-    setLoading(true)
-    setLoadingMessage(t("common.messages.processing"))
-
-    try {
-      const response = await generateTopics(difficulty, wordCount, language)
-      const topics = response?.topics || []
-      setSuggestedTopics(topics)
-      toast({
-        title: t("common.messages.topicGenerationSuccess"),
-        description: t("common.messages.topicGenerationSuccessDesc", {
-          values: { count: topics.length },
-        }),
-      })
-    } catch (error) {
-      console.error("Failed to generate topics:", error)
-      const errorMessage = isError(error) ? error.message : String(error)
-      toast({
-        title: t("common.messages.topicGenerationFailed"),
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-      setLoadingMessage("")
+  // 包装handleSubmitAnswers以传入user
+  const onSubmitAnswers = useCallback(async () => {
+    if (user) {
+      await handleSubmitAnswers({ ...user, name: user.name ?? undefined })
     }
-  }, [difficulty, wordCount, language, toast])
+  }, [handleSubmitAnswers, user])
 
-  const handleGenerateTranscript = useCallback(async () => {
-    if (!difficulty || !topic) return
-
-    setLoading(true)
-    setLoadingMessage(t("common.messages.processing"))
-
-    const attemptGeneration = async (attempt: number): Promise<void> => {
-      try {
-        const response = await generateTranscript(difficulty, wordCount, topic, language)
-        setTranscript(response?.transcript || "")
-        setCanRegenerate(true)
-      } catch (error) {
-        console.error(`Transcript generation attempt ${attempt} failed:`, error)
-        if (attempt < 3) {
-          await attemptGeneration(attempt + 1)
+  // 统一的导航处理器，供侧边栏和内部按钮使用
+  const handleNavigate = useCallback(
+    (action: NavigationAction) => {
+      if (action.type === 'setState') {
+        setStep(action.targetState as ExerciseStep)
+      } else if (action.type === 'callback') {
+        if (action.callbackName === 'handleLogout') {
+          handleLogout()
+        }
+      } else if (action.type === 'external') {
+        if (action.openInNewTab) {
+          window.open(action.href, '_blank')
         } else {
-          throw new Error("AI output failed after 3 attempts")
+          window.location.href = action.href
         }
       }
-    }
-
-    try {
-      await attemptGeneration(1)
-      toast({
-        title: t("common.messages.transcriptGenerationSuccess"),
-        description: t("common.messages.transcriptGenerationSuccessDesc"),
-      })
-      setStep("listening")
-    } catch (error) {
-      console.error("Failed to generate transcript:", error)
-      const errorMessage = isError(error) ? error.message : String(error)
-      toast({
-        title: t("common.messages.transcriptGenerationFailed"),
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-      setLoadingMessage("")
-    }
-  }, [difficulty, wordCount, topic, language, toast])
-
-  const handleGenerateAudio = useCallback(async () => {
-    if (!transcript) return
-
-    setLoading(true)
-    setLoadingMessage(t("components.audioPlayer.loadingAudio"))
-    setAudioError(false)
-    setAudioDuration(null)
-
-    try {
-      const audioResult = await generateAudio(transcript, { language })
-      setAudioUrl(audioResult.audioUrl)
-      setAudioDuration(typeof audioResult.duration === 'number' ? audioResult.duration : null)
-      toast({
-        title: t("common.messages.audioGenerationSuccess"),
-        description: t("common.messages.audioGenerationSuccessDesc"),
-      })
-    } catch (error) {
-      console.error("Failed to generate audio:", error)
-      setAudioError(true)
-      setAudioDuration(null)
-      const errorMessage = isError(error) ? error.message : String(error)
-      toast({
-        title: t("common.messages.audioGenerationFailed"),
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-      setLoadingMessage("")
-    }
-  }, [transcript, language, toast])
-
-  const handleStartQuestions = useCallback(async () => {
-    if (!transcript || !difficulty) return
-
-    setLoading(true)
-    setLoadingMessage(t("common.messages.processing"))
-
-    try {
-      const response = await generateQuestions(difficulty, transcript, language, duration)
-      const generatedQuestions = response?.questions || []
-      setQuestions(generatedQuestions)
-      setStep("questions")
-      toast({
-        title: t("common.messages.questionsGenerationSuccess"),
-        description: t("common.messages.questionsGenerationSuccessDesc", {
-          values: { count: generatedQuestions.length },
-        }),
-      })
-    } catch (error) {
-      console.error("Failed to generate questions:", error)
-      const errorMessage = isError(error) ? error.message : String(error)
-      toast({
-        title: t("common.messages.questionsGenerationFailed"),
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-      setLoadingMessage("")
-    }
-  }, [transcript, difficulty, language, duration, toast])
-
-  const handleSubmitAnswers = useCallback(async () => {
-    if (!questions.length || Object.keys(answers).length !== questions.length) return
-
-    setLoading(true)
-    setLoadingMessage(t("common.messages.processing"))
-
-    try {
-      const results = await gradeAnswers(transcript, questions, answers, language)
-      const exercise: Exercise = {
-        id: Date.now().toString(),
-        difficulty: difficulty as DifficultyLevel,
-        language,
-        topic,
-        transcript,
-        questions,
-        answers,
-        results,
-        createdAt: new Date().toISOString(),
-      }
-
-      setCurrentExercise(exercise)
-      await saveToHistory(exercise)
-      setStep("results")
-
-      toast({
-        title: t("common.messages.answersSubmissionSuccess"),
-        description: t("common.messages.answersSubmissionSuccessDesc"),
-      })
-    } catch (error) {
-      console.error("Failed to grade answers:", error)
-      const errorMessage = isError(error) ? error.message : String(error)
-      toast({
-        title: t("common.messages.gradingFailed"),
-        description: t("common.messages.gradingFailedDesc", {
-          values: { error: errorMessage },
-        }),
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-      setLoadingMessage("")
-    }
-  }, [questions, answers, difficulty, language, topic, transcript, toast])
-
-  const handleRestart = useCallback(() => {
-    setStep("setup")
-    setTranscript("")
-    setAudioUrl("")
-    setAudioDuration(null)
-    setQuestions([])
-    setAnswers({})
-    setCurrentExercise(null)
-    setSuggestedTopics([])
-    setAudioError(false)
-    setCanRegenerate(true)
-  }, [])
-
-  const handleExport = useCallback(async () => {
-    if (!currentExercise) return
-
-    try {
-      // 直接调用导出函数（内部已处理下载逻辑）
-      exportToTxt(currentExercise)
-
-      toast({
-        title: t("common.messages.exportSuccess"),
-        description: t("common.messages.exportSuccessDesc"),
-      })
-    } catch (error) {
-      console.error("Failed to export:", error)
-      toast({
-        title: t("common.messages.error"),
-        description: "导出时发生错误",
-        variant: "destructive",
-      })
-    }
-  }, [currentExercise, toast])
+    },
+    [setStep, handleLogout]
+  )
 
   if (isLoading) {
     return (
@@ -390,112 +162,122 @@ export const MainApp = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
-      {/* Header */}
-      <header className={combineThemeClasses(
-        "sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b dark:border-gray-800",
-        borderClass('default')
-      )} role="banner">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className={combineThemeClasses(
-                "text-xl font-bold text-gray-900 dark:text-white",
-                textClass('primary')
-              )}>
-                <BilingualText translationKey="pages.home.title" />
-              </h1>
-            </div>
+    <>
+      {/* Mobile Sidebar Wrapper */}
+      <MobileSidebarWrapper
+        currentStep={state.currentStep}
+        onNavigate={handleNavigate}
+        assessmentResult={state.assessmentResult}
+      />
 
-            <div className="flex items-center space-x-4">
-              {/* User Menu */}
-              <div className="flex items-center space-x-2" role="region" aria-label={t("labels.userMenu")}>
-                <User className={combineThemeClasses("w-4 h-4", iconClass('nav'))} />
-                <span className={combineThemeClasses(
-                  "text-sm text-gray-700 dark:text-gray-300",
-                  textClass('secondary')
+      {/* Desktop Layout with Sidebar */}
+      <AppLayoutWithSidebar
+        currentStep={state.currentStep}
+        onNavigate={handleNavigate}
+        assessmentResult={state.assessmentResult}
+      >
+        {/* Header */}
+        <header className={combineThemeClasses(
+          "sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b dark:border-gray-800",
+          borderClass('default')
+        )} role="banner">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center">
+                <h1 className={combineThemeClasses(
+                  "text-xl font-bold text-gray-900 dark:text-white",
+                  textClass('primary')
                 )}>
-                  {user?.name || user?.email}
-                </span>
-                {user?.isAdmin && (
-                  <Badge variant="secondary" className="text-xs">
-                    <BilingualText translationKey="labels.administrator" />
-                  </Badge>
-                )}
+                  <BilingualText translationKey="pages.home.title" />
+                </h1>
               </div>
 
-              {/* Navigation Buttons */}
-              <nav className="flex items-center space-x-2" role="navigation" aria-label={t("labels.mainNavigation")}>
-                <Button
-                  variant={step === "setup" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setStep("setup")}
-                >
-                  <Sparkles className="w-4 h-4 mr-1" />
-                  <BilingualText translationKey="buttons.practice" />
-                </Button>
-                <Button
-                  variant={step === "history" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setStep("history")}
-                >
-                  <History className="w-4 h-4 mr-1" />
-                  <BilingualText translationKey="buttons.history" />
-                </Button>
-                <Button
-                  variant={step === "wrong-answers" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setStep("wrong-answers")}
-                >
-                  <Book className="w-4 h-4 mr-1" />
-                  <BilingualText translationKey="buttons.wrongAnswersBook" />
-                </Button>
-                <Button
-                  variant={step === "assessment" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setStep("assessment")}
-                >
-                  <MessageSquare className="w-4 h-4 mr-1" />
-                  <BilingualText translationKey="buttons.assessment" />
-                </Button>
-              </nav>
+              <div className="flex items-center space-x-4">
+                {/* User Menu */}
+                <div className="flex items-center space-x-2" role="region" aria-label={t("labels.userMenu")}>
+                  <User className={combineThemeClasses("w-4 h-4", iconClass('nav'))} />
+                  <span className={combineThemeClasses(
+                    "text-sm text-gray-700 dark:text-gray-300",
+                    textClass('secondary')
+                  )}>
+                    {user?.name || user?.email}
+                  </span>
+                  {user?.isAdmin && (
+                    <Badge variant="secondary" className="text-xs">
+                      <BilingualText translationKey="labels.administrator" />
+                    </Badge>
+                  )}
+                </div>
 
-              <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}> 
-                <LogOut className="w-4 h-4 mr-1" />
-                <BilingualText translationKey="buttons.logout" />
-              </Button>
+                {/* Navigation Buttons */}
+                <nav className="flex items-center space-x-2" role="navigation" aria-label={t("labels.mainNavigation")}>
+                  <Button
+                    variant={state.currentStep === "setup" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setStep("setup")}
+                  >
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    <BilingualText translationKey="buttons.practice" />
+                  </Button>
+                  <Button
+                    variant={state.currentStep === "history" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setStep("history")}
+                  >
+                    <History className="w-4 h-4 mr-1" />
+                    <BilingualText translationKey="buttons.history" />
+                  </Button>
+                  <Button
+                    variant={state.currentStep === "wrong-answers" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setStep("wrong-answers")}
+                  >
+                    <Book className="w-4 h-4 mr-1" />
+                    <BilingualText translationKey="buttons.wrongAnswersBook" />
+                  </Button>
+                  <Button
+                    variant={state.currentStep === "assessment" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setStep("assessment")}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-1" />
+                    <BilingualText translationKey="buttons.assessment" />
+                  </Button>
+                </nav>
+
+                <Button variant="ghost" size="sm" onClick={handleLogout} title={t("buttons.logout")} aria-label={t("buttons.logout")}> 
+                  <LogOut className="w-4 h-4 mr-1" />
+                  <BilingualText translationKey="buttons.logout" />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Migration Notification */}
-      {shouldShowNotification() && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <MigrationNotification />
-        </div>
-      )}
+        {/* Migration Notification */}
+        {shouldShowNotification() && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <MigrationNotification />
+          </div>
+        )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* History Panel */}
-        {step === "history" && (
+        {state.currentStep === "history" && (
           <HistoryPanel
             onBack={() => setStep("setup")}
-            onRestore={(exercise) => {
-              setCurrentExercise(exercise)
-              setStep("results")
-            }}
+            onRestore={handleRestoreExercise}
           />
         )}
 
         {/* Wrong Answers Book */}
-        {step === "wrong-answers" && (
+        {state.currentStep === "wrong-answers" && (
           <WrongAnswersBook onBack={() => setStep("setup")} />
         )}
 
         {/* Assessment */}
-        {step === "assessment" && (
+        {state.currentStep === "assessment" && (
           <AssessmentInterface
             onBack={() => setStep("setup")}
             onComplete={(result) => {
@@ -506,21 +288,25 @@ export const MainApp = () => {
         )}
 
         {/* Assessment Result */}
-        {step === "assessment-result" && assessmentResult && (
+        {state.currentStep === "assessment-result" && state.assessmentResult && (
           <AssessmentResult
-            result={assessmentResult}
+            result={state.assessmentResult}
             onReturnHome={() => {
-              setStep("assessment")
+              setStep("setup")
               setAssessmentResult(null)
+            }}
+            onRetry={() => {
+              setAssessmentResult(null)
+              setStep("assessment")
             }}
           />
         )}
 
         {/* Exercise Flow */}
-        {step !== "history" && step !== "wrong-answers" && step !== "assessment" && step !== "assessment-result" && (
+        {state.currentStep !== "history" && state.currentStep !== "wrong-answers" && state.currentStep !== "assessment" && state.currentStep !== "assessment-result" && (
           <>
             {/* Setup Step */}
-            {step === "setup" && (
+            {state.currentStep === "setup" && (
               <div className="max-w-2xl mx-auto">
                 <Card className="glass-effect p-8">
                   <h2 className="text-2xl font-bold text-center mb-8">创建听力练习</h2>
@@ -531,7 +317,7 @@ export const MainApp = () => {
                       <Label htmlFor="difficulty" className="text-base font-medium">
                         Difficulty Level
                       </Label>
-                      <Select value={difficulty} onValueChange={(value: DifficultyLevel) => setDifficulty(value)}>
+                      <Select value={state.difficulty} onValueChange={(value: DifficultyLevel) => setDifficulty(value)}>
                         <SelectTrigger id="difficulty" className="glass-effect">
                           <SelectValue placeholder="选择难度级别" />
                         </SelectTrigger>
@@ -550,7 +336,7 @@ export const MainApp = () => {
                       <Label htmlFor="language" className="text-base font-medium">
                         Language
                       </Label>
-                      <Select value={language} onValueChange={(value: ListeningLanguage) => setLanguage(value)}>
+                      <Select value={state.language} onValueChange={(value: ListeningLanguage) => setLanguage(value)}>
                         <SelectTrigger className="glass-effect">
                           <SelectValue placeholder="选择语言" />
                         </SelectTrigger>
@@ -569,7 +355,7 @@ export const MainApp = () => {
                       <Label htmlFor="duration" className="text-base font-medium">
                         Duration
                       </Label>
-                      <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
+                      <Select value={state.duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
                         <SelectTrigger className="glass-effect">
                           <SelectValue placeholder="选择时长" />
                         </SelectTrigger>
@@ -584,7 +370,7 @@ export const MainApp = () => {
                     </div>
 
                     {/* Topic Generation */}
-                    {difficulty && (
+                    {state.difficulty && (
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <Label className="text-base font-medium">
@@ -592,11 +378,11 @@ export const MainApp = () => {
                           </Label>
                           <Button
                             onClick={handleGenerateTopics}
-                            disabled={loading}
+                            disabled={state.loading}
                             variant="outline"
                             size="sm"
                           >
-                            {loading ? (
+                            {state.loading ? (
                               <Loader2 className={combineThemeClasses("w-3 h-3 mr-1 animate-spin", iconClass('loading'))} />
                             ) : (
                               <Sparkles className={combineThemeClasses("w-3 h-3 mr-1", iconClass('secondary'))} />
@@ -605,16 +391,32 @@ export const MainApp = () => {
                           </Button>
                         </div>
 
-                        {suggestedTopics.length > 0 && (
+                        {state.suggestedTopics.length > 0 && (
                           <div>
-                            <p className={combineThemeClasses(
-                              "text-sm text-gray-600 dark:text-gray-400 mb-2",
-                              textClass('tertiary')
-                            )}>
-                              点击选择一个话题：
-                            </p>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className={combineThemeClasses(
+                                "text-sm text-gray-600 dark:text-gray-400",
+                                textClass('tertiary')
+                              )}>
+                                点击选择一个话题：
+                              </p>
+                              <Button
+                                onClick={handleRefreshTopics}
+                                disabled={state.loading}
+                                variant="ghost"
+                                size="sm"
+                                className="px-3"
+                              >
+                                {state.loading ? (
+                                  <Loader2 className={combineThemeClasses("w-4 h-4 mr-1 animate-spin", iconClass('loading'))} />
+                                ) : (
+                                  <RefreshCw className={combineThemeClasses("w-4 h-4 mr-1", iconClass('secondary'))} />
+                                )}
+                                <span className="text-sm">刷新话题</span>
+                              </Button>
+                            </div>
                             <div className="grid grid-cols-1 gap-2">
-                              {suggestedTopics.map((suggestedTopic, index) => (
+                              {state.suggestedTopics.map((suggestedTopic, index) => (
                                 <Button
                                   key={index}
                                   variant="outline"
@@ -637,7 +439,7 @@ export const MainApp = () => {
                       </Label>
                       <Input
                         id="topic"
-                        value={topic}
+                        value={state.topic}
                         onChange={(e) => setTopic(e.target.value)}
                         placeholder="Enter a topic for your listening exercise"
                         className="glass-effect"
@@ -647,14 +449,14 @@ export const MainApp = () => {
                     {/* Generate Exercise Button */}
                     <Button
                       onClick={handleGenerateTranscript}
-                      disabled={!isSetupComplete || loading}
+                      disabled={!isSetupComplete || state.loading}
                       className="w-full"
                       size="lg"
                     >
-                      {loading ? (
+                      {state.loading ? (
                         <>
                           <Loader2 className={combineThemeClasses("w-4 h-4 mr-2 animate-spin", iconClass('loading'))} />
-                          {loadingMessage}
+                          {state.loadingMessage}
                         </>
                       ) : (
                         <>
@@ -669,53 +471,54 @@ export const MainApp = () => {
             )}
 
             {/* Listening Step */}
-            {step === "listening" && (
+            {state.currentStep === "listening" && (
               <div className="max-w-4xl mx-auto">
                 <AudioPlayer
-                  transcript={transcript}
-                  difficulty={difficulty}
-                  topic={topic}
+                  transcript={state.transcript}
+                  difficulty={state.difficulty}
+                  topic={state.topic}
                   wordCount={wordCount}
-                  audioUrl={audioUrl}
-                  audioError={audioError}
+                  audioUrl={state.audioUrl}
+                  audioError={state.audioError}
                   onGenerateAudio={handleGenerateAudio}
                   onStartQuestions={handleStartQuestions}
-                  onRegenerate={canRegenerate ? handleGenerateTranscript : undefined}
-                  loading={loading}
-                  loadingMessage={loadingMessage}
-                  initialDuration={audioDuration ?? undefined}
+                  onRegenerate={state.canRegenerate ? handleGenerateTranscript : undefined}
+                  loading={state.loading}
+                  loadingMessage={state.loadingMessage}
+                  initialDuration={state.audioDuration ?? undefined}
                 />
               </div>
             )}
 
             {/* Questions Step */}
-            {step === "questions" && questions.length > 0 && (
+            {state.currentStep === "questions" && state.questions.length > 0 && (
               <div className="max-w-4xl mx-auto">
                 <QuestionInterface
-                  questions={questions}
-                  answers={answers}
+                  questions={state.questions}
+                  answers={state.answers}
                   onAnswerChange={setAnswers}
-                  onSubmit={handleSubmitAnswers}
-                  loading={loading}
-                  loadingMessage={loadingMessage}
-                  audioUrl={audioUrl}
-                  transcript={transcript}
-                  initialDuration={audioDuration ?? undefined}
+                  onSubmit={onSubmitAnswers}
+                  loading={state.loading}
+                  loadingMessage={state.loadingMessage}
+                  audioUrl={state.audioUrl}
+                  transcript={state.transcript}
+                  initialDuration={state.audioDuration ?? undefined}
                 />
               </div>
             )}
 
             {/* Results Step */}
-            {step === "results" && currentExercise && (
+            {state.currentStep === "results" && state.currentExercise && (
               <div className="max-w-4xl mx-auto">
-                <ResultsDisplay exercise={currentExercise} onRestart={handleRestart} onExport={handleExport} />
+                <ResultsDisplay exercise={state.currentExercise} onRestart={handleRestart} onExport={handleExport} />
               </div>
             )}
           </>
         )}
       </main>
+      </AppLayoutWithSidebar>
       <Toaster />
-    </div>
+    </>
   )
 }
 

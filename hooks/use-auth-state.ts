@@ -269,3 +269,5 @@ export function useAuthState() {
     checkAuthStatus,
   }
 }
+
+export type AuthState = ReturnType<typeof useAuthState>

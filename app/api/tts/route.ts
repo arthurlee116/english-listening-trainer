@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
 import { isLanguageSupported } from '@/lib/language-config'
+import { ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
+import crypto from 'crypto'
+import type { GeneratedAudioResult } from '@/lib/audio-utils'
+
+// 生成音频缓存键
+function generateCacheKey(text: string, speed: number, language: string): string {
+  const content = `${text}:${speed}:${language}`
+  return crypto.createHash('md5').update(content).digest('hex')
+}
 
 export async function POST(request: NextRequest) {
   let text = ''
@@ -9,54 +18,72 @@ export async function POST(request: NextRequest) {
     text = body.text
     const speed = body.speed || 1.0
     const language = body.language || 'en-US'
-    
+
     if (!text) {
       return NextResponse.json({ error: '文本内容不能为空' }, { status: 400 })
     }
-    
+
+    if (text.length > 2000) {
+      return NextResponse.json(
+        { error: '文本长度超过限制（最大2000字符）' },
+        { status: 400 }
+      )
+    }
+
     if (!isLanguageSupported(language)) {
       return NextResponse.json({ error: `不支持的语言: ${language}` }, { status: 400 })
     }
 
-    console.log('🎤 开始GPU加速Kokoro TTS生成...')
-    console.log(`🌍 语言: ${language}`)
-    console.log(`📝 文本长度: ${text.length} 字符`)
-    console.log(`⚡ 语速: ${speed}x`)
+    // 生成缓存键并检查缓存
+    const cacheKey = generateCacheKey(text, speed, language)
+    const cachedAudio = audioCache.get(cacheKey) as GeneratedAudioResult | undefined
+    if (cachedAudio) {
+      const filename = cachedAudio.audioUrl.replace('/', '')
+      const apiAudioUrl = `/api/audio/${filename}`
 
-    // 检查Kokoro GPU服务是否就绪
-    const isReady = await kokoroTTSGPU.isReady()
-    if (!isReady) {
-      return NextResponse.json({ 
-        error: 'GPU TTS服务未就绪，请稍后重试' 
-      }, { status: 503 })
+      return NextResponse.json({
+        success: true,
+        audioUrl: apiAudioUrl,
+        staticUrl: cachedAudio.audioUrl,
+        duration: cachedAudio.duration,
+        byteLength: cachedAudio.byteLength,
+        cached: true,
+        provider: 'kokoro-gpu',
+        message: 'Audio retrieved from cache'
+      })
     }
 
-    // 调用GPU加速的Kokoro服务生成音频
-    const audioResult = await kokoroTTSGPU.generateAudio(text, speed, language)
-    
-    console.log('✅ GPU音频生成成功:', audioResult.audioUrl)
-    
+    // 使用并发限制器执行TTS生成
+    const audioResult = await ttsRequestLimiter.execute(async () => {
+      // 检查TTS服务是否就绪
+      const isReady = await kokoroTTSGPU.isReady()
+      if (!isReady) {
+        throw new Error('TTS服务未就绪，请稍后重试')
+      }
+
+      // 生成音频
+      return await kokoroTTSGPU.generateAudio(text, speed, language)
+    })
+
+    // 缓存音频结果
+    audioCache.set(cacheKey, audioResult as unknown as Record<string, unknown>, 30 * 60 * 1000) // 30分钟TTL
+
     // 提取文件名并构建 API 路由 URL
     const filename = audioResult.audioUrl.replace('/', '')
     const apiAudioUrl = `/api/audio/${filename}`
-    
-    console.log('📡 音频 API URL:', apiAudioUrl)
-    
-    return NextResponse.json({ 
-      success: true, 
-      audioUrl: apiAudioUrl, // 使用 API 路由而不是直接的静态文件路径
-      staticUrl: audioResult.audioUrl, // 保留原始 URL 作为备用
+
+    return NextResponse.json({
+      success: true,
+      audioUrl: apiAudioUrl,
+      staticUrl: audioResult.audioUrl,
       duration: audioResult.duration,
       byteLength: audioResult.byteLength,
-      language: language,
-      message: 'GPU加速音频生成成功',
+      cached: false,
       provider: 'kokoro-gpu',
-      format: 'wav'
+      message: 'Audio generated successfully'
     })
 
   } catch (error) {
-    console.error('❌ GPU TTS生成失败:', error)
-
     const rawMessage = error instanceof Error ? error.message : '未知错误'
     const normalizedMessage = rawMessage.toLowerCase()
 
@@ -66,7 +93,12 @@ export async function POST(request: NextRequest) {
     if (normalizedMessage.includes('timeout')) {
       statusCode = 504
       userFacingMessage = 'GPU音频生成超时，长文本需要更多时间，请稍后重试'
-    } else if (normalizedMessage.includes('not initialized') || normalizedMessage.includes('not ready')) {
+    } else if (
+      normalizedMessage.includes('not initialized') ||
+      normalizedMessage.includes('not ready') ||
+      normalizedMessage.includes('tts服务未就绪') ||
+      normalizedMessage.includes('初始化中')
+    ) {
       statusCode = 503
       userFacingMessage = 'GPU TTS服务初始化中，请稍后重试'
     } else if (normalizedMessage.includes('text cannot be empty')) {
@@ -88,5 +120,28 @@ export async function POST(request: NextRequest) {
       details: rawMessage,
       provider: 'kokoro-gpu'
     }, { status: statusCode })
+  }
+}
+
+// 健康检查端点
+export async function GET() {
+  try {
+    const isReady = await kokoroTTSGPU.isReady()
+
+    return NextResponse.json({
+      status: isReady ? 'ready' : 'initializing',
+      message: isReady ? 'TTS service is ready' : 'TTS service is initializing',
+      cacheStats: audioCache.getStats(),
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    return NextResponse.json(
+      {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
+      { status: 500 }
+    )
   }
 }

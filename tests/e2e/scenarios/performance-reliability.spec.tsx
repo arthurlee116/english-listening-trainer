@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderWithProviders } from '../../helpers/render-utils'
+import { createMockAuthState } from '@/tests/helpers/mock-auth-state'
 import { 
   setupApiMocks, 
   mockApiEndpoint, 
@@ -11,18 +12,6 @@ import {
   resetApiMocks 
 } from '../../helpers/api-mocks'
 import { MainApp } from '../../../components/main-app'
-
-// Mock the auth state
-vi.mock('../../../hooks/use-auth-state', () => ({
-  useAuthState: () => ({
-    user: { id: 'test-user', email: 'test@example.com', name: 'Test User' },
-    isAuthenticated: true,
-    isLoading: false,
-    showAuthDialog: false,
-    handleUserAuthenticated: vi.fn(),
-    handleLogout: vi.fn()
-  })
-}))
 
 // Mock legacy migration hook
 vi.mock('../../../hooks/use-legacy-migration', () => ({
@@ -34,8 +23,10 @@ vi.mock('../../../hooks/use-legacy-migration', () => ({
 
 describe('Performance and Reliability E2E Tests', () => {
   setupApiMocks()
+  let authState = createMockAuthState()
   
   beforeEach(() => {
+    authState = createMockAuthState()
     resetApiMocks()
     localStorage.clear()
     // Mock performance.now for consistent timing
@@ -69,7 +60,7 @@ describe('Performance and Reliability E2E Tests', () => {
         })
       })
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -127,7 +118,7 @@ describe('Performance and Reliability E2E Tests', () => {
         })
       })
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -160,7 +151,7 @@ describe('Performance and Reliability E2E Tests', () => {
       // Mock complete network failure
       mockApiFailure('post', '/api/ai/topics', 500, 'Service unavailable')
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -202,7 +193,7 @@ describe('Performance and Reliability E2E Tests', () => {
         duration: 30
       })
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -254,7 +245,7 @@ describe('Performance and Reliability E2E Tests', () => {
 
       mockApiFailure('post', '/api/tts', 503, 'TTS service unavailable')
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -343,7 +334,7 @@ describe('Performance and Reliability E2E Tests', () => {
       // Mock storage service failure
       mockApiFailure('post', '/api/practice/save', 500, 'Database unavailable')
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       // Complete full exercise flow
       await waitFor(() => {
@@ -434,7 +425,7 @@ describe('Performance and Reliability E2E Tests', () => {
         })
       })
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -480,7 +471,7 @@ describe('Performance and Reliability E2E Tests', () => {
         transcript: 'Fast transcript generation for rapid interaction testing.'
       })
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -553,7 +544,7 @@ describe('Performance and Reliability E2E Tests', () => {
         return originalGetItem.call(localStorage, key)
       })
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()
@@ -615,7 +606,7 @@ describe('Performance and Reliability E2E Tests', () => {
 
       const { unmount } = render(
         <MemoryTestWrapper>
-          <MainApp />
+          <MainApp authState={authState} />
         </MemoryTestWrapper>
       )
 
@@ -680,7 +671,7 @@ describe('Performance and Reliability E2E Tests', () => {
 
       const startTime = performance.now()
 
-      render(<MainApp />)
+      render(<MainApp authState={authState} />)
 
       await waitFor(() => {
         expect(screen.getByText(/创建听力练习/)).toBeInTheDocument()

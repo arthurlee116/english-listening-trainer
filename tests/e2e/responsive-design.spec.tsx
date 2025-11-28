@@ -6,18 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MainApp } from '@/components/main-app'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { createMockAuthState } from '@/tests/helpers/mock-auth-state'
 import { STANDARD_VIEWPORTS, setViewportSize } from '@/tests/helpers/responsive-test-utils'
-
-vi.mock('@/hooks/use-auth-state', () => ({
-  useAuthState: () => ({
-    user: { id: '1', email: 'test@example.com', name: 'Test User', isAdmin: false },
-    isAuthenticated: true,
-    isLoading: false,
-    showAuthDialog: false,
-    handleUserAuthenticated: vi.fn(),
-    handleLogout: vi.fn().mockResolvedValue(true),
-  }),
-}))
 
 vi.mock('@/lib/ai-service', () => ({
   generateTopics: vi.fn().mockResolvedValue({
@@ -41,7 +31,7 @@ vi.mock('@/lib/ai-service', () => ({
 const renderApp = () =>
   render(
     <ThemeProvider>
-      <MainApp />
+      <MainApp authState={createMockAuthState()} />
       <Toaster />
     </ThemeProvider>,
   )

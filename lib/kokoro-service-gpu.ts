@@ -132,12 +132,23 @@ class CircuitBreaker {
 export class KokoroTTSGPUService extends EventEmitter {
   private process: ChildProcess | null = null
   private initialized = false
-  private pendingRequests: Map<number, { resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => void; reject: (error: Error) => void }> = new Map()
+  private pendingRequests: Map<number, { resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => void; reject: (error: Error) => void; startTime: number }> = new Map()
   private requestIdCounter = 0
   private circuitBreaker: CircuitBreaker
   private restartAttempts = 0
   private maxRestartAttempts = 10
   private lastError: string = ''
+
+  // 统计信息
+  private stats = {
+    totalRequests: 0,
+    successfulRequests: 0,
+    failedRequests: 0,
+    responseTimes: [] as number[], // 最近100次响应时间
+  }
+
+  // 最近错误记录（最多保留20个）
+  private recentErrors: Array<{ message: string; timestamp: number; requestId?: number }> = []
 
   constructor() {
     super()
@@ -285,17 +296,59 @@ export class KokoroTTSGPUService extends EventEmitter {
     })
   }
 
+  private recordRequestStats(params: { requestId: number; success: boolean; responseTime?: number; errorMessage?: string }): void {
+    this.stats.totalRequests++
+    if (typeof params.responseTime === 'number') {
+      this.stats.responseTimes.push(params.responseTime)
+      if (this.stats.responseTimes.length > 100) {
+        this.stats.responseTimes.shift() // 保持最近100次
+      }
+    }
+
+    if (params.success) {
+      this.stats.successfulRequests++
+    } else {
+      this.stats.failedRequests++
+      if (params.errorMessage) {
+        this.addRecentError(params.errorMessage, params.requestId)
+      }
+    }
+  }
+
   private handleResponse(response: { success: boolean; error?: string; audio_data?: string; device?: string }): void {
     if (this.pendingRequests.size > 0) {
       const requestId = Array.from(this.pendingRequests.keys())[0]
-      const { resolve, reject } = this.pendingRequests.get(requestId)!
+      const { resolve, reject, startTime } = this.pendingRequests.get(requestId)!
+      const responseTime = Date.now() - startTime
       this.pendingRequests.delete(requestId)
 
       if (response.success) {
+        this.recordRequestStats({ requestId, success: true, responseTime })
         resolve(response)
       } else {
+        const errorMessage = response.error || 'Unknown error'
+        this.recordRequestStats({
+          requestId,
+          success: false,
+          responseTime,
+          errorMessage
+        })
         reject(new Error(response.error || 'Unknown error'))
       }
+    }
+  }
+
+  /**
+   * 记录最近错误
+   */
+  private addRecentError(message: string, requestId?: number): void {
+    this.recentErrors.push({
+      message,
+      timestamp: Date.now(),
+      requestId
+    })
+    if (this.recentErrors.length > 20) {
+      this.recentErrors.shift()
     }
   }
 
@@ -385,6 +438,81 @@ export class KokoroTTSGPUService extends EventEmitter {
     }
   }
 
+  /**
+   * 获取服务统计信息
+   */
+  getStats() {
+    const avgResponseTime = this.stats.responseTimes.length > 0
+      ? this.stats.responseTimes.reduce((a, b) => a + b, 0) / this.stats.responseTimes.length
+      : 0
+
+    const sortedTimes = [...this.stats.responseTimes].sort((a, b) => a - b)
+    const p50 = sortedTimes[Math.floor(sortedTimes.length * 0.5)] || 0
+    const p90 = sortedTimes[Math.floor(sortedTimes.length * 0.9)] || 0
+    const p99 = sortedTimes[Math.floor(sortedTimes.length * 0.99)] || 0
+
+    return {
+      totalRequests: this.stats.totalRequests,
+      successfulRequests: this.stats.successfulRequests,
+      failedRequests: this.stats.failedRequests,
+      successRate: this.stats.totalRequests > 0
+        ? (this.stats.successfulRequests / this.stats.totalRequests * 100).toFixed(2) + '%'
+        : '0%',
+      averageResponseTime: Math.round(avgResponseTime),
+      responseTimeP50: Math.round(p50),
+      responseTimeP90: Math.round(p90),
+      responseTimeP99: Math.round(p99),
+      lastUpdated: new Date().toISOString()
+    }
+  }
+
+  /**
+   * 获取队列信息
+   */
+  getQueueInfo() {
+    return {
+      queueLength: this.pendingRequests.size,
+      activeRequests: this.pendingRequests.size,
+      isProcessing: this.pendingRequests.size > 0,
+      oldestRequestAge: this.pendingRequests.size > 0
+        ? Date.now() - Math.min(...Array.from(this.pendingRequests.values()).map(req => req.startTime))
+        : 0
+    }
+  }
+
+  /**
+   * 获取健康信息
+   */
+  getHealthInfo() {
+    const circuitState = this.circuitBreaker.getState()
+    const nextAttemptTime = this.circuitBreaker.getNextAttemptTime()
+
+    return {
+      circuitBreakerState: circuitState,
+      isHealthy: circuitState === CircuitState.CLOSED,
+      failures: this.circuitBreaker.getFailures(),
+      nextAttemptIn: circuitState === CircuitState.OPEN
+        ? Math.max(0, nextAttemptTime - Date.now())
+        : 0,
+      initialized: this.initialized,
+      processAlive: this.process !== null,
+      lastError: this.lastError,
+      restartAttempts: this.restartAttempts,
+      maxRestartAttempts: this.maxRestartAttempts
+    }
+  }
+
+  /**
+   * 获取最近错误
+   */
+  getRecentErrors() {
+    return this.recentErrors.map(err => ({
+      message: err.message,
+      timestamp: new Date(err.timestamp).toISOString(),
+      requestId: err.requestId
+    }))
+  }
+
   async generateAudio(text: string, speed: number = 1.0, language: string = DEFAULT_LANGUAGE): Promise<GeneratedAudioResult> {
     // 检查电路断路器状态
     if (!this.circuitBreaker.canExecute()) {
@@ -406,16 +534,25 @@ export class KokoroTTSGPUService extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       const requestId = this.requestIdCounter++
+      const startTime = Date.now()
 
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId)
+        const timeoutError = 'GPU audio generation timeout after 5 minutes'
+        this.recordRequestStats({
+          requestId,
+          success: false,
+          responseTime: Date.now() - startTime,
+          errorMessage: timeoutError
+        })
         console.error('⏰ GPU audio generation timeout')
         this.circuitBreaker.recordFailure()
         this.lastError = 'Audio generation timeout'
-        reject(new Error('GPU audio generation timeout after 5 minutes'))
+        reject(new Error(timeoutError))
       }, 300000) // 5分钟超时
 
       this.pendingRequests.set(requestId, {
+        startTime,
         resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string }) => {
           clearTimeout(timeout)
 
@@ -425,6 +562,7 @@ export class KokoroTTSGPUService extends EventEmitter {
 
               if (audioBuffer.length === 0) {
                 const error = new Error('Audio buffer is empty after hex decoding')
+                this.addRecentError(error.message, requestId)
                 this.circuitBreaker.recordFailure()
                 this.lastError = error.message
                 reject(error)
@@ -458,8 +596,9 @@ export class KokoroTTSGPUService extends EventEmitter {
               })
             } catch (error) {
               console.error('❌ Failed to save GPU audio file:', error)
-              this.circuitBreaker.recordFailure()
               const errorMessage = error instanceof Error ? error.message : String(error)
+              this.addRecentError(`File save error: ${errorMessage}`, requestId)
+              this.circuitBreaker.recordFailure()
               this.lastError = `File save error: ${errorMessage}`
               reject(new Error(`Failed to save GPU audio file: ${errorMessage}`))
             }

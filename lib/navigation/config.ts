@@ -28,6 +28,17 @@ import type { NavigationItem } from "@/lib/types"
  */
 export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
+    id: "practice",
+    translationKey: "navigation.practice",
+    icon: Sparkles,
+    action: {
+      type: "setState",
+      targetState: "setup",
+    },
+    requiresAuth: false,
+    adminOnly: false,
+  },
+  {
     id: "assessment",
     translationKey: "navigation.assessment",
     icon: Sparkles,

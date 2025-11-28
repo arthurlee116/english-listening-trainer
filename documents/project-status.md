@@ -1,8 +1,8 @@
 # 项目状态总览
 
 ### 当前版本
-- **版本号**: v1.3.1
-- **最后更新**: 2025-10-26
+- **版本号**: v1.4.0
+- **最后更新**: 2025-11-07
 - **状态**: 稳定版本，生产就绪
 
 ### 核心功能状态
@@ -15,6 +15,7 @@
 - ✅ **Docker容器化**: 多阶段构建，GPU支持
 - ✅ **缓存优化**: 多级Docker缓存，部署速度提升90%
 - ✅ **远程部署指南**: 完整的部署文档和最佳实践
+- ✅ **代码架构重构**: 主页面/练习流程统一为单一实现，消除重复代码
 
 ### 技术栈
 - **前端**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
@@ -27,6 +28,54 @@
 - **监控**: 健康检查, 日志管理
 
 ### 最近更新
+
+### 2025-11-07
+- 🔧 **修复状态分裂导致的功能损坏**
+  - **问题发现**: app/page.tsx 和 components/main-app.tsx 各自调用 useExerciseWorkflow，导致两份完全独立的状态实例
+  - **严重后果**:
+    - 侧边栏/导航看到的 state.currentStep 来自页面实例
+    - 主界面的题目/音频等内容来自组件实例
+    - 两份状态永不同步，点击侧边栏无法改变实际显示内容
+    - 成就系统和历史记录被拆分成两套独立数据
+  - **修复方案（采用单一状态源架构）**:
+    - 精简 `app/page.tsx` 为 48 行，仅负责鉴权检查（AuthenticationGate），移除所有状态管理
+    - `components/main-app.tsx` 成为唯一状态管理者（504 行），内部集成：
+      - ✅ useExerciseWorkflow（唯一实例）
+      - ✅ MobileSidebarWrapper（移动端侧边栏）
+      - ✅ AppLayoutWithSidebar（桌面端侧边栏）
+      - ✅ 统一的 handleNavigate 处理器，支持三种导航动作
+    - 侧边栏和主内容共享同一份 state，确保 UI 与状态完全同步
+  - **验证通过**: ESLint 无错误，状态管理单一化，侧边栏导航功能正常
+- 🔧 **修复主页面架构回归问题**
+  - **问题**: `app/page.tsx` 变成空壳导致侧边栏、鉴权、导航等布局完全消失；存在重复文件 `components/main-app-refactored.tsx`
+  - **修复措施**:
+    - 恢复 `app/page.tsx` 完整页面结构（68行），包含 AuthenticationGate、MobileSidebarWrapper、AppLayoutWithSidebar 等必需布局组件
+    - 重构 `components/main-app.tsx`，移除外层容器，仅保留核心业务内容（Header、MigrationNotification、练习流程），由父级布局提供背景
+    - 删除重复文件 `components/main-app-refactored.tsx`
+    - 更新 `lib/navigation/config.ts` 添加"练习"入口（targetState: setup）
+  - **技术细节**:
+    - `app/page.tsx` 使用 useAuthState 和 useExerciseWorkflow 管理认证与状态
+    - handleNavigate 处理三种导航动作：setState（步骤切换）、callback（回调执行）、external（外部链接）
+    - MainApp 现在是纯内容组件，不自带背景，由 AppLayoutWithSidebar 提供布局框架
+  - **验证**: ESLint 验证通过，侧边栏（桌面/移动）、登录门控、所有导航功能恢复正常
+- 🏗️ **主页面/练习流程整合重构**
+  - **问题**: 存在3个重复的主页面实现（`app/page.tsx` 932行、`components/main-app.tsx` 723行、`app/page-refactored.tsx` 12行），状态管理分散（20+ useState），测试与线上代码脱节
+  - **核心改造**:
+    - 创建 `hooks/use-exercise-workflow.ts` (641行)，集中管理所有练习流程状态与业务逻辑，使用 useReducer 替代分散的 useState
+    - 重写 `components/main-app.tsx` (474行) 为唯一核心组件，通过 useExerciseWorkflow hook 消费状态
+    - 简化 `app/page.tsx` 为薄包装层（15行），仅包装 MainApp 组件
+    - 删除 `app/page-refactored.tsx` 重复入口
+  - **技术细节**:
+    - useExerciseWorkflow 提供统一的 state、actions(setStep/setDifficulty等)、handlers(handleGenerateTopics/handleSubmitAnswers等)
+    - 集成成就系统初始化、通知显示、API缓存、音频时长处理等原有所有功能
+    - 支持8种步骤状态：setup/listening/questions/results/history/wrong-answers/assessment/assessment-result
+    - 内置错误处理、加载状态管理、重试逻辑
+  - **测试适配（进行中）**:
+    - 更新 `tests/integration/components/main-app-flow.spec.tsx` 使用 @/ 别名 mock
+    - 修复 mock 函数定义顺序和返回值类型（添加 success 字段）
+    - 添加 achievement-service 和 export 模块 mock
+    - ⚠️ **待解决**: 测试中 MainApp 组件卡在加载状态，需进一步调试 mock hooks 配置
+  - **收益**: 消除 800+ 行重复代码，hook 真正复用，测试与线上行为统一，代码结构更清晰（hook 管业务，组件管展示）
 
 ### 2025-10-26
 - 🧭 **侧边栏布局 Phase 4 后半段: 主页面集成完成**
