@@ -37,7 +37,7 @@
 
 **关键代码段**:
 ```bash
-PROXY_URL="${PROXY_URL:-http://81.71.93.183:10811}"
+PROXY_URL="${PROXY_URL:-http://127.0.0.1:10808}"
 
 # 缓存层列表（按依赖顺序）
 CACHE_LAYERS=(

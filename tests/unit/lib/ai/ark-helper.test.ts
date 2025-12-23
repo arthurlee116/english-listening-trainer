@@ -46,7 +46,7 @@ vi.mock('@/lib/ai/cerebras-client-manager', () => ({
     reset: vi.fn(),
     getClient: vi.fn(() => client),
     getProxyStatus: vi.fn(() => ({
-      proxyUrl: 'http://81.71.93.183:10811',
+      proxyUrl: 'http://127.0.0.1:10808',
       healthy: true,
       lastCheckedAt: Date.now()
     }))

@@ -4,7 +4,7 @@ import Cerebras from '@cerebras/cerebras_cloud_sdk'
 import type { AIServiceConfig } from '../config-manager'
 
 // 硬编码代理地址 - 生产服务器代理
-const PROXY_URL = 'http://81.71.93.183:10811'
+const PROXY_URL = 'http://127.0.0.1:10808'
 
 export interface ProxyStatusSnapshot {
   proxyUrl: string

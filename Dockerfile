@@ -170,7 +170,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/package-lock.json ./package-lock.
 
 # Copy essential runtime files only
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
-COPY --from=builder --chown=nextjs:nodejs /app/admin-server.mjs ./admin-server.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/config ./config
 COPY --from=builder --chown=nextjs:nodejs /app/kokoro_local ./kokoro_local
 COPY --from=builder --chown=nextjs:nodejs /app/kokoro-models ./kokoro-models
 

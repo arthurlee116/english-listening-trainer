@@ -15,7 +15,7 @@ ssh -p 60022 ubuntu@49.234.30.246
 sudo docker login ghcr.io -u <GITHUB_USERNAME>
 
 # 预热基础层
-PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
 sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/base-images/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # 预热依赖缓存
@@ -32,18 +32,18 @@ sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/ar
 ## 3. 日常部署流程建议
 1. **同步依赖层**：
    ```bash
-   PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+   PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
    sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python
    sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node
    ```
 2. **拉取最新运行时镜像**：
    ```bash
-   PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+   PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
    sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:runtime-<git-sha>
    ```
 3. **启动/更新服务**（示例）：
    ```bash
-   sudo docker compose -f docker-compose.production.yml up -d --pull never
+   sudo docker compose --profile production up -d --pull never
    ```
 4. **健康检查**：访问 `/health` API 或执行 `npm run admin status`（按内部流程）。
 
@@ -53,7 +53,7 @@ sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/ar
 - 当预热 workflow 切换至新季度标签（例如 `2026Q1`）后：
   1. 在服务器上执行：
      ```bash
-     PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+     PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
      sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-python-2026Q1
      sudo env HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-node-2026Q1
      ```

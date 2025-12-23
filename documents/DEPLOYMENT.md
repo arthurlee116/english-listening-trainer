@@ -33,8 +33,8 @@
 
 **关键命令**：
 - `docker login ghcr.io`：使用 PAT 认证 GHCR（参见下文“镜像同步”）
-- `HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PROXY=http://81.71.93.183:10811 docker pull ghcr.io/<namespace>/<image>:<tag>`：拉取预构建镜像
-- `docker compose -f docker-compose.gpu.yml up -d`：启动/更新服务
+- `HTTP_PROXY=http://127.0.0.1:10808 HTTPS_PROXY=http://127.0.0.1:10808 docker pull ghcr.io/<namespace>/<image>:<tag>`：拉取预构建镜像
+- `docker compose --profile gpu up -d`：启动/更新服务
 
 ### 2. 基于Git拉取部署
 **适用场景**：开发环境、快速迭代、需要源码调试
@@ -177,7 +177,7 @@ export GHCR_PAT=<your-token>
 echo "$GHCR_PAT" | docker login ghcr.io -u arthurlee116 --password-stdin
 unset GHCR_PAT
 
-PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
 
 # 依次拉取缓存层（可选，但建议在首次部署或缓存失效时执行）
 for tag in cache-base cache-python cache-node; do
@@ -189,15 +189,15 @@ done
 
 ```bash
 # 拉取业务镜像
-PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
 HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
 
 # 在服务器上重新加载容器
 ssh -p 60022 ubuntu@49.234.30.246 <<'EOF'
 set -e
 cd ~/english-listening-trainer
-docker compose -f docker-compose.gpu.yml down --remove-orphans
-docker compose -f docker-compose.gpu.yml up -d
+docker compose --profile gpu down --remove-orphans
+docker compose --profile gpu up -d
 EOF
 ```
 
@@ -205,10 +205,10 @@ EOF
 
 ```bash
 # 检查服务状态
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose -f docker-compose.gpu.yml ps"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose --profile gpu ps"
 
 # 查看服务日志
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose -f docker-compose.gpu.yml logs -f app"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose --profile gpu logs -f app"
 
 # 健康检查
 curl -f http://49.234.30.246:3000/api/health
@@ -291,7 +291,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "docker images | grep english-listening-traine
 ssh -p 60022 ubuntu@49.234.30.246 "docker image prune -f"
 
 # 拉取指定镜像
-ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PROXY=http://81.71.93.183:10811 docker pull ghcr.io/arthurlee116/english-listening-trainer:latest"
+ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://127.0.0.1:10808 HTTPS_PROXY=http://127.0.0.1:10808 docker pull ghcr.io/arthurlee116/english-listening-trainer:latest"
 ```
 
 ---
@@ -305,10 +305,10 @@ ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PR
 ssh -p 60022 ubuntu@49.234.30.246 "docker images | grep english-listening-trainer"
 
 # 回滚到上一个版本
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:previous docker compose -f docker-compose.gpu.yml up -d"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:previous docker compose --profile gpu up -d"
 
 # 重新部署指定版本
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:v1.2.2 docker compose -f docker-compose.gpu.yml up -d"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && IMAGE_TAG=ghcr.io/arthurlee116/english-listening-trainer:v1.2.2 docker compose --profile gpu up -d"
 ```
 
 ### 完整回滚（Git代码）
@@ -321,7 +321,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && git checkou
 ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && git checkout <commit-hash>"
 
 # 重新构建和部署
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose -f docker-compose.gpu.yml build && docker compose -f docker-compose.gpu.yml up -d"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose --profile gpu build && docker compose --profile gpu up -d"
 ```
 
 ### 数据库回滚
@@ -380,7 +380,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "df -h /"
 ssh -p 60022 ubuntu@49.234.30.246 "docker system prune -a"
 
 # 手动拉取缓存层
-ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://81.71.93.183:10811 HTTPS_PROXY=http://81.71.93.183:10811 docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-base"
+ssh -p 60022 ubuntu@49.234.30.246 "HTTP_PROXY=http://127.0.0.1:10808 HTTPS_PROXY=http://127.0.0.1:10808 docker pull ghcr.io/arthurlee116/english-listening-trainer:cache-base"
 ```
 
 #### 4. 备份权限问题
@@ -403,7 +403,7 @@ ssh -p 60022 ubuntu@49.234.30.246 "df -h ~/ && du -sh ~/english-listening-traine
 
 ```bash
 # 查看详细日志
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose -f docker-compose.gpu.yml logs app"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose --profile gpu logs app"
 
 # 检查环境变量
 ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && cat .env.production"
@@ -512,7 +512,7 @@ curl -f http://49.234.30.246:3000/api/health
 
 ```bash
 # 查看实时日志
-ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose -f docker-compose.gpu.yml logs -f"
+ssh -p 60022 ubuntu@49.234.30.246 "cd ~/english-listening-trainer && docker compose --profile gpu logs -f"
 
 # 日志轮转配置
 ssh -p 60022 ubuntu@49.234.30.246 "sudo nano /etc/logrotate.d/docker-containers"
@@ -559,10 +559,10 @@ jobs:
           ssh -i key.pem -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
           set -e
           cd ~/english-listening-trainer
-          PROXY_URL=${PROXY_URL:-http://81.71.93.183:10811}
+          PROXY_URL=${PROXY_URL:-http://127.0.0.1:10808}
           HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" docker pull ghcr.io/arthurlee116/english-listening-trainer:latest
-          docker compose -f docker-compose.gpu.yml down --remove-orphans
-          docker compose -f docker-compose.gpu.yml up -d
+          docker compose --profile gpu down --remove-orphans
+          docker compose --profile gpu up -d
           EOF
           rm key.pem
 ```

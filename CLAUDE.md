@@ -112,7 +112,7 @@ npm run test:ci          # Run in CI mode with coverage & JUnit output
 ### AI Infrastructure
 
 - `lib/ark-helper.ts` coordinates Ark/Cerebras invocations, applying retry policy, timeout control, and JSON parsing (always routes through hardcoded proxy)
-- `lib/ai/cerebras-client-manager.ts` keeps long-lived SDK clients and always uses the production proxy (`http://81.71.93.183:10811`)
+- `lib/ai/cerebras-client-manager.ts` keeps long-lived SDK clients and always uses the production proxy (`http://127.0.0.1:10808`)
 - `lib/ai/telemetry.ts` emits structured attempt metrics; `lib/monitoring.ts` captures the last call for `/api/health` reporting and performance metrics
 - `lib/config-manager.ts` loads AI defaults (`AI_DEFAULT_MODEL`, `AI_DEFAULT_TEMPERATURE`, `AI_DEFAULT_MAX_TOKENS`, `AI_TIMEOUT`, `AI_MAX_RETRIES`)
 - `lib/ai/route-utils.ts` wraps AI routes with shared rate limiting, concurrency guard, and circuit breaker (`aiServiceCircuitBreaker`)
@@ -231,7 +231,7 @@ TTS API returns metadata for instant UI feedback:
 - `AI_TIMEOUT`: Request timeout in ms (default `30000`)
 - `AI_MAX_RETRIES`: Max retry attempts (default `3`)
 
-**Note:** AI service always uses hardcoded production proxy (`http://81.71.93.183:10811`)
+**Note:** AI service always uses hardcoded production proxy (`http://127.0.0.1:10808`)
 
 **Optional:**
 - `NEXT_PUBLIC_APP_URL`: Public app URL for production
@@ -269,10 +269,12 @@ Some tests may use MSW for API mocking. Check `tests/helpers/` for setup files.
 ## Deployment
 
 ### Docker
-Multiple compose files available:
-- `docker-compose.yml`: CPU-only deployment
-- `docker-compose.gpu.yml`: GPU-accelerated deployment
-- `docker-compose.production.yml`: Production configuration
+Unified compose file with profiles:
+- `docker compose up app`: CPU-only deployment (default)
+- `docker compose --profile gpu up`: GPU-accelerated deployment
+- `docker compose --profile production up`: Full production stack with nginx
+- `docker compose --profile admin up`: Include admin panel
+- `docker compose --profile migrate run migrate`: Database migration
 
 Build with optimized Dockerfile:
 ```bash

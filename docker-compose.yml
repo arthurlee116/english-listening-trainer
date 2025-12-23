@@ -1,12 +1,41 @@
 # Docker Compose 配置 - 英语听力训练应用
-# 支持本地开发和生产部署
+# 统一配置文件，使用 profiles 区分不同环境
+#
+# 使用方法：
+# 本地开发:    docker compose up app
+# GPU 环境:    docker compose --profile gpu up
+# 生产环境:    docker compose --profile production up -d
+# 带 Admin:    docker compose --profile gpu --profile admin up
+# 迁移数据库:  docker compose --profile migrate run migrate
+# 带缓存:      docker compose --profile cache up
 
-version: '3.8'
+version: '3.9'
 
+# ==========================================
+# 共享环境变量
+# ==========================================
+x-app-env: &app-env
+  NODE_ENV: ${NODE_ENV:-production}
+  NEXT_TELEMETRY_DISABLED: "1"
+  HOSTNAME: 0.0.0.0
+  PORT: 3000
+
+x-app-volumes: &app-volumes
+  - type: bind
+    source: ./data
+    target: /app/data
+  - type: bind
+    source: ./public/audio
+    target: /app/public/audio
+
+# ==========================================
+# 服务定义
+# ==========================================
 services:
-  # ==========================================
-  # 主应用服务
-  # ==========================================
+
+  # ------------------------------------------
+  # 主应用服务 (CPU 版本，默认)
+  # ------------------------------------------
   app:
     build:
       context: .
@@ -16,123 +45,184 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      # 基础配置
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=3000
-      - HOSTNAME=0.0.0.0
-      
-      # 数据库配置
-      - DATABASE_TYPE=${DATABASE_TYPE:-sqlite}
-      - DATABASE_URL=${DATABASE_URL:-}
-      - DATABASE_PATH=/app/data/app.db
-      
-      # AI 服务配置  
-      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY}
-      - CEREBRAS_BASE_URL=${CEREBRAS_BASE_URL:-https://api.cerebras.ai}
-      
-      # TTS 配置
-      - TTS_MODE=${TTS_MODE:-local}
-      - PYTORCH_ENABLE_MPS_FALLBACK=1
-      
-      # 安全配置
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
-      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:3000}
-      
-      # 存储路径
-      - STORAGE_PATH=/app/storage
-      - AUDIO_PATH=/app/public/audio
-      
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/app.db}
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY}
+      TTS_MODE: ${TTS_MODE:-local}
+      PYTORCH_ENABLE_MPS_FALLBACK: "1"
+      KOKORO_DEVICE: ${KOKORO_DEVICE:-cpu}
     volumes:
-      # 持久化数据存储
-      - app_data:/app/data
-      - audio_files:/app/public/audio
-      - app_logs:/app/logs
-      
-      # TTS 模型缓存 (可选，提高启动速度)
-      - kokoro_models:/app/kokoro-local/voices
-      
+      - ./data:/app/data
+      - ./public/audio:/app/public/audio
+      - ./logs:/app/logs
     networks:
-      - app_network
-    
+      - app-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+
+  # ------------------------------------------
+  # GPU 版本应用 (NVIDIA CUDA)
+  # ------------------------------------------
+  app-gpu:
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    container_name: english-listening-app-gpu
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/app.db}
+      PYTORCH_ENABLE_MPS_FALLBACK: "0"
+      KOKORO_DEVICE: cuda
+      http_proxy: ${http_proxy:-}
+      https_proxy: ${https_proxy:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      no_proxy: localhost,127.0.0.1
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      <<: *app-volumes
+      - type: bind
+        source: ./logs
+        target: /app/logs
+      - type: bind
+        source: ./backups
+        target: /app/backups
+      - type: bind
+        source: ./kokoro-local/.cache
+        target: /app/kokoro-local/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - app-network
+    profiles:
+      - gpu
+
+  # ------------------------------------------
+  # 数据库迁移服务
+  # ------------------------------------------
+  migrate:
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    command: ["npx", "prisma", "migrate", "deploy"]
+    user: "1001:1001"
+    env_file:
+      - .env.production
+    environment:
+      <<: *app-env
+    volumes:
+      <<: *app-volumes
+    restart: "no"
+    networks:
+      - app-network
+    profiles:
+      - migrate
+
+  # ------------------------------------------
+  # Admin 管理后台服务
+  # ------------------------------------------
+  admin:
+    image: ${IMAGE_TAG:-ghcr.io/arthurlee116/english-listening-trainer:latest}
+    container_name: english-listening-admin
+    command: ["npm", "run", "admin"]
+    env_file:
+      - .env.production
+    environment:
+      <<: *app-env
+      PORT: 3005
+    ports:
+      - "3005:3005"
+    volumes:
+      <<: *app-volumes
+      - type: bind
+        source: ./logs
+        target: /app/logs
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - app-gpu
+    networks:
+      - app-network
+    profiles:
+      - admin
 
-  # ==========================================
-  # PostgreSQL 数据库 (可选)
-  # ==========================================
-  postgres:
-    image: postgres:15-alpine
-    container_name: english-listening-db
+  # ------------------------------------------
+  # Nginx 反向代理 (生产环境)
+  # ------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: english-listening-nginx
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-5432}:5432"
-    environment:
-      - POSTGRES_DB=${DB_NAME:-listening_app}
-      - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_INITDB_ARGS="--encoding=UTF-8"
+      - "80:80"
+      - "443:443"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx-certs:/etc/letsencrypt:ro
+      - ./public:/var/www/html/static:ro
+      - ./logs:/var/log/nginx
+    depends_on:
+      - app-gpu
     networks:
-      - app_network
+      - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-listening_app}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
     profiles:
-      - postgres
+      - production
 
-  # ==========================================  
-  # MySQL 数据库 (可选)
-  # ==========================================
-  mysql:
-    image: mysql:8.0
-    container_name: english-listening-mysql
+  # ------------------------------------------
+  # SSL 证书管理 (Let's Encrypt)
+  # ------------------------------------------
+  certbot:
+    image: certbot/certbot:latest
+    container_name: english-listening-certbot
+    volumes:
+      - nginx-certs:/etc/letsencrypt
+      - nginx-html:/var/www/certbot
+    command: ["sh", "-c", "trap exit TERM; while :; do certbot renew; sleep 12h & wait; done"]
     restart: unless-stopped
-    ports:
-      - "${DB_PORT:-3306}:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root}
-      - MYSQL_DATABASE=${DB_NAME:-listening_app}
-      - MYSQL_USER=${DB_USER:-user}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-password}
-      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
-      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - app_network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USER:-user}", "-p${DB_PASSWORD:-password}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
     profiles:
-      - mysql
+      - production
 
-  # ==========================================
+  # ------------------------------------------
   # Redis 缓存 (可选)
-  # ==========================================
+  # ------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: english-listening-cache
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - redis-data:/data
     networks:
-      - app_network
+      - app-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -141,46 +231,47 @@ services:
     profiles:
       - cache
 
+  # ------------------------------------------
+  # PostgreSQL 数据库 (可选)
+  # ------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: english-listening-db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-listening_app}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-listening_app}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - postgres
+
 # ==========================================
 # 数据卷定义
 # ==========================================
 volumes:
-  app_data:
+  nginx-certs:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_PATH:-./data}
-      
-  audio_files:
+  nginx-html:
     driver: local
-    driver_opts:
-      type: none  
-      o: bind
-      device: ${AUDIO_PATH:-./public/audio}
-      
-  app_logs:
+  redis-data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind  
-      device: ${LOGS_PATH:-./logs}
-      
-  kokoro_models:
-    driver: local
-    
-  postgres_data:
-    driver: local
-    
-  mysql_data:
-    driver: local
-    
-  redis_data:
+  postgres-data:
     driver: local
 
 # ==========================================
 # 网络配置
 # ==========================================
 networks:
-  app_network:
+  app-network:
     driver: bridge

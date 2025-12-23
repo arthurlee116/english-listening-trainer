@@ -51,7 +51,7 @@ describe('CerebrasClientManager', () => {
     const manager = getCerebrasClientManager()
     const status = manager.getProxyStatus()
 
-    expect(status.proxyUrl).toBe('http://81.71.93.183:10811')
+    expect(status.proxyUrl).toBe('http://127.0.0.1:10808')
     expect(status.healthy).toBe(true)
     expect(status.lastCheckedAt).toBeGreaterThan(0)
   })
