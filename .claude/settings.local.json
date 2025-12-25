@@ -43,7 +43,8 @@
       "Bash(claude mcp:*)",
       "Bash(sqlite3:*)",
       "mcp__github__get_pull_request",
-      "mcp__github__get_pull_request_files"
+      "mcp__github__get_pull_request_files",
+      "Bash(docker compose config:*)"
     ],
     "deny": [],
     "ask": [],
