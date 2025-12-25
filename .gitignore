@@ -23,6 +23,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+.trae/
 
 # typescript
 *.tsbuildinfo
@@ -201,3 +202,5 @@ code-quality-report.md
 # Accidentally created files (from CLI mishaps)
 --help
 --version
+kokoro_local/coreml/*.mlpackage/
+.claude/

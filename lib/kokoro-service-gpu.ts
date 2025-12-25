@@ -674,13 +674,15 @@ export class KokoroTTSGPUService extends EventEmitter {
 // 导出增强版服务（全局单例，避免HMR/多实例重复启动子进程）
 export const kokoroTTSGPU = globalForKokoro.__kokoroTTSGPU ?? (globalForKokoro.__kokoroTTSGPU = new KokoroTTSGPUService())
 
-// 优雅关闭处理
-process.on('SIGINT', async () => {
-  await kokoroTTSGPU.shutdown()
-  process.exit(0)
-})
-
-process.on('SIGTERM', async () => {
-  await kokoroTTSGPU.shutdown()
-  process.exit(0)
-})
+// 优雅关闭处理（防止重复注册）
+if (!(globalForKokoro as Record<string, unknown>).__kokoroSignalHandlersRegistered) {
+  (globalForKokoro as Record<string, unknown>).__kokoroSignalHandlersRegistered = true
+  process.on('SIGINT', async () => {
+    await kokoroTTSGPU.shutdown()
+    process.exit(0)
+  })
+  process.on('SIGTERM', async () => {
+    await kokoroTTSGPU.shutdown()
+    process.exit(0)
+  })
+}

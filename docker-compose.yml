@@ -20,14 +20,6 @@ x-app-env: &app-env
   HOSTNAME: 0.0.0.0
   PORT: 3000
 
-x-app-volumes: &app-volumes
-  - type: bind
-    source: ./data
-    target: /app/data
-  - type: bind
-    source: ./public/audio
-    target: /app/public/audio
-
 # ==========================================
 # 服务定义
 # ==========================================
@@ -86,16 +78,11 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      <<: *app-volumes
-      - type: bind
-        source: ./logs
-        target: /app/logs
-      - type: bind
-        source: ./backups
-        target: /app/backups
-      - type: bind
-        source: ./kokoro-local/.cache
-        target: /app/kokoro-local/.cache
+      - ./data:/app/data
+      - ./public/audio:/app/public/audio
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+      - ./kokoro-local/.cache:/app/kokoro-local/.cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
@@ -126,7 +113,8 @@ services:
     environment:
       <<: *app-env
     volumes:
-      <<: *app-volumes
+      - ./data:/app/data
+      - ./public/audio:/app/public/audio
     restart: "no"
     networks:
       - app-network
@@ -148,10 +136,9 @@ services:
     ports:
       - "3005:3005"
     volumes:
-      <<: *app-volumes
-      - type: bind
-        source: ./logs
-        target: /app/logs
+      - ./data:/app/data
+      - ./public/audio:/app/public/audio
+      - ./logs:/app/logs
     depends_on:
       - app-gpu
     networks:

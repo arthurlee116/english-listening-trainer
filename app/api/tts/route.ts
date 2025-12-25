@@ -25,12 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '文本内容不能为空' }, { status: 400 })
     }
 
-    if (text.length > 2000) {
-      return NextResponse.json(
-        { error: '文本长度超过限制（最大2000字符）' },
-        { status: 400 }
-      )
-    }
+    // 字符限制已移除，支持无限长度文本
 
     if (!isLanguageSupported(language)) {
       return NextResponse.json({ error: `不支持的语言: ${language}` }, { status: 400 })

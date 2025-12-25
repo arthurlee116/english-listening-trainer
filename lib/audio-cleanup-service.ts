@@ -290,11 +290,13 @@ export class AudioCleanupService extends EventEmitter {
 // 导出单例实例
 export const audioCleanupService = new AudioCleanupService()
 
-// 全局清理处理
-process.on('SIGINT', () => {
-  audioCleanupService.stop()
-})
-
-process.on('SIGTERM', () => {
-  audioCleanupService.stop()
-})
+// 全局清理处理（防止重复注册）
+if (!(globalThis as Record<string, unknown>).__cleanupSignalHandlersRegistered) {
+  (globalThis as Record<string, unknown>).__cleanupSignalHandlersRegistered = true
+  process.on('SIGINT', () => {
+    audioCleanupService.stop()
+  })
+  process.on('SIGTERM', () => {
+    audioCleanupService.stop()
+  })
+}

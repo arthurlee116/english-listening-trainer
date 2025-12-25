@@ -380,18 +380,16 @@ process.on('beforeExit', async () => {
   }
 })
 
-process.on('SIGINT', async () => {
-  const prisma = getPrismaClient()
-  if (prisma) {
-    await prisma.$disconnect()
-  }
-  process.exit(0)
-})
-
-process.on('SIGTERM', async () => {
-  const prisma = getPrismaClient()
-  if (prisma) {
-    await prisma.$disconnect()
-  }
-  process.exit(0)
-})
+if (!(globalThis as Record<string, unknown>).__dbSignalHandlersRegistered) {
+  (globalThis as Record<string, unknown>).__dbSignalHandlersRegistered = true
+  process.on('SIGINT', async () => {
+    const prisma = getPrismaClient()
+    if (prisma) await prisma.$disconnect()
+    process.exit(0)
+  })
+  process.on('SIGTERM', async () => {
+    const prisma = getPrismaClient()
+    if (prisma) await prisma.$disconnect()
+    process.exit(0)
+  })
+}
