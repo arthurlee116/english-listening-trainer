@@ -15,18 +15,18 @@ datasource db {
 // 用户表 - 邮箱密码认证系统
 // ==========================================
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
-  password          String    // bcrypt 加密
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String // bcrypt 加密
   name              String?
-  isAdmin           Boolean   @default(false)
-  preferredLanguage String    @default("zh") @map("preferred_language") // 用户语言偏好 ('zh' / 'en')
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-  
+  isAdmin           Boolean  @default(false)
+  preferredLanguage String   @default("zh") @map("preferred_language") // 用户语言偏好 ('zh' / 'en')
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
   // 关联关系
   practiceSessions PracticeSession[]
-  
+
   // 优化索引
   @@index([isAdmin]) // 管理员查询优化
   @@index([createdAt]) // 用户注册时间统计
@@ -40,20 +40,20 @@ model PracticeSession {
   id           String   @id @default(cuid())
   userId       String   @map("user_id")
   exerciseData String?  @map("exercise_data") // JSON 格式的完整练习数据 (legacy support)
-  difficulty   String   // CEFR 级别 (A1, A2, B1, B2, C1, C2)
+  difficulty   String // CEFR 级别 (A1, A2, B1, B2, C1, C2)
   language     String   @default("en-US") // 听力语言
-  topic        String   // 练习主题
-  transcript   String   // 听力材料文本
-  accuracy     Float?   // 准确率 (0-1)
-  score        Int?     // 总分
-  duration     Int?     // 练习时长(秒)
+  topic        String // 练习主题
+  transcript   String // 听力材料文本
+  accuracy     Float? // 准确率 (0-1)
+  score        Int? // 总分
+  duration     Int? // 练习时长(秒)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-  
+
   // 关联关系
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  questions    PracticeQuestion[]
-  
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions PracticeQuestion[]
+
   // 优化索引 - 针对常见查询模式
   @@index([userId, createdAt(sort: Desc)]) // 用户练习历史查询（按时间倒序）
   @@index([createdAt(sort: Desc)]) // 全局最新练习查询
@@ -71,22 +71,22 @@ model PracticeSession {
 // 练习题目表 - 存储具体题目信息
 // ==========================================
 model PracticeQuestion {
-  id                 String            @id @default(cuid())
-  sessionId          String            @map("session_id")
-  index              Int               // 题目在会话中的序号
-  type               String            // 题目类型 (multiple_choice, fill_blank, etc.)
-  question           String            // 题目内容
-  options            String?           // JSON 格式的选项 (适用于选择题)
-  correctAnswer      String            @map("correct_answer")
-  explanation        String?           // 题目解释
-  transcriptSnapshot String?           @map("transcript_snapshot") // 相关听力片段
-  focusAreas         String?           @map("focus_areas") // JSON 格式的能力标签数组
-  createdAt          DateTime          @default(now()) @map("created_at")
-  
+  id                 String   @id @default(cuid())
+  sessionId          String   @map("session_id")
+  index              Int // 题目在会话中的序号
+  type               String // 题目类型 (multiple_choice, fill_blank, etc.)
+  question           String // 题目内容
+  options            String? // JSON 格式的选项 (适用于选择题)
+  correctAnswer      String   @map("correct_answer")
+  explanation        String? // 题目解释
+  transcriptSnapshot String?  @map("transcript_snapshot") // 相关听力片段
+  focusAreas         String?  @map("focus_areas") // JSON 格式的能力标签数组
+  createdAt          DateTime @default(now()) @map("created_at")
+
   // 关联关系
-  session            PracticeSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  answers            PracticeAnswer[]
-  
+  session PracticeSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers PracticeAnswer[]
+
   // 优化索引
   @@index([sessionId, index]) // 按会话和题目序号查询
   @@index([type, createdAt]) // 按题目类型统计
@@ -100,19 +100,19 @@ model PracticeQuestion {
 // 练习答案表 - 存储用户答案和AI分析
 // ==========================================
 model PracticeAnswer {
-  id                     String            @id @default(cuid())
-  questionId             String            @map("question_id")
-  userAnswer             String            @map("user_answer")
-  isCorrect              Boolean           @map("is_correct")
-  attemptedAt            DateTime          @default(now()) @map("attempted_at")
-  aiAnalysis             String?           @map("ai_analysis") // JSON 格式的AI分析结果
-  aiAnalysisGeneratedAt  DateTime?         @map("ai_analysis_generated_at")
-  tags                   String            @default("[]") // JSON 数组格式的标签
-  needsAnalysis          Boolean           @default(true) @map("needs_analysis")
-  
+  id                    String    @id @default(cuid())
+  questionId            String    @map("question_id")
+  userAnswer            String    @map("user_answer")
+  isCorrect             Boolean   @map("is_correct")
+  attemptedAt           DateTime  @default(now()) @map("attempted_at")
+  aiAnalysis            String?   @map("ai_analysis") // JSON 格式的AI分析结果
+  aiAnalysisGeneratedAt DateTime? @map("ai_analysis_generated_at")
+  tags                  String    @default("[]") // JSON 数组格式的标签
+  needsAnalysis         Boolean   @default(true) @map("needs_analysis")
+
   // 关联关系
-  question               PracticeQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  
+  question PracticeQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   // 优化索引
   @@index([questionId]) // 按题目查询答案
   @@index([isCorrect, attemptedAt]) // 按正确性和时间查询
@@ -120,4 +120,71 @@ model PracticeAnswer {
   @@index([aiAnalysisGeneratedAt]) // 按AI分析时间查询
   @@index([isCorrect, attemptedAt(sort: Desc)], map: "wrong_answers_list_idx") // 错误答案列表查询优化
   @@map("practice_answers")
+}
+
+// ==========================================
+// 新闻文章表 - 存储RSS抓取的原始新闻
+// ==========================================
+model NewsArticle {
+  id          String   @id @default(cuid())
+  source      String // BBC, Reuters, NPR, Guardian
+  sourceUrl   String   @map("source_url") // 原文链接
+  title       String
+  summary     String // RSS提供的摘要
+  fullText    String?  @map("full_text") // 抓取的全文（可选）
+  category    String? // 分类标签
+  publishedAt DateTime @map("published_at")
+  fetchedAt   DateTime @default(now()) @map("fetched_at")
+  expiresAt   DateTime @map("expires_at") // 24小时后过期
+
+  // 关联关系
+  topics DailyTopic[]
+
+  // 优化索引
+  @@index([fetchedAt])
+  @@index([expiresAt])
+  @@index([source, publishedAt])
+  @@map("news_articles")
+}
+
+// ==========================================
+// 每日推荐话题表 - AI生成的话题
+// ==========================================
+model DailyTopic {
+  id           String   @id @default(cuid())
+  articleId    String   @map("article_id")
+  difficulty   String // A1, A2, B1, B2, C1, C2
+  topic        String // AI生成的话题标题
+  briefSummary String   @map("brief_summary") // 简短描述
+  generatedAt  DateTime @default(now()) @map("generated_at")
+  expiresAt    DateTime @map("expires_at") // 24小时后过期
+
+  // 关联关系
+  article     NewsArticle              @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  transcripts PreGeneratedTranscript[]
+
+  // 优化索引
+  @@index([difficulty, expiresAt])
+  @@index([generatedAt])
+  @@index([expiresAt])
+  @@map("daily_topics")
+}
+
+// ==========================================
+// 预生成稿子表 - 不同时长版本
+// ==========================================
+model PreGeneratedTranscript {
+  id          String   @id @default(cuid())
+  topicId     String   @map("topic_id")
+  duration    Int // 1, 2, 3, 5 (分钟)
+  wordCount   Int      @map("word_count")
+  transcript  String
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  // 关联关系
+  topic DailyTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  // 优化索引
+  @@unique([topicId, duration])
+  @@map("pre_generated_transcripts")
 }

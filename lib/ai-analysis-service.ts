@@ -215,6 +215,10 @@ export async function batchAnalyzeWrongAnswers(
   success: AnalysisResponse[]
   failed: { index: number; error: string }[]
 }> {
+  type BatchAnalyzeResult =
+    | { success: true; result: AnalysisResponse; index: number }
+    | { success: false; error: string; index: number }
+
   const success: AnalysisResponse[] = []
   const failed: { index: number; error: string }[] = []
 
@@ -223,14 +227,14 @@ export async function batchAnalyzeWrongAnswers(
   
   for (let i = 0; i < requests.length; i += BATCH_SIZE) {
     const batch = requests.slice(i, i + BATCH_SIZE)
-    const batchPromises = batch.map(async (request, batchIndex) => {
+    const batchPromises: Promise<BatchAnalyzeResult>[] = batch.map(async (request, batchIndex) => {
       const actualIndex = i + batchIndex
       try {
         const result = await analyzeWrongAnswer(request)
-        return { success: true, result, index: actualIndex }
+        return { success: true as const, result, index: actualIndex }
       } catch (error) {
         return { 
-          success: false, 
+          success: false as const, 
           error: error instanceof Error ? error.message : '未知错误',
           index: actualIndex 
         }

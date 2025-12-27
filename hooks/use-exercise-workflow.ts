@@ -11,23 +11,23 @@ import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory, getHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
 import { handlePracticeCompleted, initializeAchievements, migrateFromHistory } from "@/lib/achievement-service"
-import type { 
-  Exercise, 
-  Question, 
-  DifficultyLevel, 
+import type {
+  Exercise,
+  Question,
+  DifficultyLevel,
   GradingResult,
   ListeningLanguage,
   AchievementNotification
 } from "@/lib/types"
 
-export type ExerciseStep = 
-  | 'setup' 
-  | 'listening' 
-  | 'questions' 
-  | 'results' 
-  | 'history' 
-  | 'wrong-answers' 
-  | 'assessment' 
+export type ExerciseStep =
+  | 'setup'
+  | 'listening'
+  | 'questions'
+  | 'results'
+  | 'history'
+  | 'wrong-answers'
+  | 'assessment'
   | 'assessment-result'
 
 interface ExerciseState {
@@ -38,6 +38,9 @@ interface ExerciseState {
   topic: string
   suggestedTopics: string[]
   transcript: string
+  newsTopicId: string | null
+  newsTranscriptDurationMinutes: number | null
+  newsTranscriptMissingDurationMinutes: number | null
   audioUrl: string
   audioDuration: number | null
   audioError: boolean
@@ -81,6 +84,9 @@ type ExerciseAction =
   | { type: 'SET_TOPIC'; payload: string }
   | { type: 'SET_SUGGESTED_TOPICS'; payload: string[] }
   | { type: 'SET_TRANSCRIPT'; payload: string }
+  | { type: 'SET_NEWS_TOPIC_ID'; payload: string | null }
+  | { type: 'SET_NEWS_TRANSCRIPT_DURATION_MINUTES'; payload: number | null }
+  | { type: 'SET_NEWS_TRANSCRIPT_MISSING_DURATION_MINUTES'; payload: number | null }
   | { type: 'SET_AUDIO_URL'; payload: string }
   | { type: 'SET_AUDIO_DURATION'; payload: number | null }
   | { type: 'SET_AUDIO_ERROR'; payload: boolean }
@@ -103,6 +109,9 @@ function createInitialState(): ExerciseState {
     topic: '',
     suggestedTopics: [],
     transcript: '',
+    newsTopicId: null,
+    newsTranscriptDurationMinutes: null,
+    newsTranscriptMissingDurationMinutes: null,
     audioUrl: '',
     audioDuration: null,
     audioError: false,
@@ -125,15 +134,68 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
     case 'SET_DIFFICULTY':
       return { ...state, difficulty: action.payload, error: null }
     case 'SET_DURATION':
-      return { ...state, duration: action.payload }
+      if (state.currentStep !== 'setup') {
+        return { ...state, duration: action.payload }
+      }
+
+      return {
+        ...state,
+        duration: action.payload,
+        transcript: '',
+        newsTranscriptDurationMinutes: state.newsTopicId ? null : state.newsTranscriptDurationMinutes,
+        newsTranscriptMissingDurationMinutes: state.newsTopicId ? null : state.newsTranscriptMissingDurationMinutes,
+        audioUrl: '',
+        audioDuration: null,
+        audioError: false,
+        questions: [],
+        answers: {},
+        currentExercise: null,
+        canRegenerate: true,
+        error: null
+      }
     case 'SET_LANGUAGE':
       return { ...state, language: action.payload }
     case 'SET_TOPIC':
-      return { ...state, topic: action.payload }
+      if (state.currentStep !== 'setup' || action.payload === state.topic) {
+        return { ...state, topic: action.payload }
+      }
+
+      return {
+        ...state,
+        topic: action.payload,
+        transcript: '',
+        newsTopicId: null,
+        newsTranscriptDurationMinutes: null,
+        newsTranscriptMissingDurationMinutes: null,
+        audioUrl: '',
+        audioDuration: null,
+        audioError: false,
+        questions: [],
+        answers: {},
+        currentExercise: null,
+        canRegenerate: true,
+        error: null
+      }
     case 'SET_SUGGESTED_TOPICS':
       return { ...state, suggestedTopics: action.payload }
     case 'SET_TRANSCRIPT':
       return { ...state, transcript: action.payload }
+    case 'SET_NEWS_TOPIC_ID':
+      return {
+        ...state,
+        newsTopicId: action.payload,
+        ...(action.payload
+          ? { newsTranscriptMissingDurationMinutes: null }
+          : { newsTranscriptDurationMinutes: null, newsTranscriptMissingDurationMinutes: null })
+      }
+    case 'SET_NEWS_TRANSCRIPT_DURATION_MINUTES':
+      return {
+        ...state,
+        newsTranscriptDurationMinutes: action.payload,
+        ...(action.payload ? { newsTranscriptMissingDurationMinutes: null } : {})
+      }
+    case 'SET_NEWS_TRANSCRIPT_MISSING_DURATION_MINUTES':
+      return { ...state, newsTranscriptMissingDurationMinutes: action.payload }
     case 'SET_AUDIO_URL':
       return { ...state, audioUrl: action.payload }
     case 'SET_AUDIO_DURATION':
@@ -147,8 +209,8 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
     case 'SET_CURRENT_EXERCISE':
       return { ...state, currentExercise: action.payload }
     case 'SET_LOADING':
-      return { 
-        ...state, 
+      return {
+        ...state,
         loading: action.payload.loading,
         loadingMessage: action.payload.message || ''
       }
@@ -250,6 +312,10 @@ export function useExerciseWorkflow() {
     setLanguage: (language: ListeningLanguage) => dispatch({ type: 'SET_LANGUAGE', payload: language }),
     setTopic: (topic: string) => dispatch({ type: 'SET_TOPIC', payload: topic }),
     setSuggestedTopics: (topics: string[]) => dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: topics }),
+    setTranscript: (transcript: string) => dispatch({ type: 'SET_TRANSCRIPT', payload: transcript }),
+    setNewsTopicId: (topicId: string | null) => dispatch({ type: 'SET_NEWS_TOPIC_ID', payload: topicId }),
+    setNewsTranscriptDurationMinutes: (durationMinutes: number | null) => dispatch({ type: 'SET_NEWS_TRANSCRIPT_DURATION_MINUTES', payload: durationMinutes }),
+    setNewsTranscriptMissingDurationMinutes: (durationMinutes: number | null) => dispatch({ type: 'SET_NEWS_TRANSCRIPT_MISSING_DURATION_MINUTES', payload: durationMinutes }),
     setAnswers: (answers: Record<number, string>) => dispatch({ type: 'SET_ANSWERS', payload: answers }),
     setAssessmentResult: (result: AssessmentResultType | null) => dispatch({ type: 'SET_ASSESSMENT_RESULT', payload: result }),
   }), [])
@@ -266,9 +332,9 @@ export function useExerciseWorkflow() {
         () => generateTopics(state.difficulty as DifficultyLevel, wordCount, state.language),
         60000
       ) as { topics: string[]; degradationReason?: string }
-      
+
       dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: response.topics })
-      
+
       toast({
         title: t("messages.topicGenerationSuccess"),
         description: t("messages.topicGenerationSuccessDesc", { values: { count: response.topics.length } }),
@@ -294,16 +360,16 @@ export function useExerciseWorkflow() {
 
     try {
       const response = await generateTopics(
-        state.difficulty as DifficultyLevel, 
-        wordCount, 
-        state.language, 
-        undefined, 
+        state.difficulty as DifficultyLevel,
+        wordCount,
+        state.language,
+        undefined,
         undefined,
         state.suggestedTopics
       )
-      
+
       dispatch({ type: 'SET_SUGGESTED_TOPICS', payload: response.topics })
-      
+
       toast({
         title: t("messages.topicGenerationSuccess"),
         description: t("messages.topicGenerationSuccessDesc", { values: { count: response.topics.length } }),
@@ -322,24 +388,37 @@ export function useExerciseWorkflow() {
   }, [state.difficulty, wordCount, state.language, state.suggestedTopics, toast, t])
 
   // 生成听力文稿
-  const handleGenerateTranscript = useCallback(async () => {
+  const handleGenerateTranscript = useCallback(async (newsEnhanced?: boolean) => {
     if (!state.difficulty || !state.topic) return
 
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating listening transcript...' } })
 
+    let transcriptSnapshot = state.transcript
+
     const attemptGeneration = async (attempt: number): Promise<void> => {
+      // 如果已有文稿（例如来自新闻预生成），则跳过生成
+      if (transcriptSnapshot && transcriptSnapshot.length > 50) {
+        dispatch({ type: 'SET_CAN_REGENERATE', payload: true })
+        return
+      }
+
       try {
         const response = await cachedApiCall(
-          `transcript-${state.difficulty}-${wordCount}-${state.topic}-${state.language}`,
+          `transcript-${state.difficulty}-${wordCount}-${state.topic}-${state.language}-${newsEnhanced ? 'exa' : 'plain'}`,
           () => generateTranscript(
             state.difficulty as DifficultyLevel,
             wordCount,
             state.topic,
-            state.language
+            state.language,
+            undefined,
+            undefined,
+            Boolean(newsEnhanced),
+            5
           ),
           120000
         ) as { transcript: string; degradationReason?: string }
-        
+
+        transcriptSnapshot = response.transcript
         dispatch({ type: 'SET_TRANSCRIPT', payload: response.transcript })
         dispatch({ type: 'SET_CAN_REGENERATE', payload: true })
       } catch (error) {
@@ -353,6 +432,45 @@ export function useExerciseWorkflow() {
     }
 
     try {
+      const durationMinutes = Math.floor(state.duration / 60)
+
+      // 自动使用新闻预生成稿：只要用户当前选择是新闻话题，就尝试拉取（不依赖 checkbox）
+      if (state.newsTopicId) {
+        const shouldFetchNewsTranscript =
+          !state.transcript ||
+          state.newsTranscriptDurationMinutes !== durationMinutes
+
+        if (shouldFetchNewsTranscript) {
+          try {
+            const data = await cachedApiCall(
+              `news-transcript-${state.newsTopicId}-${durationMinutes}`,
+              async () => {
+                const res = await fetch(
+                  `/api/news/transcript?topicId=${state.newsTopicId}&duration=${durationMinutes}`
+                )
+                if (!res.ok) {
+                  const payload = await res.json().catch(() => null)
+                  const message = payload?.error || `News transcript fetch failed: ${res.status}`
+                  throw new Error(message)
+                }
+                return res.json()
+              },
+              60000
+            ) as { transcript?: string }
+
+            if (data.transcript) {
+              transcriptSnapshot = data.transcript
+              dispatch({ type: 'SET_TRANSCRIPT', payload: data.transcript })
+              dispatch({ type: 'SET_NEWS_TRANSCRIPT_DURATION_MINUTES', payload: durationMinutes })
+            }
+          } catch (error) {
+            console.error("Failed to fetch news transcript (newsEnhanced):", error)
+            // 获取失败不阻断生成：后续走 AI（可选：勾选新闻增强则带 Exa 搜索上下文）
+            dispatch({ type: 'SET_NEWS_TRANSCRIPT_MISSING_DURATION_MINUTES', payload: durationMinutes })
+          }
+        }
+      }
+
       await attemptGeneration(1)
       exerciseStartTimeRef.current = Date.now()
       dispatch({ type: 'SET_STEP', payload: 'listening' })
@@ -371,7 +489,20 @@ export function useExerciseWorkflow() {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: { loading: false } })
     }
-  }, [state.difficulty, state.topic, wordCount, state.language, toast, cachedApiCall, t])
+  }, [
+    state.difficulty,
+    state.topic,
+    state.duration,
+    state.language,
+    state.transcript,
+    state.newsTopicId,
+    state.newsTranscriptDurationMinutes,
+    state.newsTranscriptMissingDurationMinutes,
+    wordCount,
+    toast,
+    cachedApiCall,
+    t
+  ])
 
   // 生成音频
   const handleGenerateAudio = useCallback(async () => {
@@ -385,22 +516,22 @@ export function useExerciseWorkflow() {
       console.log(`🎤 开始生成音频，文本长度: ${state.transcript.length}`)
       const audioResult = await generateAudio(state.transcript, { language: state.language })
       console.log(`✅ 音频生成完成，URL: ${audioResult.audioUrl}`)
-      
+
       dispatch({ type: 'SET_AUDIO_URL', payload: audioResult.audioUrl })
-      
-      const duration = typeof audioResult.duration === 'number' && audioResult.duration > 0 
-        ? audioResult.duration 
+
+      const duration = typeof audioResult.duration === 'number' && audioResult.duration > 0
+        ? audioResult.duration
         : null
       dispatch({ type: 'SET_AUDIO_DURATION', payload: duration })
-      
+
       if (!exerciseStartTimeRef.current) {
         exerciseStartTimeRef.current = Date.now()
       }
-      
+
       toast({
         title: t("messages.audioGenerationSuccess"),
-        description: t("messages.audioGenerationSuccessDesc", { 
-          values: { 
+        description: t("messages.audioGenerationSuccessDesc", {
+          values: {
             duration: duration ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}` : '未知'
           }
         }),
@@ -429,22 +560,22 @@ export function useExerciseWorkflow() {
     try {
       const transcriptHash = state.transcript.slice(0, 50)
       const cacheKey = `questions-${state.difficulty}-${transcriptHash}-${state.language}-${state.duration}`
-      
+
       const response = await cachedApiCall(
         cacheKey,
         () => generateQuestions(
-          state.difficulty as DifficultyLevel, 
-          state.transcript, 
-          state.language, 
+          state.difficulty as DifficultyLevel,
+          state.transcript,
+          state.language,
           state.duration
         ),
         180000
       ) as { questions: Question[]; degradationReason?: string }
-      
+
       dispatch({ type: 'SET_QUESTIONS', payload: response.questions })
       dispatch({ type: 'SET_ANSWERS', payload: {} })
       dispatch({ type: 'SET_STEP', payload: 'questions' })
-      
+
       toast({
         title: t("messages.questionsGenerationSuccess"),
         description: t("messages.questionsGenerationSuccessDesc", { values: { count: response.questions.length } }),
@@ -501,15 +632,15 @@ export function useExerciseWorkflow() {
 
       dispatch({ type: 'SET_CURRENT_EXERCISE', payload: exercise })
       saveToHistory(exercise)
-      
+
       // Achievement processing
       try {
         const achievementResult = handlePracticeCompleted(exercise)
-        
+
         if (achievementResult.newAchievements.length > 0) {
           dispatch({ type: 'SET_NEW_ACHIEVEMENTS', payload: achievementResult.newAchievements })
         }
-        
+
         if (achievementResult.goalProgress.daily.isCompleted) {
           toast({
             title: t("achievements.notifications.goalCompleted.title"),
@@ -519,7 +650,7 @@ export function useExerciseWorkflow() {
             duration: 5000,
           })
         }
-        
+
         if (achievementResult.goalProgress.weekly.isCompleted) {
           toast({
             title: t("achievements.notifications.goalCompleted.title"),
@@ -532,7 +663,7 @@ export function useExerciseWorkflow() {
       } catch (error) {
         console.error('Failed to process achievements:', error)
       }
-      
+
       // Save to database
       try {
         const correctCount = gradingResults.filter(result => result.is_correct).length
@@ -556,10 +687,10 @@ export function useExerciseWorkflow() {
       } catch (error) {
         console.error('Failed to save exercise to database:', error)
       }
-      
+
       dispatch({ type: 'SET_STEP', payload: 'results' })
       exerciseStartTimeRef.current = null
-      
+
       toast({
         title: t("messages.answersSubmissionSuccess"),
         description: t("messages.answersSubmissionSuccessDesc"),
@@ -601,14 +732,14 @@ export function useExerciseWorkflow() {
     dispatch({ type: 'SET_TRANSCRIPT', payload: exercise.transcript })
     dispatch({ type: 'SET_QUESTIONS', payload: exercise.questions })
     dispatch({ type: 'SET_CURRENT_EXERCISE', payload: exercise })
-    
+
     const restoredAnswers: Record<number, string> = {}
     exercise.results.forEach((result, index) => {
       const key = result.question_id ?? index
       restoredAnswers[key] = result.user_answer || ""
     })
     dispatch({ type: 'SET_ANSWERS', payload: restoredAnswers })
-    
+
     dispatch({ type: 'SET_AUDIO_URL', payload: '' })
     dispatch({ type: 'SET_AUDIO_DURATION', payload: null })
     dispatch({ type: 'SET_AUDIO_ERROR', payload: false })
@@ -619,14 +750,14 @@ export function useExerciseWorkflow() {
   return {
     // State
     state,
-    
+
     // Computed
     wordCount,
     isSetupComplete,
-    
+
     // Actions
     ...actions,
-    
+
     // Handlers
     handleGenerateTopics,
     handleRefreshTopics,

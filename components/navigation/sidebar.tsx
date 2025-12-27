@@ -137,10 +137,10 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
         ${animationClass}
         flex
         flex-col
-        bg-slate-900/50
+        bg-white/70
         backdrop-blur
         border-r
-        border-slate-700
+        border-slate-200
         ${isMobile ? 'fixed inset-y-0 left-0 z-40' : 'relative'}
         ${className}
         sidebar-surface
@@ -153,9 +153,9 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
     >
       {/* User Info Section (if authenticated) */}
       {isAuthenticated && user && !collapsed && (
-        <div className="p-4 border-b border-slate-700">
+        <div className="p-4 border-b border-slate-200">
           <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="bg-slate-900/60 text-sky-400 border-slate-700">
+            <Badge variant="outline" className="bg-white/70 text-sky-700 border-slate-200">
               <User className="mr-1 h-3 w-3" />
               <span className="truncate max-w-[150px]">
                 {user.name || user.email}
@@ -170,8 +170,8 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
           
           {/* Personalized Difficulty Display */}
           {assessmentResult && (
-            <div className="text-xs text-slate-400">
-              <span className="text-sky-400">
+            <div className="text-xs text-slate-600">
+              <span className="text-sky-700">
                 {t('labels.personalizedDifficulty')}:
               </span>{' '}
               {assessmentResult.difficultyRange.min}-{assessmentResult.difficultyRange.max}
@@ -182,8 +182,8 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
       
       {/* User Icon Only (collapsed state) */}
       {isAuthenticated && user && collapsed && (
-        <div className="p-4 border-b border-slate-700 flex justify-center">
-          <User className="h-5 w-5 text-sky-400" />
+        <div className="p-4 border-b border-slate-200 flex justify-center">
+          <User className="h-5 w-5 text-sky-700" />
         </div>
       )}
       
@@ -219,8 +219,8 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
                         sidebar-nav-button
                         ${collapsed ? 'justify-center' : 'justify-start'}
                         ${isActive 
-                          ? 'bg-slate-800/80 text-sky-400' 
-                          : 'text-slate-300 hover:bg-slate-800/60 hover:text-sky-400'
+                          ? 'bg-slate-100 text-sky-700' 
+                          : 'text-slate-700 hover:bg-slate-100 hover:text-sky-700'
                         }
                       `}
                       onClick={() => handleItemClick(item)}

@@ -18,7 +18,7 @@ const RootLayout = ({
   children: React.ReactNode
 }>): React.ReactElement => {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="light" suppressHydrationWarning>
       <body>
         <ThemeProvider>
           <LanguageProvider>

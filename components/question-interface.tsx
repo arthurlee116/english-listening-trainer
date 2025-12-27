@@ -351,14 +351,14 @@ const QuestionInterfaceComponent = ({
             {question.focus_areas && question.focus_areas.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                  <span className="text-sm text-gray-600 font-medium">
                     {t('components.questionInterface.focusAreas')}:
                   </span>
                   {question.focus_areas.filter(area => area && typeof area === 'string').map((area) => (
                     <Badge
                       key={area}
                       variant="outline"
-                      className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+                      className="text-xs bg-purple-50 text-purple-700 border-purple-200"
                     >
                       {t(`components.specializedPractice.focusAreas.${area}`)}
                     </Badge>

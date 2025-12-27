@@ -47,9 +47,19 @@ export async function GET(request: NextRequest) {
     ])
 
     // 解析 exerciseData JSON
+    const parseExerciseData = (exerciseData: string | null): unknown => {
+      if (!exerciseData) return null
+      try {
+        return JSON.parse(exerciseData)
+      } catch (error) {
+        console.warn('Failed to parse exerciseData JSON:', error)
+        return null
+      }
+    }
+
     const formattedSessions = sessions.map(session => ({
       ...session,
-      exerciseData: JSON.parse(session.exerciseData)
+      exerciseData: parseExerciseData(session.exerciseData)
     }))
 
     return NextResponse.json({

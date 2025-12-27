@@ -43,7 +43,7 @@ export interface UseAudioPlayerControls {
 }
 
 export interface UseAudioPlayerReturn {
-  audioRef: RefObject<HTMLAudioElement>
+  audioRef: RefObject<HTMLAudioElement | null>
   state: UseAudioPlayerState
   controls: UseAudioPlayerControls
   sliderMax: number

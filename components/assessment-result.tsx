@@ -40,7 +40,7 @@ export const AssessmentResult = ({ result, onReturnHome, onRetry }: AssessmentRe
       case '良好': return 'text-blue-600 bg-blue-50 border-blue-200'
       case '一般': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
       case '需改进': return 'text-red-600 bg-red-50 border-red-200'
-      default: return 'text-slate-200 bg-slate-900/60 border border-slate-700'
+      default: return 'text-slate-700 bg-slate-50 border border-slate-200'
     }
   }
 

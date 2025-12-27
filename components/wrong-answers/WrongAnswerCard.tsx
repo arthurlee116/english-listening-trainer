@@ -49,7 +49,7 @@ function getTypeBadgeColor(type: string) {
     case "short":
       return "bg-purple-100 text-purple-800 border-purple-300"
     default:
-      return "bg-slate-900/60 text-slate-200 border border-slate-600"
+      return "bg-slate-50 text-slate-700 border border-slate-200"
   }
 }
 
@@ -81,14 +81,14 @@ export default function WrongAnswerCard({
           <div className="text-sm text-gray-500">{renderDate}</div>
         </div>
 
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+        <div className="bg-gray-50 p-4 rounded-lg">
           <h4 className="font-medium mb-2">{questionLabel}</h4>
-          <p className="text-gray-700 dark:text-gray-300">{questionText}</p>
+          <p className="text-gray-700">{questionText}</p>
 
           {item.question.options && (item.question.type === "multiple_choice" || item.question.type === "single") && (
             <div className="mt-2 space-y-1">
               {item.question.options.map((option, idx) => (
-                <div key={idx} className="text-sm text-gray-600 dark:text-gray-400">
+                <div key={idx} className="text-sm text-gray-600">
                   {String.fromCharCode(65 + idx)}. {option}
                 </div>
               ))}
@@ -97,29 +97,29 @@ export default function WrongAnswerCard({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg">
-            <h5 className="font-medium text-red-800 dark:text-red-300 mb-1">
+          <div className="bg-red-50 p-4 rounded-lg">
+            <h5 className="font-medium text-red-800 mb-1">
               <BilingualText translationKey="components.wrongAnswersBook.yourAnswer" />
             </h5>
-            <p className="text-red-700 dark:text-red-200">
+            <p className="text-red-700">
               {item.answer.userAnswer || t("components.wrongAnswersBook.noAnswer")}
             </p>
           </div>
 
-          <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-            <h5 className="font-medium text-green-800 dark:text-green-300 mb-1">
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h5 className="font-medium text-green-800 mb-1">
               <BilingualText translationKey="components.wrongAnswersBook.correctAnswer" />
             </h5>
-            <p className="text-green-700 dark:text-green-200">{item.question.correctAnswer}</p>
+            <p className="text-green-700">{item.question.correctAnswer}</p>
           </div>
         </div>
 
         {item.question.explanation && (
-          <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-            <h5 className="font-medium text-blue-800 dark:text-blue-300 mb-1">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h5 className="font-medium text-blue-800 mb-1">
               <BilingualText translationKey="components.wrongAnswersBook.explanation" />
             </h5>
-            <p className="text-blue-700 dark:text-blue-200">{item.question.explanation}</p>
+            <p className="text-blue-700">{item.question.explanation}</p>
           </div>
         )}
 
@@ -145,11 +145,11 @@ export default function WrongAnswerCard({
         />
 
         {isExpanded && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <div className="bg-gray-50 p-4 rounded-lg">
             <h5 className="font-medium mb-2">
               <BilingualText translationKey="components.wrongAnswersBook.listeningMaterial" />
             </h5>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{item.question.transcript}</p>
+            <p className="text-gray-700 leading-relaxed">{item.question.transcript}</p>
           </div>
         )}
       </div>

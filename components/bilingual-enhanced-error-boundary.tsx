@@ -332,11 +332,11 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
               {/* 错误标题和严重程度 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-                    {errorAnalysis ? this.getSeverityIcon(errorAnalysis.severity) : <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />}
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    {errorAnalysis ? this.getSeverityIcon(errorAnalysis.severity) : <AlertTriangle className="w-6 h-6 text-red-600" />}
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <h3 className="text-xl font-semibold text-gray-900">
                       {errorAnalysis ? (
                         <BilingualText translationKey={errorAnalysis.userMessageKey} />
                       ) : (
@@ -344,7 +344,7 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
                       )}
                     </h3>
                     {componentName && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-gray-500">
                         <BilingualText translationKey="messages.component" />: {componentName}
                       </p>
                     )}
@@ -359,13 +359,13 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
               </div>
 
               {/* 错误信息 */}
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-700">
                   {errorAnalysis?.technicalMessage || error?.message || 'Unknown error'}
                 </p>
                 
                 {lastErrorTime && (
-                  <div className="flex items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center mt-2 text-xs text-gray-500">
                     <Clock className="w-3 h-3 mr-1" />
                     <BilingualText translationKey="messages.occurredAt" />: {lastErrorTime.toLocaleString()}
                   </div>
@@ -375,12 +375,12 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
               {/* 建议解决方案 */}
               {errorAnalysis?.suggestionKeys && errorAnalysis.suggestionKeys.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">
                     <BilingualText translationKey="messages.suggestedSolutions" />:
                   </h4>
                   <ul className="space-y-2">
                     {errorAnalysis.suggestionKeys.map((suggestionKey, index) => (
-                      <li key={index} className="flex items-start space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                      <li key={index} className="flex items-start space-x-2 text-sm text-gray-600">
                         <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
                         <BilingualText translationKey={suggestionKey} />
                       </li>
@@ -391,8 +391,8 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
 
               {/* 重试信息 */}
               {retryAttempts > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
                     <BilingualText 
                       en={`Retry attempts: ${retryAttempts}${maxRetries > 0 ? ` (max ${maxRetries})` : ''}`}
                       zh={`已尝试重试 ${retryAttempts} 次${maxRetries > 0 ? ` (最多 ${maxRetries} 次)` : ''}`}
@@ -406,7 +406,7 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
                 <Collapsible>
                   <CollapsibleTrigger
                     onClick={this.toggleDetails}
-                    className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                   >
                     {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     <BilingualText translationKey="messages.technicalDetails" />
@@ -415,31 +415,31 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
                     )}
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-3">
-                    <div className="bg-gray-900 dark:bg-gray-800 rounded-lg p-4 text-xs text-green-400 font-mono overflow-auto max-h-64">
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-800 font-mono overflow-auto max-h-64">
                       <div className="mb-3">
-                        <strong className="text-red-400">
+                        <strong className="text-rose-700">
                           <BilingualText translationKey="messages.errorDetails" />:
                         </strong>
                       </div>
                       <div className="mb-2">
-                        <span className="text-yellow-400">
+                        <span className="text-amber-700">
                           <BilingualText translationKey="messages.errorType" />:
                         </span> {error?.name}
                       </div>
                       <div className="mb-2">
-                        <span className="text-yellow-400">
+                        <span className="text-amber-700">
                           <BilingualText translationKey="messages.errorMessage" />:
                         </span> {error?.message}
                       </div>
                       {errorAnalysis && (
                         <>
                           <div className="mb-2">
-                            <span className="text-yellow-400">
+                            <span className="text-amber-700">
                               <BilingualText translationKey="messages.category" />:
                             </span> {errorAnalysis.category}
                           </div>
                           <div className="mb-2">
-                            <span className="text-yellow-400">
+                            <span className="text-amber-700">
                               <BilingualText translationKey="messages.severity" />:
                             </span> {errorAnalysis.severity}
                           </div>
@@ -447,10 +447,10 @@ export class BilingualEnhancedErrorBoundary extends Component<Props, State> {
                       )}
                       {error?.stack && (
                         <div>
-                          <span className="text-yellow-400">
+                          <span className="text-amber-700">
                             <BilingualText translationKey="messages.stackTrace" />:
                           </span>
-                          <pre className="mt-1 whitespace-pre-wrap break-all text-gray-300">
+                          <pre className="mt-1 whitespace-pre-wrap break-all text-slate-700">
                             {error.stack}
                           </pre>
                         </div>

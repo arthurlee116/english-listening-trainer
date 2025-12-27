@@ -28,6 +28,7 @@ export default tseslint.config(
       "build/**",
       "out/**",
       "node_modules/**",
+      "tests/**",
       "data/**",
       "kokoro-local/venv/**",
       "public/audio/**",

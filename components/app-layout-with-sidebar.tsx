@@ -43,15 +43,15 @@ export function AppLayoutWithSidebar({
   assessmentResult,
 }: AppLayoutWithSidebarProps) {
   const { collapsed, toggleCollapsed } = useSidebar()
-  
+
   const handleNavigate = (action: NavigationAction) => {
     if (onNavigate) {
       onNavigate(action)
     }
   }
-  
+
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Desktop Sidebar */}
       <div className="hidden md:flex relative">
         <Sidebar
@@ -66,9 +66,9 @@ export function AppLayoutWithSidebar({
           onToggle={toggleCollapsed}
         />
       </div>
-      
+
       {/* Main Content Area */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-w-0">
         {children}
       </main>
     </div>

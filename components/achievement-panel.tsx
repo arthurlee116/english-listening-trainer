@@ -129,7 +129,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
   if (error) {
     return (
       <Card className="glass-effect p-6">
-        <div className="text-center text-red-500 dark:text-red-400">
+        <div className="text-center text-red-600">
           <Settings className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="font-medium mb-2">{t('components.achievementPanel.errorTitle') || 'Error Loading Data'}</p>
           <p className="text-sm">{error}</p>
@@ -150,7 +150,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
   if (!storageAvailable) {
     return (
       <Card className="glass-effect p-6">
-        <div className="text-center text-gray-500 dark:text-gray-400">
+        <div className="text-center text-gray-500">
           <Settings className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p><BilingualText translationKey="components.achievementPanel.localModeNotice" /></p>
         </div>
@@ -188,14 +188,14 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
         <div className="space-y-6">
           {/* Authentication Status Notice */}
           {!userAuthenticated && (
-            <Card className="glass-effect p-4 border-orange-200 bg-orange-50 dark:bg-orange-950">
-              <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
+            <Card className="glass-effect p-4 border-orange-200 bg-orange-50">
+              <div className="flex items-center gap-2 text-orange-700">
                 <Star className="w-4 h-4" />
                 <span className="text-sm">
                   <BilingualText translationKey="components.achievementPanel.localModeNotice" />
                 </span>
               </div>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+              <p className="text-xs text-orange-600 mt-1">
                 <BilingualText translationKey="components.achievementPanel.loginToSync" />
               </p>
             </Card>
@@ -225,7 +225,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                     <BilingualText translationKey="components.achievementPanel.dailyGoalProgress" />
                   </Label>
                   {goalProgress && (
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                    <span className="text-sm text-gray-600">
                       {goalProgress.daily.current}/{goalProgress.daily.target} <BilingualText translationKey="common.labels.minutes" />
                     </span>
                   )}
@@ -248,7 +248,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                     <BilingualText translationKey="components.achievementPanel.weeklyGoalProgress" />
                   </Label>
                   {goalProgress && (
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                    <span className="text-sm text-gray-600">
                       {goalProgress.weekly.current}/{goalProgress.weekly.target} <BilingualText translationKey="common.labels.sessions" />
                     </span>
                   )}
@@ -286,7 +286,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                         step={5}
                         className="w-full"
                       />
-                      <div className="text-center text-sm text-gray-600 dark:text-gray-300">
+                      <div className="text-center text-sm text-gray-600">
                         {tempGoals.dailyMinutesTarget} <BilingualText translationKey="common.labels.minutes" />
                       </div>
                     </div>
@@ -305,7 +305,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                         step={1}
                         className="w-full"
                       />
-                      <div className="text-center text-sm text-gray-600 dark:text-gray-300">
+                      <div className="text-center text-sm text-gray-600">
                         {tempGoals.weeklySessionsTarget} <BilingualText translationKey="common.labels.sessions" />
                       </div>
                     </div>
@@ -334,28 +334,28 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center space-y-1">
                 <div className="text-2xl font-bold text-blue-600">{progressMetrics?.totalSessions ?? 0}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   <BilingualText translationKey="components.achievementPanel.totalSessions" />
                 </div>
               </div>
               
               <div className="text-center space-y-1">
                 <div className="text-2xl font-bold text-green-600">{progressMetrics?.averageAccuracy ? (progressMetrics.averageAccuracy.toFixed(1) + '%') : '0%'}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   <BilingualText translationKey="components.achievementPanel.averageAccuracy" />
                 </div>
               </div>
               
               <div className="text-center space-y-1">
                 <div className="text-2xl font-bold text-orange-600">{progressMetrics?.currentStreakDays ?? 0}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   <BilingualText translationKey="components.achievementPanel.currentStreak" />
                 </div>
               </div>
               
               <div className="text-center space-y-1">
                 <div className="text-2xl font-bold text-purple-600">{progressMetrics?.totalListeningMinutes ?? 0}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   <BilingualText translationKey="components.achievementPanel.totalListeningTime" />
                 </div>
               </div>
@@ -379,14 +379,14 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                   {earnedAchievements.map((achievement) => (
                     <div
                       key={achievement.id}
-                      className="flex flex-col items-center p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800"
+                      className="flex flex-col items-center p-3 rounded-lg bg-green-50 border border-green-200"
                     >
                       <Trophy className="w-6 h-6 text-yellow-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium">
                           <BilingualText translationKey={achievement.titleKey} />
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                        <div className="text-xs text-gray-600 mt-1">
                           <BilingualText translationKey={achievement.descriptionKey} />
                         </div>
                         {achievement.earnedAt && (
@@ -404,21 +404,21 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
             {/* Available Achievements */}
             {availableAchievements.length > 0 && (
               <div>
-                <h4 className="font-medium mb-3 text-gray-600 dark:text-gray-300">
+                <h4 className="font-medium mb-3 text-gray-600">
                   <BilingualText translationKey="components.achievementPanel.availableAchievements" />
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {availableAchievements.map((achievement) => (
                     <div
                       key={achievement.id}
-                      className="flex flex-col items-center p-3 rounded-lg bg-slate-900/60 border border-slate-700 opacity-60"
+                      className="flex flex-col items-center p-3 rounded-lg bg-slate-50 border border-slate-200 opacity-60"
                     >
                       <Star className="w-6 h-6 text-gray-400 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium">
                           <BilingualText translationKey={achievement.titleKey} />
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                        <div className="text-xs text-gray-600 mt-1">
                           <BilingualText translationKey={achievement.descriptionKey} />
                         </div>
                       </div>
@@ -430,7 +430,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
 
             {/* No achievements message */}
             {earnedAchievements.length === 0 && availableAchievements.length === 0 && (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 text-gray-500">
                 <Trophy className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>
                   <BilingualText translationKey="components.achievementPanel.noAchievementsYet" />
@@ -456,7 +456,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
                   
                   return (
                     <div key={index} className="flex flex-col items-center space-y-1">
-                      <div className="text-xs text-gray-600 dark:text-gray-300">{dayName}</div>
+                      <div className="text-xs text-gray-600">{dayName}</div>
                       <div 
                         className="w-full bg-blue-500 rounded-t-sm"
                         style={{ height: Math.max(height, 4) + 'px' }}

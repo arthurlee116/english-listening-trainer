@@ -115,7 +115,7 @@ export default defineConfig({
     // Performance monitoring
     logHeapUsage: true,
     // Reporter configuration
-    reporter: ['verbose', 'html'],
+    reporters: ['verbose', 'html'],
     outputFile: {
       html: './test-results/index.html'
     }

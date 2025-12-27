@@ -77,26 +77,26 @@ export function AIAnalysisCard({
   const getStateColor = () => {
     switch (state) {
       case AnalysisState.NOT_GENERATED:
-        return "border border-slate-700 bg-slate-900/70"
+        return "border border-slate-200 bg-white/60"
       case AnalysisState.LOADING:
-        return "border border-sky-700/70 bg-slate-900/70"
+        return "border border-sky-200 bg-sky-50/60"
       case AnalysisState.SUCCESS:
-        return "border border-emerald-600/60 bg-emerald-950/40"
+        return "border border-emerald-200 bg-emerald-50/60"
       case AnalysisState.ERROR:
-        return "border border-rose-600/60 bg-rose-950/40"
+        return "border border-rose-200 bg-rose-50/60"
     }
   }
 
   const getConfidenceBadgeColor = (confidence: string) => {
     switch (confidence) {
       case 'high':
-        return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+        return "bg-emerald-50 text-emerald-700 border border-emerald-200"
       case 'medium':
-        return "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+        return "bg-amber-50 text-amber-700 border border-amber-200"
       case 'low':
-        return "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+        return "bg-rose-50 text-rose-700 border border-rose-200"
       default:
-        return "bg-slate-700/50 text-slate-200 border border-slate-600/60"
+        return "bg-slate-50 text-slate-700 border border-slate-200"
     }
   }
 
@@ -159,7 +159,7 @@ export function AIAnalysisCard({
 
         {/* State Message */}
         <p className={combineThemeClasses(
-          "text-sm text-gray-600 dark:text-gray-400",
+          "text-sm text-gray-600",
           textClass('secondary')
         )}>
           {getStateText()}
@@ -167,7 +167,7 @@ export function AIAnalysisCard({
 
         {/* Analysis Content */}
         {isExpanded && analysis && state === AnalysisState.SUCCESS && (
-          <div className="space-y-4 pt-2 border-t border-slate-700/70">
+          <div className="space-y-4 pt-2 border-t border-slate-200/70">
             {/* Main Analysis */}
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -177,7 +177,7 @@ export function AIAnalysisCard({
                 </h6>
               </div>
               <p className={combineThemeClasses(
-                "text-sm text-gray-700 dark:text-gray-300 leading-relaxed",
+                "text-sm text-gray-700 leading-relaxed",
                 textClass('primary')
               )}>
                 {analysis.analysis}
@@ -193,7 +193,7 @@ export function AIAnalysisCard({
                 </h6>
               </div>
               <p className={combineThemeClasses(
-                "text-sm text-gray-700 dark:text-gray-300",
+                "text-sm text-gray-700",
                 textClass('primary')
               )}>
                 {analysis.key_reason}
@@ -248,7 +248,7 @@ export function AIAnalysisCard({
                   </h6>
                 </div>
                 <p className={combineThemeClasses(
-                  "text-sm text-gray-700 dark:text-gray-300",
+                  "text-sm text-gray-700",
                   textClass('primary')
                 )}>
                   {analysis.strategy}
@@ -267,15 +267,15 @@ export function AIAnalysisCard({
                 </div>
                 <div className="space-y-2">
                   {analysis.related_sentences.map((sentence, index) => (
-                    <div key={index} className="bg-white dark:bg-gray-900 p-3 rounded border">
+                    <div key={index} className="bg-white p-3 rounded border border-slate-200">
                       <blockquote className={combineThemeClasses(
-                        "text-sm italic text-gray-600 dark:text-gray-400 mb-1",
+                        "text-sm italic text-gray-600 mb-1",
                         textClass('secondary')
                       )}>
                         "{sentence.quote}"
                       </blockquote>
                       <p className={combineThemeClasses(
-                        "text-xs text-gray-500 dark:text-gray-500",
+                        "text-xs text-gray-500",
                         textClass('muted')
                       )}>
                         {sentence.comment}
@@ -291,11 +291,11 @@ export function AIAnalysisCard({
         {/* Error Message */}
         {isExpanded && state === AnalysisState.ERROR && (
           <div className={combineThemeClasses(
-            "pt-2 border-t dark:border-gray-700",
+            "pt-2 border-t",
             borderClass('default')
           )}>
             <p className={combineThemeClasses(
-              "text-sm text-red-600 dark:text-red-400",
+              "text-sm text-red-600",
               iconClass('error')
             )}>
               <BilingualText translationKey="components.aiAnalysisCard.errorMessage" />

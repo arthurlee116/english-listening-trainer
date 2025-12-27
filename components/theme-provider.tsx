@@ -11,12 +11,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     const root = document.documentElement
 
-    if (!root.classList.contains('dark')) {
-      root.classList.add('dark')
+    root.classList.remove('dark')
+    if (!root.classList.contains('light')) {
+      root.classList.add('light')
     }
 
     return () => {
-      root.classList.add('dark')
+      root.classList.remove('dark')
+      root.classList.add('light')
     }
   }, [])
 

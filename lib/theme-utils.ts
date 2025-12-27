@@ -21,25 +21,25 @@ export const themeClasses = {
     emphasis: 'border-border-emphasis',
   },
   button: {
-    primary: 'bg-slate-800 text-slate-100 hover:bg-slate-700',
-    secondary: 'bg-slate-700 text-slate-100 hover:bg-slate-600',
-    outline: 'border border-slate-600 text-slate-100 hover:bg-slate-800/60',
-    ghost: 'text-slate-100 hover:bg-slate-800/60',
-    destructive: 'bg-rose-700 text-rose-50 hover:bg-rose-600',
+    primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
+    outline: 'border border-slate-300 text-slate-900 hover:bg-slate-100',
+    ghost: 'text-slate-900 hover:bg-slate-100',
+    destructive: 'bg-rose-600 text-white hover:bg-rose-700',
   },
   surface: {
     glass: 'glass-effect',
   },
   icon: {
-    primary: 'text-slate-100',
-    secondary: 'text-slate-300',
+    primary: 'text-slate-900',
+    secondary: 'text-slate-700',
     tertiary: 'text-slate-500',
-    interactive: 'text-slate-300 hover:text-white transition-colors',
-    nav: 'text-slate-300 hover:text-white transition-colors',
-    success: 'text-emerald-400',
-    warning: 'text-amber-400',
-    error: 'text-rose-400',
-    info: 'text-sky-400',
+    interactive: 'text-slate-600 hover:text-slate-900 transition-colors',
+    nav: 'text-slate-600 hover:text-slate-900 transition-colors',
+    success: 'text-emerald-600',
+    warning: 'text-amber-600',
+    error: 'text-rose-600',
+    info: 'text-sky-600',
   },
 } as const
 
@@ -116,11 +116,11 @@ export const themeComponents = {
     }
 
     const variantClasses = {
-      primary: 'bg-slate-800 text-slate-100 hover:bg-slate-700',
-      secondary: 'bg-slate-700 text-slate-100 hover:bg-slate-600',
-      outline: 'border border-slate-600 bg-transparent text-slate-100 hover:bg-slate-800/60',
-      ghost: 'text-slate-100 hover:bg-slate-800/60',
-      destructive: 'bg-rose-700 text-rose-50 hover:bg-rose-600',
+      primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+      secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
+      outline: 'border border-slate-300 bg-transparent text-slate-900 hover:bg-slate-100',
+      ghost: 'text-slate-900 hover:bg-slate-100',
+      destructive: 'bg-rose-600 text-white hover:bg-rose-700',
     }
 
     return cn(baseClasses, variantClasses[variant], sizeClasses[size])
@@ -129,7 +129,7 @@ export const themeComponents = {
     const baseClasses = 'rounded-lg border shadow-sm'
 
     const variantClasses = {
-      default: 'bg-card text-card-foreground border-border',
+      default: 'bg-white text-foreground border-border',
       glass: 'glass-effect',
     }
 
@@ -140,9 +140,9 @@ export const themeComponents = {
     size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' = 'base',
   ) => {
     const levelClasses = {
-      primary: 'text-slate-100',
-      secondary: 'text-slate-300',
-      tertiary: 'text-slate-400',
+      primary: 'text-slate-900',
+      secondary: 'text-slate-700',
+      tertiary: 'text-slate-600',
       muted: 'text-slate-500',
     }
 
@@ -198,9 +198,9 @@ export const a11yTheme = {
   },
   highContrast: (element: 'text' | 'border' | 'background') => {
     const contrastClasses = {
-      text: 'text-foreground dark:text-foreground',
-      border: 'border-border dark:border-border',
-      background: 'bg-background dark:bg-background',
+      text: 'text-foreground',
+      border: 'border-border',
+      background: 'bg-background',
     }
 
     return contrastClasses[element]

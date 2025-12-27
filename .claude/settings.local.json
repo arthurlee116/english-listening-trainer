@@ -44,7 +44,8 @@
       "Bash(sqlite3:*)",
       "mcp__github__get_pull_request",
       "mcp__github__get_pull_request_files",
-      "Bash(docker compose config:*)"
+      "Bash(docker compose config:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": [],

@@ -1,8 +1,9 @@
 import { type RefObject } from "react"
 
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Sparkles, Newspaper } from "lucide-react"
 
 import { AchievementPanel } from "@/components/achievement-panel"
+
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -48,7 +49,8 @@ interface PracticeOperationsProps {
   loadingMessage: string
   onGenerateTopics: () => void
   onRefreshTopics: () => void
-  onGenerateExercise: () => void
+  onGenerateExercise: (newsEnhanced?: boolean) => void
+  shouldShowSearchEnhancement: boolean
 }
 
 interface AchievementsProps {
@@ -70,20 +72,24 @@ export function PracticeConfiguration({
 }: PracticeConfigurationProps) {
   const { t } = useBilingualText()
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-4">
+  // handleSelectRecommendedTopic logic moved to parent
 
-      <Card className="bg-slate-900/30 backdrop-blur border-slate-700 p-8">
+
+  return (
+    <div className="space-y-4">
+
+
+      <Card className="glass-effect p-8 shadow-2xl">
         <div className="flex items-center gap-3 mb-6">
-          <Sparkles className="w-6 h-6 text-sky-400" />
-          <h2 className="text-2xl font-bold text-sky-400">
+          <Sparkles className="w-6 h-6 text-sky-600" />
+          <h2 className="text-2xl font-bold text-sky-700">
             <BilingualText translationKey="labels.createExercise" />
           </h2>
         </div>
 
         <div className="space-y-6">
           <div>
-            <Label htmlFor="difficulty" className="text-base font-medium text-slate-300">
+            <Label htmlFor="difficulty" className="text-base font-medium text-slate-700">
               <BilingualText translationKey="labels.difficulty" />
             </Label>
             <Select
@@ -92,7 +98,7 @@ export function PracticeConfiguration({
             >
               <SelectTrigger
                 aria-label={t("labels.difficulty")}
-                className="border border-slate-600 bg-slate-800/50 text-slate-200"
+                className="glass-effect"
               >
                 <SelectValue placeholder={t("labels.selectDifficulty")} />
               </SelectTrigger>
@@ -112,7 +118,7 @@ export function PracticeConfiguration({
           </div>
 
           <div>
-            <Label htmlFor="language" className="text-base font-medium text-slate-300">
+            <Label htmlFor="language" className="text-base font-medium text-slate-700">
               <BilingualText translationKey="labels.listeningLanguage" />
             </Label>
             <Select
@@ -121,7 +127,7 @@ export function PracticeConfiguration({
             >
               <SelectTrigger
                 aria-label={t("labels.listeningLanguage")}
-                className="border border-slate-600 bg-slate-800/50 text-slate-200"
+                className="glass-effect"
               >
                 <SelectValue placeholder={t("labels.selectLanguage")} />
               </SelectTrigger>
@@ -136,7 +142,7 @@ export function PracticeConfiguration({
           </div>
 
           <div>
-            <Label htmlFor="duration" className="text-base font-medium text-slate-300">
+            <Label htmlFor="duration" className="text-base font-medium text-slate-700">
               <BilingualText translationKey="labels.duration" />
             </Label>
             <Select
@@ -145,7 +151,7 @@ export function PracticeConfiguration({
             >
               <SelectTrigger
                 aria-label={t("labels.duration")}
-                className="border border-slate-600 bg-slate-800/50 text-slate-200"
+                className="glass-effect"
               >
                 <SelectValue placeholder={t("labels.selectDuration")} />
               </SelectTrigger>
@@ -234,7 +240,7 @@ export function PracticeConfiguration({
           </div>
 
           <Button
-            onClick={operations.onGenerateExercise}
+            onClick={() => operations.onGenerateExercise(false)}
             disabled={!practiceSetup.isSetupComplete || operations.loading}
             className="w-full"
             size="lg"
@@ -251,6 +257,26 @@ export function PracticeConfiguration({
               </>
             )}
           </Button>
+
+          {/* 当没有预生成稿时，才提供 Exa 搜索增强入口 */}
+          {operations.shouldShowSearchEnhancement && (
+            <div className="space-y-2">
+              <Button
+                onClick={() => operations.onGenerateExercise(true)}
+                disabled={!practiceSetup.isSetupComplete || operations.loading}
+                variant="outline"
+                className="w-full"
+                size="lg"
+                title={t("news.newsEnhancedHint")}
+              >
+                <Newspaper className="w-4 h-4 mr-2" />
+                <BilingualText translationKey="news.newsEnhanced" />
+              </Button>
+              <p className="text-xs text-slate-500">
+                <BilingualText translationKey="news.newsEnhancedHint" />
+              </p>
+            </div>
+          )}
         </div>
       </Card>
 

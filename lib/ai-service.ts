@@ -54,11 +54,13 @@ export async function generateTranscript(
   topic: string,
   language: ListeningLanguage = 'en-US',
   difficultyLevel?: number,
-  focusAreas?: FocusArea[]
+  focusAreas?: FocusArea[],
+  searchEnhanced?: boolean,
+  searchMaxResults?: number,
 ): Promise<TranscriptGenerationResponse> {
   const data = await postJson<TranscriptGenerationResponse>(
     "/api/ai/transcript",
-    { difficulty, wordCount, topic, language, difficultyLevel, focusAreas },
+    { difficulty, wordCount, topic, language, difficultyLevel, focusAreas, searchEnhanced, searchMaxResults },
   )
   return data
 }

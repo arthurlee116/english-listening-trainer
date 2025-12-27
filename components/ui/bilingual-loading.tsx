@@ -48,7 +48,7 @@ export function BilingualLoading({
       )}
       {(descriptionKey || description) && (
         <p className={cn(
-          "text-gray-600 dark:text-gray-300",
+          "text-gray-600",
           size === "sm" ? "text-xs" : "text-sm"
         )}>
           {descriptionKey ? (

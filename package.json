@@ -38,7 +38,8 @@
     "db:push": "prisma db push",
     "clean": "npm cache clean --force && rm -rf node_modules && rm -rf .next && npm install",
     "setup-kokoro": "./scripts/setup-kokoro.sh",
-    "dev-kokoro": "npm run setup-kokoro && next dev --port 3001"
+    "dev-kokoro": "npm run setup-kokoro && next dev --port 3001",
+    "refresh-news": "npx tsx --import ./scripts/cli-preload.mjs scripts/refresh-news.ts"
   },
   "dependencies": {
     "@cerebras/cerebras_cloud_sdk": "^1.46.0",
@@ -89,6 +90,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
+    "node-cron": "^4.2.1",
     "p-limit": "^7.1.1",
     "react": "^19",
     "react-day-picker": "^9.7.0",
@@ -97,6 +99,7 @@
     "react-i18next": "^15.7.3",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
+    "rss-parser": "^3.13.0",
     "server-only": "^0.0.1",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
@@ -113,6 +116,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.41.0",

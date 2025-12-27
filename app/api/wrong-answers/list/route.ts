@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     // Verify user authentication
     const authResult = await requireAuth(request)
-    
+
     if (authResult.error || !authResult.user) {
       return NextResponse.json(
         { error: authResult.error || 'Unauthorized' },
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 items per page
     const offset = (page - 1) * limit
-    
+
     // Optional filters
     const difficulty = searchParams.get('difficulty')
     const language = searchParams.get('language')
@@ -115,10 +115,10 @@ export async function GET(request: NextRequest) {
           focusAreas = JSON.parse(answer.question.focusAreas)
         }
       } catch (error) {
-        console.warn('Failed to parse focus_areas for question', { 
-          questionId: answer.question.id, 
+        console.warn('Failed to parse focus_areas for question', {
+          questionId: answer.question.id,
           focusAreas: answer.question.focusAreas,
-          error 
+          error
         })
       }
 
@@ -172,8 +172,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export { GET as listHandler }
+
 
 if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-  ;(globalThis as Record<string, unknown>).listHandler = GET
+  ; (globalThis as Record<string, unknown>).listHandler = GET
 }

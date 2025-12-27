@@ -51,7 +51,11 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
 
   const toggleExpanded = (cardId: string) => {
     const next = new Set(expandedCards)
-    next.has(cardId) ? next.delete(cardId) : next.add(cardId)
+    if (next.has(cardId)) {
+      next.delete(cardId)
+    } else {
+      next.add(cardId)
+    }
     setExpandedCards(next)
   }
 
@@ -89,10 +93,10 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
         </div>
 
         {(wrongAnswers?.length || 0) > 0 && (
-          <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+          <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
             <div className="flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-              <span className="text-sm text-yellow-800 dark:text-yellow-200">
+              <Lightbulb className="w-5 h-5 text-yellow-600" />
+              <span className="text-sm text-yellow-800">
                 <BilingualText translationKey="components.wrongAnswersBook.reviewTip" />
               </span>
             </div>
@@ -102,7 +106,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
 
       {loading ? (
         <Card className="glass-effect p-12 text-center">
-          <div className="text-gray-500 dark:text-gray-400">
+          <div className="text-gray-500">
             <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" />
             <h3 className="text-lg font-medium mb-2">
               <BilingualText translationKey="common.loading" />
@@ -114,7 +118,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
         </Card>
       ) : error ? (
         <Card className="glass-effect p-12 text-center">
-          <div className="text-red-500 dark:text-red-400">
+          <div className="text-red-500">
             <BookX className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">
               <BilingualText translationKey="common.error" />
@@ -127,7 +131,7 @@ export function WrongAnswersBook({ onBack }: WrongAnswersBookProps) {
         </Card>
       ) : isEmpty ? (
         <Card className="glass-effect p-12 text-center">
-          <div className="text-gray-500 dark:text-gray-400">
+          <div className="text-gray-500">
             <BookX className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">
               <BilingualText translationKey="components.wrongAnswersBook.noWrongAnswersTitle" />

@@ -46,7 +46,7 @@ export async function GET(
       const buffer = await readFile(filePath)
       const chunk = buffer.subarray(start, end + 1)
 
-      return new NextResponse(chunk, {
+      return new NextResponse(new Blob([new Uint8Array(chunk)]), {
         status: 206,
         headers: {
           ...AUDIO_HEADERS_BASE,
@@ -57,7 +57,7 @@ export async function GET(
     }
 
     const buffer = await readFile(filePath)
-    return new NextResponse(buffer, {
+    return new NextResponse(new Blob([new Uint8Array(buffer)]), {
       status: 200,
       headers: {
         ...AUDIO_HEADERS_BASE,

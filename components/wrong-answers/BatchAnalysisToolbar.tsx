@@ -10,7 +10,7 @@ import type { QueueStatus, BatchResult } from "@/lib/concurrency-service"
 interface BatchAnalysisToolbarProps {
   itemsNeedingAnalysisCount: number
   batchStatus: QueueStatus
-  batchResult: BatchResult<any> | null
+  batchResult: BatchResult<unknown> | null
   error?: string | null
   isProcessing: boolean
   progress: number
@@ -41,17 +41,17 @@ export default function BatchAnalysisToolbar({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="text-sm text-gray-600">
           <BilingualText
             translationKey="components.wrongAnswersBook.batchAnalysis.itemsNeedingAnalysis"
-            values={{ count: itemsNeedingAnalysisCount }}
+            options={{ values: { count: itemsNeedingAnalysisCount } }}
           />
         </div>
 
         {isProcessing && (
           <div className="flex items-center gap-2">
             <Progress value={progress} className="w-32" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600">
               {batchStatus.completed + batchStatus.failed}/{batchStatus.total}
             </span>
             <div className="text-xs text-gray-500">Active: {batchStatus.active}</div>
@@ -60,24 +60,24 @@ export default function BatchAnalysisToolbar({
 
         {batchResult && (
           <div className="text-sm">
-            <span className="text-green-600 dark:text-green-400">
+            <span className="text-green-600">
               <BilingualText
                 translationKey="components.wrongAnswersBook.batchAnalysis.successCount"
-                values={{ count: batchResult.success.length }}
+                options={{ values: { count: batchResult.success.length } }}
               />
             </span>
             {batchResult.failed.length > 0 && (
-              <span className="text-red-600 dark:text-red-400 ml-2">
+              <span className="text-red-600 ml-2">
                 <BilingualText
                   translationKey="components.wrongAnswersBook.batchAnalysis.failedCount"
-                  values={{ count: batchResult.failed.length }}
+                  options={{ values: { count: batchResult.failed.length } }}
                 />
               </span>
             )}
           </div>
         )}
 
-        {error && <div className="text-sm text-red-600 dark:text-red-400">Error: {error}</div>}
+        {error && <div className="text-sm text-red-600">Error: {error}</div>}
       </div>
 
       <div className="flex items-center gap-2">
@@ -105,13 +105,13 @@ export default function BatchAnalysisToolbar({
                     <p>
                       <BilingualText
                         translationKey="components.wrongAnswersBook.batchAnalysis.confirmDescription"
-                        values={{ count: itemsNeedingAnalysisCount }}
+                        options={{ values: { count: itemsNeedingAnalysisCount } }}
                       />
                     </p>
-                    <p className="text-sm text-orange-600 dark:text-orange-400">
+                    <p className="text-sm text-orange-600">
                       <BilingualText translationKey="components.wrongAnswersBook.batchAnalysis.processingWarning" />
                     </p>
-                    <p className="text-sm text-blue-600 dark:text-blue-400">Concurrency limit: {concurrencyLabel}</p>
+                    <p className="text-sm text-blue-600">Concurrency limit: {concurrencyLabel}</p>
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>

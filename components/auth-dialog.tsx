@@ -247,8 +247,8 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
 
           {/* 通用错误显示 */}
           {errors.general && (
-            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600" role="alert">
                 {errors.general}
               </p>
             </div>
@@ -271,7 +271,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                 />
               </div>
               {errors.email && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+                <p className="text-sm text-red-600 mt-1" role="alert">
                   {errors.email}
                 </p>
               )}
@@ -302,7 +302,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                 </Button>
               </div>
               {errors.password && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+                <p className="text-sm text-red-600 mt-1" role="alert">
                   {errors.password}
                 </p>
               )}
@@ -338,7 +338,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                 />
               </div>
               {errors.email && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+                <p className="text-sm text-red-600 mt-1" role="alert">
                   {errors.email}
                 </p>
               )}
@@ -411,7 +411,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
               )}
               
               {errors.password && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+                <p className="text-sm text-red-600 mt-1" role="alert">
                   {errors.password}
                 </p>
               )}
@@ -433,7 +433,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                 />
               </div>
               {errors.confirmPassword && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+                <p className="text-sm text-red-600 mt-1" role="alert">
                   {errors.confirmPassword}
                 </p>
               )}
@@ -460,12 +460,12 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
         </DialogFooter>
 
         {/* 使用说明 */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-          <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-200">
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-blue-800">
             <User className="w-4 h-4" />
             <span className="font-medium">使用说明</span>
           </div>
-          <ul className="mt-2 text-sm text-blue-700 dark:text-blue-300 space-y-1">
+          <ul className="mt-2 text-sm text-blue-700 space-y-1">
             <li>• 使用邮箱注册后即可开始练习</li>
             <li>• 练习记录会自动保存到您的账号</li>
             <li>• 支持跨设备同步学习进度</li>

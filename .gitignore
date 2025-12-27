@@ -67,6 +67,7 @@ public/audio/*.wav
 # OS generated files
 .DS_Store
 .DS_Store?
+Windows (CMD)	
 ._*
 .Spotlight-V100
 .Trashes

@@ -39,10 +39,14 @@ export function I18nProvider({ children, initialConfig }: I18nProviderProps) {
     ...bilingualConfig,
     ...initialConfig,
   });
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(process.env.NODE_ENV === 'test');
 
   // Initialize i18n when component mounts with optimized loading
   useEffect(() => {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     const initializeI18n = async () => {
       try {
         // Wait for i18n to be ready

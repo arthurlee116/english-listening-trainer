@@ -1007,5 +1007,63 @@
       "en": "Clear browser data",
       "zh": "清除浏览器数据"
     }
+  },
+  "news": {
+    "recommendedTopics": {
+      "en": "Today's Recommended Topics",
+      "zh": "今日推荐话题"
+    },
+    "loading": {
+      "en": "Loading topics...",
+      "zh": "加载话题中..."
+    },
+    "noTopics": {
+      "en": "No recommended topics available",
+      "zh": "暂无推荐话题"
+    },
+    "fetchNews": {
+      "en": "Fetch Latest News",
+      "zh": "获取最新新闻"
+    },
+    "selectDifficultyFirst": {
+      "en": "Please select a difficulty level to see recommended topics",
+      "zh": "请先选择难度等级以查看推荐话题"
+    },
+    "noTopicsForDifficulty": {
+      "en": "No topics available for this difficulty level",
+      "zh": "该难度等级暂无推荐话题"
+    },
+    "viewOriginal": {
+      "en": "View original",
+      "zh": "查看原文"
+    },
+    "minutes": {
+      "en": "min",
+      "zh": "分钟"
+    },
+    "justNow": {
+      "en": "Just now",
+      "zh": "刚刚"
+    },
+    "hoursAgo": {
+      "en": "h ago",
+      "zh": "小时前"
+    },
+    "daysAgo": {
+      "en": "d ago",
+      "zh": "天前"
+    },
+    "newsEnhanced": {
+      "en": "Web Search Enhanced (Exa)",
+      "zh": "联网检索增强（Exa）"
+    },
+    "newsEnhancedHint": {
+      "en": "If no pre-generated transcript is available, search latest news and ground AI generation (adds ~3-5s)",
+      "zh": "当没有预生成稿时，搜索最新新闻并让 AI 基于结果生成（约增加3-5秒延迟）"
+    },
+    "basedOnNews": {
+      "en": "Based on news from",
+      "zh": "基于新闻来源"
+    }
   }
 }

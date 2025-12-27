@@ -17,39 +17,39 @@ type IconType =
 type Emphasis = 'default' | 'emphasis' | 'strong'
 
 const textPalette: Record<TextLevel, string> = {
-  primary: 'text-slate-100',
-  secondary: 'text-slate-300',
-  tertiary: 'text-slate-400',
+  primary: 'text-slate-900',
+  secondary: 'text-slate-700',
+  tertiary: 'text-slate-600',
   muted: 'text-slate-500',
 }
 
 const iconPalette: Record<IconType, string> = {
-  primary: 'text-slate-100',
-  secondary: 'text-slate-300',
+  primary: 'text-slate-900',
+  secondary: 'text-slate-700',
   tertiary: 'text-slate-500',
-  interactive: 'text-slate-300 transition-colors hover:text-white',
-  nav: 'text-slate-300 transition-colors hover:text-white',
-  success: 'text-emerald-400',
-  warning: 'text-amber-400',
-  error: 'text-rose-400',
-  info: 'text-sky-400',
-  loading: 'text-sky-400',
+  interactive: 'text-slate-600 transition-colors hover:text-slate-900',
+  nav: 'text-slate-600 transition-colors hover:text-slate-900',
+  success: 'text-emerald-600',
+  warning: 'text-amber-600',
+  error: 'text-rose-600',
+  info: 'text-sky-600',
+  loading: 'text-sky-600',
 }
 
 const borderPalette: Record<Emphasis, string> = {
-  default: 'border-slate-700',
-  emphasis: 'border-slate-500',
+  default: 'border-slate-200',
+  emphasis: 'border-slate-300',
   strong: 'border-slate-400',
 }
 
 const separatorPalette: Record<Emphasis, string> = {
-  default: 'border-slate-800',
-  emphasis: 'border-slate-700',
-  strong: 'border-slate-600',
+  default: 'border-slate-200',
+  emphasis: 'border-slate-300',
+  strong: 'border-slate-400',
 }
 
 export function useThemeClasses() {
-  const themeClass = (_lightClass: string, darkClass?: string) => darkClass ?? ''
+  const themeClass = (lightClass: string, _darkClass?: string) => lightClass
 
   const textClass = (level: TextLevel) => textPalette[level]
 
@@ -60,8 +60,8 @@ export function useThemeClasses() {
   const separatorClass = (emphasis: Emphasis = 'default') => separatorPalette[emphasis]
 
   return {
-    isLight: false,
-    isDark: true,
+    isLight: true,
+    isDark: false,
     themeClass,
     textClass,
     iconClass,

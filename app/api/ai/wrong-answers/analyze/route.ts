@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { withDatabase } from '@/lib/database'
 import { analyzeWrongAnswer, type AnalysisRequest } from '@/lib/ai-analysis-service'
-import { 
-  checkRateLimit, 
-  recordFailedRequest, 
+import {
+  checkRateLimit,
+  recordFailedRequest,
   recordSuccessfulRequest,
   RateLimitConfigs,
   aiServiceCircuitBreaker,
@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
       ...RateLimitConfigs.AI_ANALYSIS,
       keyGenerator: createUserBasedKeyGenerator('ai-analysis:')
     }
-    
+
     const rateLimitResult = checkRateLimit(request, rateLimitConfig)
-    
+
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        { 
+        {
           error: rateLimitResult.error,
           rateLimitInfo: {
             limit: rateLimitResult.limit,
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             resetTime: rateLimitResult.resetTime
           }
         },
-        { 
+        {
           status: 429,
           headers: {
             'X-RateLimit-Limit': rateLimitResult.limit.toString(),
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Verify user authentication
     const authResult = await requireAuth(request)
-    
+
     if (authResult.error || !authResult.user) {
       recordFailedRequest(request, rateLimitConfig)
       return NextResponse.json(
@@ -71,10 +71,18 @@ export async function POST(request: NextRequest) {
     const body: AnalyzeRequestBody = await request.json()
 
     // Validate required fields
-    const requiredFields = [
-      'questionId', 'answerId', 'questionType', 'question', 
-      'userAnswer', 'correctAnswer', 'transcript', 'exerciseTopic', 
-      'exerciseDifficulty', 'language', 'attemptedAt'
+    const requiredFields: (keyof AnalyzeRequestBody)[] = [
+      'questionId',
+      'answerId',
+      'questionType',
+      'question',
+      'userAnswer',
+      'correctAnswer',
+      'transcript',
+      'exerciseTopic',
+      'exerciseDifficulty',
+      'language',
+      'attemptedAt',
     ]
 
     for (const field of requiredFields) {
@@ -82,7 +90,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: `缺少必填字段: ${field}` },
           { status: 400 }
-      )
+        )
       }
     }
 
@@ -161,15 +169,15 @@ export async function POST(request: NextRequest) {
       })
     } catch (error) {
       recordFailedRequest(request, rateLimitConfig)
-      
+
       if (error instanceof Error && error.message.includes('Circuit breaker is OPEN')) {
         return NextResponse.json(
-          { 
+          {
             error: 'AI服务暂时不可用，请稍后重试',
             circuitBreakerState: aiServiceCircuitBreaker.getState(),
             retryAfter: 60 // seconds
           },
-          { 
+          {
             status: 503,
             headers: {
               'Retry-After': '60'
@@ -177,7 +185,7 @@ export async function POST(request: NextRequest) {
           }
         )
       }
-      
+
       return NextResponse.json(
         { error: `AI分析失败: ${error instanceof Error ? error.message : '未知错误'}` },
         { status: 500 }
@@ -212,14 +220,14 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Wrong answer analysis error:', error)
-    
+
     // Record failed request for rate limiting
     const rateLimitConfig = {
       ...RateLimitConfigs.AI_ANALYSIS,
       keyGenerator: createUserBasedKeyGenerator('ai-analysis:')
     }
     recordFailedRequest(request, rateLimitConfig)
-    
+
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes('AI分析失败')) {
@@ -228,7 +236,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
-      
+
       if (error.message.includes('数据库')) {
         return NextResponse.json(
           { error: '数据库操作失败，请稍后重试' },
@@ -244,8 +252,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export { POST as analyzeHandler }
+
 
 if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-  ;(globalThis as Record<string, unknown>).analyzeHandler = POST
+  ; (globalThis as Record<string, unknown>).analyzeHandler = POST
 }

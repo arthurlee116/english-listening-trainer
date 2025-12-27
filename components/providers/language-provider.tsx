@@ -19,25 +19,25 @@ const STORAGE_KEY = 'elt.language'
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, checkAuthStatus } = useAuthState()
-  const [currentLanguage, setCurrentLanguage] = useState<Language>('zh')
+  const [currentLanguage, setCurrentLanguage] = useState<Language>(() => {
+    if (typeof window === 'undefined') return 'zh'
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY)
+      if (cached === 'zh' || cached === 'en') {
+        return cached
+      }
+    } catch (error) {
+      console.warn('Failed to read language preference from localStorage:', error)
+    }
+    return 'zh'
+  })
   const [isChanging, setIsChanging] = useState(false)
   const [isReady, setIsReady] = useState(false)
   const [pendingLanguage, setPendingLanguage] = useState<Language | null>(null)
 
   // 初始化语言
   useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY)
-      if (cached === 'zh' || cached === 'en') {
-        setCurrentLanguage(cached)
-      }
-    } catch (error) {
-      console.warn('Failed to read language preference from localStorage:', error)
-    } finally {
-      setIsReady(true)
-    }
+    setIsReady(true)
   }, [])
 
   // 监听用户登录状态，应用数据库偏好

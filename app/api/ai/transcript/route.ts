@@ -13,6 +13,7 @@ import { RateLimitConfigs } from '@/lib/rate-limiter'
 import { preprocessRequestContext } from '@/lib/ai/request-preprocessor'
 import { buildTranscriptPrompt } from '@/lib/ai/prompt-templates'
 import { expandTranscript } from '@/lib/ai/transcript-expansion'
+import { searchNewsForTopic } from '@/lib/news/exa-search'
 
 async function handleTranscript(request: NextRequest): Promise<NextResponse> {
   const {
@@ -21,7 +22,9 @@ async function handleTranscript(request: NextRequest): Promise<NextResponse> {
     topic,
     language = 'en-US',
     difficultyLevel,
-    focusAreas
+    focusAreas,
+    searchEnhanced,
+    searchMaxResults,
   } = await request.json()
 
   if (!difficulty || !wordCount || !topic) {
@@ -45,7 +48,10 @@ async function handleTranscript(request: NextRequest): Promise<NextResponse> {
     wordCount,
     difficultyDescriptor,
     focusAreasPrompt: context.focusAreasPrompt,
-    focusAreas: context.validatedFocusAreas
+    focusAreas: context.validatedFocusAreas,
+    context: searchEnhanced
+      ? (await searchNewsForTopic(topic, typeof searchMaxResults === 'number' ? searchMaxResults : 5)).context
+      : undefined
   })
 
   let totalGenerationAttempts = 0

@@ -151,7 +151,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           
           <Progress value={accuracy} className="w-full max-w-md mx-auto" />
           
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-gray-600">
             {t('common.labels.topic')}：{exercise.topic}
           </p>
         </div>
@@ -172,7 +172,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                   {t('components.achievementPanel.currentStreak')}: {progressMetrics.currentStreakDays} 
                   {t('common.labels.days')}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   {t('components.resultsDisplay.streakUpdate')}
                 </div>
               </div>
@@ -184,7 +184,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                 <div className="font-medium">
                   {t('components.achievementPanel.averageAccuracy')}: {progressMetrics.averageAccuracy.toFixed(1)}%
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   {t('components.resultsDisplay.accuracyUpdate')}
                 </div>
               </div>
@@ -196,7 +196,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                 <div className="font-medium">
                   {t('components.achievementPanel.totalSessions')}: {progressMetrics.totalSessions}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600">
                   {t('components.resultsDisplay.sessionUpdate')}
                 </div>
               </div>
@@ -258,14 +258,14 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                       </div>
                       
                       {question.type === "single" && question.options && (
-                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <div className="text-sm text-gray-600">
                           {t('components.resultsDisplay.options')}：{question.options.join(" / ")}
                         </div>
                       )}
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="font-medium text-gray-700 dark:text-gray-300">{t('components.resultsDisplay.yourAnswer')}：</span>
+                          <span className="font-medium text-gray-700">{t('components.resultsDisplay.yourAnswer')}：</span>
                           <span className={isCorrect ? "text-green-600" : "text-red-600"}>
                             {userAnswer || t('components.resultsDisplay.noAnswer')}
                           </span>
@@ -273,16 +273,16 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
                         
                         {!isCorrect && result?.correct_answer && (
                           <div>
-                            <span className="font-medium text-gray-700 dark:text-gray-300">{t('components.resultsDisplay.correctAnswer')}：</span>
+                            <span className="font-medium text-gray-700">{t('components.resultsDisplay.correctAnswer')}：</span>
                             <span className="text-green-600">{result.correct_answer}</span>
                           </div>
                         )}
                       </div>
                       
                       {question.explanation && (
-                        <div className="text-sm bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                          <span className="font-medium text-blue-800 dark:text-blue-300">{t('components.resultsDisplay.explanation')}：</span>
-                          <span className="text-blue-700 dark:text-blue-200">{question.explanation}</span>
+                        <div className="text-sm bg-blue-50 p-3 rounded-lg">
+                          <span className="font-medium text-blue-800">{t('components.resultsDisplay.explanation')}：</span>
+                          <span className="text-blue-700">{question.explanation}</span>
                         </div>
                       )}
                     </div>
@@ -310,7 +310,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
       <Card className="glass-effect p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">{t("components.resultsDisplay.practiceNotes")}</h3>
-          <span className="text-sm text-gray-600 dark:text-gray-300">
+          <span className="text-sm text-gray-600">
             {t("components.resultsDisplay.lengthHint", {
               values: { current: noteText.length, max: MAX_NOTE_LENGTH },
             })}
@@ -332,12 +332,12 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
             disabled={!isNotesEnabled}
           />
           {!isNotesEnabled && (
-            <div className="text-sm text-red-600 dark:text-red-400">
+            <div className="text-sm text-red-600">
               {t("components.resultsDisplay.storageUnavailable")}
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-gray-500">
               {t("components.resultsDisplay.shortcutSaveHint")}
             </span>
             <Button 
@@ -348,7 +348,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
             </Button>
           </div>
         </div>
-        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        <div className="mt-2 text-xs text-gray-500">
           {t("components.resultsDisplay.localOnlyHint")}
         </div>
       </Card>
@@ -378,8 +378,8 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
       {showTranscript && (
         <Card className="glass-effect p-6">
           <h3 className="text-lg font-semibold mb-4">{t('components.resultsDisplay.listeningMaterial')}</h3>
-          <div className="prose dark:prose-invert max-w-none">
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+          <div className="prose max-w-none">
+            <p className="text-gray-700 leading-relaxed">
               {exercise.transcript}
             </p>
           </div>

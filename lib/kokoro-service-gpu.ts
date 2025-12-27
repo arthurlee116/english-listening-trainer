@@ -206,9 +206,9 @@ export class KokoroTTSGPUService extends EventEmitter {
 
       // Heuristically pick the best accelerator for the host (Apple → MPS, NVIDIA → CUDA, fallback → auto)
       const preferredDevice = detectKokoroDevicePreference()
-      const env = buildKokoroPythonEnv({ preferDevice: preferredDevice })
+      const env = buildKokoroPythonEnv()
 
-      console.log(`🔧 TTS device preference: ${env.KOKORO_DEVICE}`)
+      console.log(`🔧 TTS device preference: ${preferredDevice} (KOKORO_DEVICE=${env.KOKORO_DEVICE})`)
       if (env.PATH) {
         console.log(`🔧 PATH: ${env.PATH}`)
       }
@@ -574,9 +574,11 @@ export class KokoroTTSGPUService extends EventEmitter {
         timeout,
         resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string; request_id?: number }) => {
           if (response.success && response.audio_data) {
+            const audioHex = response.audio_data
+            const responseDevice = response.device
             ;(async () => {
               try {
-                const audioBuffer = Buffer.from(response.audio_data, 'hex')
+                const audioBuffer = Buffer.from(audioHex, 'hex')
 
                 if (audioBuffer.length === 0) {
                   throw new Error('Audio buffer is empty after hex decoding')
@@ -593,7 +595,7 @@ export class KokoroTTSGPUService extends EventEmitter {
                 await fs.promises.writeFile(filepath, audioBuffer)
 
                 console.log(`💾 GPU Audio saved: ${filename} (${audioBuffer.length} bytes)`)
-                console.log(`🔥 Generated using device: ${response.device || 'unknown'}`)
+                console.log(`🔥 Generated using device: ${responseDevice || 'unknown'}`)
 
                 const metadata = getWavAudioMetadata(audioBuffer)
 

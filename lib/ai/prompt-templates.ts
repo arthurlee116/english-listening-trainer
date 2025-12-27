@@ -103,6 +103,7 @@ export interface TranscriptPromptParams {
   difficultyDescriptor: string
   focusAreasPrompt: string
   focusAreas: FocusArea[]
+  context?: string
 }
 
 export function buildTranscriptPrompt(params: TranscriptPromptParams): string {
@@ -112,16 +113,22 @@ export function buildTranscriptPrompt(params: TranscriptPromptParams): string {
     wordCount,
     difficultyDescriptor,
     focusAreasPrompt,
-    focusAreas
+    focusAreas,
+    context
   } = params
 
   const focusRequirement = focusAreas.length > 0
     ? `- Content should provide opportunities to practice: ${focusAreas.join(', ')}`
     : ''
 
+  const contextBlock = context?.trim()
+    ? `\nRecent context for factual grounding (do NOT cite sources, do NOT mention you searched the web):\n${context.trim()}\n`
+    : ''
+
   return `You are a professional listening comprehension script generator. Generate a ${languageName} listening script on the topic: "${topic}".
 
 ${difficultyDescriptor}${focusAreasPrompt}
+${contextBlock}
 
 Requirements:
 - Target length: approximately ${wordCount} words

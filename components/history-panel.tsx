@@ -39,18 +39,38 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const { toast } = useToast()
 
   useEffect(() => {
-    const history = getHistory()
-    setExercises(history)
-    setFilteredExercises(history)
+    try {
+      const history = getHistory()
+      const safeHistory = Array.isArray(history) ? history : []
+      setExercises(safeHistory)
+      setFilteredExercises(safeHistory)
+    } catch {
+      setExercises([])
+      setFilteredExercises([])
+    }
     
     // Load progress metrics for statistics display
     try {
       const metrics = getProgressMetrics()
       setProgressMetrics(metrics)
-    } catch (error) {
-      console.error("Failed to load progress metrics:", error)
+    } catch {
+      setProgressMetrics(null)
     }
   }, [])
+
+  const getResultsArray = (exercise: Exercise | null | undefined): Exercise["results"] => {
+    if (exercise && Array.isArray(exercise.results)) {
+      return exercise.results
+    }
+    return []
+  }
+
+  const getAccuracyPercent = (exercise: Exercise): number => {
+    const results = getResultsArray(exercise)
+    if (results.length === 0) return 0
+    const correctAnswers = results.filter(result => result.is_correct).length
+    return Math.round((correctAnswers / results.length) * 100)
+  }
 
   useEffect(() => {
     let filtered = [...exercises]
@@ -100,13 +120,13 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         }
         case "score_high": {
-          const aScore = Math.round((a.results.filter(r => r.is_correct).length / a.results.length) * 100)
-          const bScore = Math.round((b.results.filter(r => r.is_correct).length / b.results.length) * 100)
+          const aScore = getAccuracyPercent(a)
+          const bScore = getAccuracyPercent(b)
           return bScore - aScore
         }
         case "score_low": {
-          const aScoreLow = Math.round((a.results.filter(r => r.is_correct).length / a.results.length) * 100)
-          const bScoreLow = Math.round((b.results.filter(r => r.is_correct).length / b.results.length) * 100)
+          const aScoreLow = getAccuracyPercent(a)
+          const bScoreLow = getAccuracyPercent(b)
           return aScoreLow - bScoreLow
         }
         default: {
@@ -144,7 +164,12 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
       <Card className="glass-effect p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={onBack}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              aria-label="Back"
+            >
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <h2 className="text-2xl font-bold">
@@ -168,7 +193,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
 
       {exercises.length === 0 ? (
         <Card className="glass-effect p-12 text-center">
-          <div className="text-gray-500 dark:text-gray-400">
+          <div className="text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">
               <BilingualText translationKey="components.historyPanel.noRecords" />
@@ -190,25 +215,25 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
                 <div>
                   <div className="text-lg font-bold text-blue-600">{progressMetrics.totalSessions}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">
+                  <div className="text-xs text-gray-600">
                     <BilingualText translationKey="components.achievementPanel.totalSessions" />
                   </div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-green-600">{progressMetrics.averageAccuracy.toFixed(1)}%</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">
+                  <div className="text-xs text-gray-600">
                     <BilingualText translationKey="components.achievementPanel.averageAccuracy" />
                   </div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-orange-600">{progressMetrics.currentStreakDays}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">
+                  <div className="text-xs text-gray-600">
                     <BilingualText translationKey="components.achievementPanel.currentStreak" />
                   </div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-purple-600">{progressMetrics.totalListeningMinutes}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">
+                  <div className="text-xs text-gray-600">
                     <BilingualText translationKey="components.achievementPanel.totalListeningTime" />
                   </div>
                 </div>
@@ -231,7 +256,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               </div>
               
               <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("common.labels.difficulty")}>
                   <SelectValue placeholder={t("common.labels.difficulty")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,7 +271,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               </Select>
               
               <Select value={languageFilter} onValueChange={setLanguageFilter}>
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("common.labels.language")}>
                   <SelectValue placeholder={t("common.labels.language")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -259,7 +284,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               </Select>
               
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("components.historyPanel.sortBy")}>
                   <SelectValue placeholder={t("components.historyPanel.sortBy")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,7 +296,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               </Select>
 
               <Select value={noteFilter} onValueChange={setNoteFilter}>
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("components.historyPanel.filterBy")}>
                   <SelectValue placeholder={t("components.historyPanel.filterBy")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,7 +307,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               </Select>
 
               <Select value={focusAreaFilter} onValueChange={setFocusAreaFilter}>
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("components.questionInterface.focusAreas")}>
                   <SelectValue placeholder={t("components.questionInterface.focusAreas")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -308,9 +333,10 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
           {/* Exercise List */}
           <div className="grid gap-4">
             {filteredExercises.map((exercise, _index) => {
-              const correctAnswers = exercise.results.filter(result => result.is_correct).length
-              const totalQuestions = exercise.results.length
-              const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
+              const accuracy = getAccuracyPercent(exercise)
+              const results = getResultsArray(exercise)
+              const correctAnswers = results.filter(result => result.is_correct).length
+              const totalQuestions = results.length
               const date = new Date(exercise.createdAt)
 
               return (
@@ -323,7 +349,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                         <Badge variant="outline">{exercise.language}</Badge>
                       </div>
                       
-                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           {date.toLocaleDateString()} {date.toLocaleTimeString([], { 
@@ -359,7 +385,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                       const summary = note.length > 80 ? note.slice(0, 80) + '…' : note
                       return (
                         <div className="flex items-start justify-between gap-3">
-                          <div className="text-sm text-gray-700 dark:text-gray-300">
+                          <div className="text-sm text-gray-700">
                             <span className="font-medium">
                               {t("components.historyPanel.noteLabel")}:
                             </span>

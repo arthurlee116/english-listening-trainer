@@ -64,13 +64,13 @@ export function MigrationNotification({ onDismiss }: MigrationNotificationProps)
   // Success notification
   if (migrationStatus.isComplete && !migrationStatus.hasError && migrationStatus.imported) {
     return (
-      <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
-        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+      <Alert className="border-green-200 bg-green-50">
+        <CheckCircle className="h-4 w-4 text-green-600" />
         <div className="flex-1">
-          <AlertTitle className="text-green-800 dark:text-green-200">
+          <AlertTitle className="text-green-800">
             Migration Successful
           </AlertTitle>
-          <AlertDescription className="text-green-700 dark:text-green-300">
+          <AlertDescription className="text-green-700">
             Successfully migrated {migrationStatus.imported.sessions} practice sessions 
             with {migrationStatus.imported.questions} questions and {migrationStatus.imported.answers} answers.
             Your data is now safely stored in the database.
@@ -80,7 +80,7 @@ export function MigrationNotification({ onDismiss }: MigrationNotificationProps)
           variant="ghost"
           size="sm"
           onClick={handleDismiss}
-          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
+          className="text-green-600 hover:text-green-800"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -92,20 +92,21 @@ export function MigrationNotification({ onDismiss }: MigrationNotificationProps)
   if (migrationStatus.isComplete && migrationStatus.hasError) {
     const errorMessage = getErrorMessage()
     const isRetryable = migrationStatus.canRetry && migrationStatus.retryable
+    const retryCount = migrationStatus.retryCount ?? 0
     
     return (
-      <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
-        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+      <Alert className="border-red-200 bg-red-50">
+        <AlertCircle className="h-4 w-4 text-red-600" />
         <div className="flex-1">
-          <AlertTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">
+          <AlertTitle className="text-red-800 flex items-center gap-2">
             Migration Failed
-            {migrationStatus.retryCount > 0 && (
+            {retryCount > 0 && (
               <Badge variant="secondary" className="text-xs">
-                Attempt {migrationStatus.retryCount + 1}
+                Attempt {retryCount + 1}
               </Badge>
             )}
           </AlertTitle>
-          <AlertDescription className="text-red-700 dark:text-red-300 mb-3">
+          <AlertDescription className="text-red-700 mb-3">
             {errorMessage}
             {migrationStatus.errorType === MigrationErrorType.AUTHENTICATION_ERROR && (
               <div className="mt-2 text-sm">
@@ -125,7 +126,7 @@ export function MigrationNotification({ onDismiss }: MigrationNotificationProps)
                 size="sm"
                 onClick={handleRetry}
                 disabled={isRetrying}
-                className="text-red-600 border-red-300 hover:bg-red-100 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/30"
+                className="text-red-600 border-red-300 hover:bg-red-100"
               >
                 {isRetrying ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -139,7 +140,7 @@ export function MigrationNotification({ onDismiss }: MigrationNotificationProps)
               variant="ghost"
               size="sm"
               onClick={handleDismiss}
-              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+              className="text-red-600 hover:text-red-800"
             >
               Dismiss
             </Button>
@@ -152,13 +153,13 @@ export function MigrationNotification({ onDismiss }: MigrationNotificationProps)
   // Loading notification
   if (migrationStatus.isChecking) {
     return (
-      <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-        <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      <Alert className="border-blue-200 bg-blue-50">
+        <Database className="h-4 w-4 text-blue-600" />
         <div className="flex-1">
-          <AlertTitle className="text-blue-800 dark:text-blue-200">
+          <AlertTitle className="text-blue-800">
             Migrating Legacy Data
           </AlertTitle>
-          <AlertDescription className="text-blue-700 dark:text-blue-300 flex items-center gap-2">
+          <AlertDescription className="text-blue-700 flex items-center gap-2">
             <Loader2 className="h-3 w-3 animate-spin" />
             {migrationStatus.message}
           </AlertDescription>

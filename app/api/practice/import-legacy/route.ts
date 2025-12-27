@@ -163,8 +163,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
   }
 }
 
-export { POST as importLegacyHandler }
+
 
 if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-  ;(globalThis as Record<string, unknown>).importLegacyHandler = POST
+  ; (globalThis as Record<string, unknown>).importLegacyHandler = POST
 }

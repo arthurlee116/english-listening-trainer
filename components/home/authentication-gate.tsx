@@ -28,13 +28,13 @@ export function AuthenticationGate({
 }: AuthenticationGateProps) {
   if (isLoading || !hasMounted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <Card className="p-8 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
           <h2 className="text-lg font-semibold mb-2">
             <BilingualText translationKey="messages.loadingApp" />
           </h2>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-gray-600">
             <BilingualText translationKey="messages.verifyingLogin" />
           </p>
         </Card>
@@ -44,7 +44,7 @@ export function AuthenticationGate({
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <AuthDialog open={showAuthDialog} onUserAuthenticated={onUserAuthenticated} />
       </div>
     )

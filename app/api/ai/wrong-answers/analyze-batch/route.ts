@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { withDatabase } from '@/lib/database'
 import { analyzeWrongAnswer, type AnalysisRequest, type AnalysisResponse } from '@/lib/ai-analysis-service'
-import { 
-  checkRateLimit, 
-  recordFailedRequest, 
+import {
+  checkRateLimit,
+  recordFailedRequest,
   recordSuccessfulRequest,
   RateLimitConfigs,
   aiServiceCircuitBreaker,
@@ -65,12 +65,12 @@ export async function POST(request: NextRequest) {
       ...RateLimitConfigs.BATCH_PROCESSING,
       keyGenerator: createUserBasedKeyGenerator('batch-analysis:')
     }
-    
+
     const rateLimitResult = checkRateLimit(request, rateLimitConfig)
-    
+
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        { 
+        {
           error: rateLimitResult.error,
           rateLimitInfo: {
             limit: rateLimitResult.limit,
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
             resetTime: rateLimitResult.resetTime
           }
         },
-        { 
+        {
           status: 429,
           headers: {
             'X-RateLimit-Limit': rateLimitResult.limit.toString(),
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Verify user authentication
     const authResult = await requireAuth(request)
-    
+
     if (authResult.error || !authResult.user) {
       recordFailedRequest(request, rateLimitConfig)
       return NextResponse.json(
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     // Validate that all requested answers exist and belong to the user
     const foundAnswerIds = new Set(answers.map(a => a.id))
     const missingAnswerIds = body.answerIds.filter(id => !foundAnswerIds.has(id))
-    
+
     if (missingAnswerIds.length > 0) {
       return NextResponse.json(
         { error: `以下答案不存在或无权限访问: ${missingAnswerIds.join(', ')}` },
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     // Process wrong answers in batches
     for (let i = 0; i < wrongAnswers.length; i += BATCH_SIZE) {
       const batch = wrongAnswers.slice(i, i + BATCH_SIZE)
-      
+
       const batchPromises = batch.map(async (answer: AnswerData) => {
         try {
           // Parse options if they exist
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
 
       // Wait for current batch to complete
       const batchResults = await Promise.all(batchPromises)
-      
+
       // Collect results
       for (const result of batchResults) {
         if (result.success) {
@@ -293,24 +293,24 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Batch wrong answer analysis error:', error)
-    
+
     // Record failed request for rate limiting
     const rateLimitConfig = {
       ...RateLimitConfigs.BATCH_PROCESSING,
       keyGenerator: createUserBasedKeyGenerator('batch-analysis:')
     }
     recordFailedRequest(request, rateLimitConfig)
-    
+
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes('Circuit breaker is OPEN')) {
         return NextResponse.json(
-          { 
+          {
             error: 'AI服务暂时不可用，请稍后重试',
             circuitBreakerState: aiServiceCircuitBreaker.getState(),
             retryAfter: 60
           },
-          { 
+          {
             status: 503,
             headers: {
               'Retry-After': '60'
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
           }
         )
       }
-      
+
       if (error.message.includes('数据库')) {
         return NextResponse.json(
           { error: '数据库操作失败，请稍后重试' },
@@ -334,8 +334,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export { POST as analyzeBatchHandler }
+
 
 if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-  ;(globalThis as Record<string, unknown>).analyzeBatchHandler = POST
+  ; (globalThis as Record<string, unknown>).analyzeBatchHandler = POST
 }
