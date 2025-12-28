@@ -11,6 +11,9 @@ import { generateAudio } from "@/lib/tts-service"
 import { saveToHistory, getHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
 import { handlePracticeCompleted, initializeAchievements, migrateFromHistory } from "@/lib/achievement-service"
+import { loadPersonalization, savePersonalization, adjustDifficultyLevel } from "@/lib/personalization"
+import { loadSpecializedModeSettings } from "@/lib/specialized-mode"
+import { loadDifficultyMode, saveManualDifficulty } from "@/lib/difficulty-mode"
 import type {
   Exercise,
   Question,
@@ -101,9 +104,11 @@ type ExerciseAction =
   | { type: 'RESET' }
 
 function createInitialState(): ExerciseState {
+  const personalization = typeof window !== 'undefined' ? loadPersonalization() : null
+  const mode = typeof window !== 'undefined' ? loadDifficultyMode() : 'manual'
   return {
     currentStep: 'setup',
-    difficulty: '',
+    difficulty: mode === 'auto' ? (personalization?.cefr ?? '') : '',
     duration: 120,
     language: 'en-US',
     topic: '',
@@ -121,7 +126,16 @@ function createInitialState(): ExerciseState {
     loading: false,
     loadingMessage: '',
     canRegenerate: true,
-    assessmentResult: null,
+    assessmentResult: personalization
+      ? {
+          difficultyLevel: personalization.difficultyLevel,
+          difficultyRange: personalization.difficultyRange,
+          scores: [],
+          summary: '',
+          details: [],
+          recommendation: ''
+        }
+      : null,
     newAchievements: [],
     error: null
   }
@@ -132,6 +146,9 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
     case 'SET_STEP':
       return { ...state, currentStep: action.payload }
     case 'SET_DIFFICULTY':
+      if (state.difficulty === action.payload && state.error === null) {
+        return state
+      }
       return { ...state, difficulty: action.payload, error: null }
     case 'SET_DURATION':
       if (state.currentStep !== 'setup') {
@@ -307,7 +324,13 @@ export function useExerciseWorkflow() {
   // Actions
   const actions = useMemo(() => ({
     setStep: (step: ExerciseStep) => dispatch({ type: 'SET_STEP', payload: step }),
-    setDifficulty: (difficulty: DifficultyLevel | "") => dispatch({ type: 'SET_DIFFICULTY', payload: difficulty }),
+    setDifficulty: (difficulty: DifficultyLevel | "") => {
+      dispatch({ type: 'SET_DIFFICULTY', payload: difficulty })
+      // If user is in manual mode, remember the CEFR selection.
+      if (loadDifficultyMode() === 'manual') {
+        saveManualDifficulty(difficulty)
+      }
+    },
     setDuration: (duration: number) => dispatch({ type: 'SET_DURATION', payload: duration }),
     setLanguage: (language: ListeningLanguage) => dispatch({ type: 'SET_LANGUAGE', payload: language }),
     setTopic: (topic: string) => dispatch({ type: 'SET_TOPIC', payload: topic }),
@@ -317,7 +340,24 @@ export function useExerciseWorkflow() {
     setNewsTranscriptDurationMinutes: (durationMinutes: number | null) => dispatch({ type: 'SET_NEWS_TRANSCRIPT_DURATION_MINUTES', payload: durationMinutes }),
     setNewsTranscriptMissingDurationMinutes: (durationMinutes: number | null) => dispatch({ type: 'SET_NEWS_TRANSCRIPT_MISSING_DURATION_MINUTES', payload: durationMinutes }),
     setAnswers: (answers: Record<number, string>) => dispatch({ type: 'SET_ANSWERS', payload: answers }),
-    setAssessmentResult: (result: AssessmentResultType | null) => dispatch({ type: 'SET_ASSESSMENT_RESULT', payload: result }),
+    setAssessmentResult: (result: AssessmentResultType | null) => {
+      dispatch({ type: 'SET_ASSESSMENT_RESULT', payload: result })
+      if (result) {
+        const snapshot = savePersonalization(result.difficultyLevel)
+        if (loadDifficultyMode() === 'auto') {
+          dispatch({ type: 'SET_DIFFICULTY', payload: snapshot.cefr })
+        }
+        // keep sidebar in sync even if caller doesn't pass full result later
+        dispatch({
+          type: 'SET_ASSESSMENT_RESULT',
+          payload: {
+            ...result,
+            difficultyLevel: snapshot.difficultyLevel,
+            difficultyRange: snapshot.difficultyRange,
+          },
+        })
+      }
+    },
   }), [])
 
   // 生成话题建议
@@ -327,9 +367,20 @@ export function useExerciseWorkflow() {
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating topic suggestions...' } })
 
     try {
+      const mode = loadDifficultyMode()
+      const personalization = mode === 'auto' ? loadPersonalization() : null
+      const specialized = loadSpecializedModeSettings()
+      const focusAreas = specialized.enabled ? specialized.selectedFocusAreas : undefined
       const response = await cachedApiCall(
-        `topics-${state.difficulty}-${wordCount}-${state.language}`,
-        () => generateTopics(state.difficulty as DifficultyLevel, wordCount, state.language),
+        `topics-${state.difficulty}-${wordCount}-${state.language}-${personalization?.difficultyLevel ?? 'none'}-${focusAreas?.join('.') ?? 'none'}`,
+        () => generateTopics(
+          state.difficulty as DifficultyLevel,
+          wordCount,
+          state.language,
+          personalization?.difficultyLevel,
+          focusAreas,
+          undefined
+        ),
         60000
       ) as { topics: string[]; degradationReason?: string }
 
@@ -359,12 +410,16 @@ export function useExerciseWorkflow() {
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating new topic suggestions...' } })
 
     try {
+      const mode = loadDifficultyMode()
+      const personalization = mode === 'auto' ? loadPersonalization() : null
+      const specialized = loadSpecializedModeSettings()
+      const focusAreas = specialized.enabled ? specialized.selectedFocusAreas : undefined
       const response = await generateTopics(
         state.difficulty as DifficultyLevel,
         wordCount,
         state.language,
-        undefined,
-        undefined,
+        personalization?.difficultyLevel,
+        focusAreas,
         state.suggestedTopics
       )
 
@@ -394,6 +449,10 @@ export function useExerciseWorkflow() {
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating listening transcript...' } })
 
     let transcriptSnapshot = state.transcript
+    const mode = loadDifficultyMode()
+    const personalization = mode === 'auto' ? loadPersonalization() : null
+    const specialized = loadSpecializedModeSettings()
+    const focusAreas = specialized.enabled ? specialized.selectedFocusAreas : undefined
 
     const attemptGeneration = async (attempt: number): Promise<void> => {
       // 如果已有文稿（例如来自新闻预生成），则跳过生成
@@ -404,14 +463,14 @@ export function useExerciseWorkflow() {
 
       try {
         const response = await cachedApiCall(
-          `transcript-${state.difficulty}-${wordCount}-${state.topic}-${state.language}-${newsEnhanced ? 'exa' : 'plain'}`,
+          `transcript-${state.difficulty}-${wordCount}-${state.topic}-${state.language}-${newsEnhanced ? 'exa' : 'plain'}-${personalization?.difficultyLevel ?? 'none'}-${focusAreas?.join('.') ?? 'none'}`,
           () => generateTranscript(
             state.difficulty as DifficultyLevel,
             wordCount,
             state.topic,
             state.language,
-            undefined,
-            undefined,
+            personalization?.difficultyLevel,
+            focusAreas,
             Boolean(newsEnhanced),
             5
           ),
@@ -558,8 +617,12 @@ export function useExerciseWorkflow() {
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating questions...' } })
 
     try {
+      const mode = loadDifficultyMode()
+      const personalization = mode === 'auto' ? loadPersonalization() : null
+      const specialized = loadSpecializedModeSettings()
+      const focusAreas = specialized.enabled ? specialized.selectedFocusAreas : undefined
       const transcriptHash = state.transcript.slice(0, 50)
-      const cacheKey = `questions-${state.difficulty}-${transcriptHash}-${state.language}-${state.duration}`
+      const cacheKey = `questions-${state.difficulty}-${transcriptHash}-${state.language}-${state.duration}-${personalization?.difficultyLevel ?? 'none'}-${focusAreas?.join('.') ?? 'none'}`
 
       const response = await cachedApiCall(
         cacheKey,
@@ -567,7 +630,9 @@ export function useExerciseWorkflow() {
           state.difficulty as DifficultyLevel,
           state.transcript,
           state.language,
-          state.duration
+          state.duration,
+          personalization?.difficultyLevel,
+          focusAreas
         ),
         180000
       ) as { questions: Question[]; degradationReason?: string }
@@ -600,7 +665,9 @@ export function useExerciseWorkflow() {
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Grading your answers...' } })
 
     try {
-      const gradingResponse = await gradeAnswers(state.transcript, state.questions, state.answers, state.language)
+      const specialized = loadSpecializedModeSettings()
+      const focusAreas = specialized.enabled ? specialized.selectedFocusAreas : undefined
+      const gradingResponse = await gradeAnswers(state.transcript, state.questions, state.answers, state.language, focusAreas)
       const gradingResults = gradingResponse.results
 
       const now = Date.now()
@@ -627,7 +694,14 @@ export function useExerciseWorkflow() {
         answers: state.answers,
         results: gradingResults,
         createdAt: new Date(now).toISOString(),
-        ...(practiceDurationSec > 0 ? { totalDurationSec: practiceDurationSec } : {})
+        ...(practiceDurationSec > 0 ? { totalDurationSec: practiceDurationSec } : {}),
+        ...(specialized.enabled
+          ? {
+              specializedMode: true,
+              focusAreas: focusAreas ?? [],
+              focusCoverage: gradingResponse.focusCoverage
+            }
+          : {})
       }
 
       dispatch({ type: 'SET_CURRENT_EXERCISE', payload: exercise })
@@ -670,6 +744,27 @@ export function useExerciseWorkflow() {
         const accuracy = correctCount / gradingResults.length
         const score = Math.round(accuracy * 100)
 
+        // Adaptive difficulty: only apply when in auto mode
+        if (loadDifficultyMode() === 'auto') {
+          const personalization = loadPersonalization()
+          if (personalization) {
+            const nextLevel = adjustDifficultyLevel(personalization.difficultyLevel, accuracy)
+            const nextSnapshot = savePersonalization(nextLevel)
+            dispatch({ type: 'SET_DIFFICULTY', payload: nextSnapshot.cefr })
+            dispatch({
+              type: 'SET_ASSESSMENT_RESULT',
+              payload: {
+                difficultyLevel: nextSnapshot.difficultyLevel,
+                difficultyRange: nextSnapshot.difficultyRange,
+                scores: state.assessmentResult?.scores ?? [],
+                summary: state.assessmentResult?.summary ?? '',
+                details: state.assessmentResult?.details ?? [],
+                recommendation: state.assessmentResult?.recommendation ?? ''
+              }
+            })
+          }
+        }
+
         await fetch('/api/practice/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -681,7 +776,10 @@ export function useExerciseWorkflow() {
             topic: state.topic,
             accuracy: accuracy,
             score: score,
-            duration: practiceDurationSec
+            duration: practiceDurationSec,
+            specializedMode: specialized.enabled,
+            focusAreas,
+            focusCoverage: gradingResponse.focusCoverage
           })
         })
       } catch (error) {

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Kokoro TTS Setup - CoreML + ANE 优化版本 (Apple Silicon M4)
-# 支持 CoreML 加速和 MPS 后备
+# Kokoro TTS Setup - CoreML 版本 (Apple Silicon)
+# 仅保留 CoreML 路线：必须成功导出并加载 CoreML 模型
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -65,9 +65,9 @@ fi
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip -q
 
-# 安装 PyTorch (MPS 版本)
+# 安装 PyTorch（Kokoro 特征提取需要）
 if ! python -c "import torch" 2>/dev/null; then
-  log_info "Installing PyTorch with MPS support..."
+  log_info "Installing PyTorch..."
   pip install torch torchaudio -q
 fi
 
@@ -83,30 +83,11 @@ else
   pip install coremltools>=8.0.0 -q
 fi
 
-# 验证 MPS
-log_info "Verifying MPS..."
-python - <<'PY'
-import torch
-assert torch.backends.mps.is_available(), "MPS not available"
-assert torch.backends.mps.is_built(), "PyTorch not built with MPS"
-
-# 简单测试
-x = torch.randn(100, 100, device='mps')
-y = x @ x.T
-torch.mps.synchronize()
-
-print(f"✅ PyTorch {torch.__version__} with MPS ready")
-print(f"✅ MPS test passed")
-PY
-
 # 验证 CoreML
 log_info "Verifying CoreML..."
 python - <<'PY'
-try:
-    import coremltools as ct
-    print(f"✅ coremltools {ct.__version__} ready")
-except ImportError:
-    print("⚠️ coremltools not available, will use MPS only")
+import coremltools as ct
+print(f"✅ coremltools {ct.__version__} ready")
 PY
 
 # 复制语音文件
@@ -116,28 +97,33 @@ if [[ -f "$VOICE_SOURCE/af_heart.pt" && ! -f "$VOICES_DIR/af_heart.pt" ]]; then
   log_success "Voice file copied"
 fi
 
-# 尝试导出 CoreML 模型
-log_info "Attempting CoreML model export..."
+# 导出 CoreML 模型（必需）
+log_info "Exporting CoreML models (required)..."
 if [[ -f "$PROJECT_ROOT/scripts/export_coreml.py" ]]; then
-  python "$PROJECT_ROOT/scripts/export_coreml.py" --output_dir "$COREML_DIR" || {
-    log_warn "CoreML export failed, will use optimized MPS mode"
-  }
+  python "$PROJECT_ROOT/scripts/export_coreml.py" --output_dir "$COREML_DIR"
 else
-  log_warn "CoreML export script not found, skipping"
+  log_error "CoreML export script not found: scripts/export_coreml.py"
+  exit 1
 fi
 
-# 验证 CoreML wrapper
-if [[ -f "$KOKORO_DIR/kokoro_coreml_wrapper.py" ]]; then
-  log_success "CoreML wrapper available"
-else
-  log_warn "CoreML wrapper not found, will use standard MPS wrapper"
+# 验证 CoreML wrapper 和导出的模型
+if [[ ! -f "$KOKORO_DIR/kokoro_coreml_wrapper.py" ]]; then
+  log_error "CoreML wrapper not found: kokoro_local/kokoro_coreml_wrapper.py"
+  exit 1
 fi
+
+if ! ls "$COREML_DIR"/*.mlpackage >/dev/null 2>&1; then
+  log_error "No CoreML models found under: $COREML_DIR"
+  log_error "Re-run: python scripts/export_coreml.py --output_dir kokoro_local/coreml"
+  exit 1
+fi
+
+log_success "CoreML wrapper + models ready"
 
 log_success "Kokoro TTS (CoreML + ANE) setup complete!"
 log_info ""
 log_info "Performance optimizations enabled:"
-log_info "  - CoreML + Apple Neural Engine (if available)"
-log_info "  - MPS (Metal Performance Shaders) fallback"
+log_info "  - CoreML acceleration (macOS)"
 log_info "  - Float16 precision"
 log_info "  - Increased chunk size (300 chars)"
 log_info "  - Model warmup"

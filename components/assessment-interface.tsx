@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -10,12 +10,13 @@ import AssessmentAudioPlayer from "@/components/assessment-audio-player"
 import { Slider } from "@/components/ui/slider"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { ASSESSMENT_AUDIOS, calculateDifficultyLevel, getDifficultyRange } from "@/lib/difficulty-service"
 interface AssessmentQuestion {
   id: number
-  audioFile: string
   topic: string
   difficulty: number
   description: string
+  filename: string
 }
 
 interface AssessmentResultType {
@@ -45,41 +46,13 @@ interface AssessmentInterfaceProps {
 }
 
 const ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [
-  {
-    id: 1,
-    audioFile: "/assessment-audio/test-1-level6.wav",
-    topic: "日常对话",
-    difficulty: 6,
-    description: "基础水平 - 简单的日常对话"
-  },
-  {
-    id: 2,
-    audioFile: "/assessment-audio/test-2-level12.wav",
-    topic: "工作场景",
-    difficulty: 12,
-    description: "初级水平 - 工作场景对话"
-  },
-  {
-    id: 3,
-    audioFile: "/assessment-audio/test-3-level18.wav",
-    topic: "学术讨论",
-    difficulty: 18,
-    description: "中级水平 - 学术内容讨论"
-  },
-  {
-    id: 4,
-    audioFile: "/assessment-audio/test-4-level24.wav",
-    topic: "新闻报道",
-    difficulty: 24,
-    description: "高级水平 - 新闻报道内容"
-  },
-  {
-    id: 5,
-    audioFile: "/assessment-audio/test-5-level30.wav",
-    topic: "专业讲座",
-    difficulty: 30,
-    description: "专家水平 - 专业学术讲座"
-  }
+  ...ASSESSMENT_AUDIOS.map((audio) => ({
+    id: audio.id,
+    topic: audio.topic,
+    difficulty: audio.difficulty,
+    description: audio.description,
+    filename: audio.filename,
+  })),
 ]
 
 export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceProps) {
@@ -87,11 +60,54 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
   const [answers, setAnswers] = useState<Record<number, number>>({})
   const [audioPlayed, setAudioPlayed] = useState<Record<number, boolean>>({})
   const [isComplete, setIsComplete] = useState(false)
+  const [audioUrls, setAudioUrls] = useState<Record<number, string>>({})
+  const [audioLoading, setAudioLoading] = useState(false)
+  const [audioError, setAudioError] = useState<string | null>(null)
   // not using the translator directly here but keep hook for potential side-effects
   const _bilingual = useBilingualText()
 
   const currentQuestion = ASSESSMENT_QUESTIONS[currentIndex]
   const progress = ((currentIndex + 1) / ASSESSMENT_QUESTIONS.length) * 100
+  const currentAudioUrl = audioUrls[currentQuestion.id]
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function ensureAssessmentAudio() {
+      setAudioError(null)
+
+      if (audioUrls[currentQuestion.id]) {
+        return
+      }
+
+      setAudioLoading(true)
+      try {
+        const res = await fetch(`/api/assessment-audio/${currentQuestion.id}`)
+        const payload = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(payload?.error || `音频准备失败: ${res.status}`)
+        }
+        const url = payload?.url as string | undefined
+        if (!url) {
+          throw new Error('音频准备失败：未返回 URL')
+        }
+        if (cancelled) return
+        setAudioUrls((prev) => ({ ...prev, [currentQuestion.id]: url }))
+      } catch (error) {
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : '音频生成失败'
+        setAudioError(message)
+      } finally {
+        if (!cancelled) setAudioLoading(false)
+      }
+    }
+
+    ensureAssessmentAudio()
+
+    return () => {
+      cancelled = true
+    }
+  }, [audioUrls, currentQuestion.id])
   
   const handleScoreSelect = (score: number) => {
     setAnswers(prev => ({
@@ -106,60 +122,8 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
     } else {
       // 完成评估，计算结果
       const scores = ASSESSMENT_QUESTIONS.map(q => answers[q.id] || 0)
-      const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length
-      const difficultyLevel = Math.round((averageScore / 10) * 30)
-      
-      // 根据难度级别确定范围
-      let difficultyRange
-      if (difficultyLevel <= 5) {
-        difficultyRange = {
-          min: 1,
-          max: 5,
-          name: "A1 - 初学者",
-          nameEn: "Beginner",
-          description: "适合英语学习的初学者，建议从基础对话开始练习"
-        }
-      } else if (difficultyLevel <= 10) {
-        difficultyRange = {
-          min: 6,
-          max: 10,
-          name: "A2 - 基础级",
-          nameEn: "Elementary",
-          description: "有一定英语基础，可以进行简单的日常交流"
-        }
-      } else if (difficultyLevel <= 15) {
-        difficultyRange = {
-          min: 11,
-          max: 15,
-          name: "B1 - 中级",
-          nameEn: "Intermediate",
-          description: "具备中级英语水平，能够理解大部分日常对话内容"
-        }
-      } else if (difficultyLevel <= 20) {
-        difficultyRange = {
-          min: 16,
-          max: 20,
-          name: "B2 - 中高级",
-          nameEn: "Upper Intermediate",
-          description: "英语水平较好，能够处理复杂的语言内容"
-        }
-      } else if (difficultyLevel <= 25) {
-        difficultyRange = {
-          min: 21,
-          max: 25,
-          name: "C1 - 高级",
-          nameEn: "Advanced",
-          description: "具备高级英语水平，能够理解复杂的学术和专业内容"
-        }
-      } else {
-        difficultyRange = {
-          min: 26,
-          max: 30,
-          name: "C2 - 精通级",
-          nameEn: "Proficient",
-          description: "英语接近母语水平，能够处理各种高难度内容"
-        }
-      }
+      const difficultyLevel = calculateDifficultyLevel(scores)
+      const difficultyRange = getDifficultyRange(difficultyLevel)
 
       const result = {
         difficultyLevel,
@@ -271,10 +235,30 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
           {/* Audio Player */}
           <div className="max-w-md mx-auto">
             <AssessmentAudioPlayer
-              src={currentQuestion.audioFile}
+              src={currentAudioUrl || null}
               onEnded={handleAudioEnded}
+              disabled={audioLoading || Boolean(audioError) || !currentAudioUrl}
               className="mb-6"
             />
+
+            {audioError && (
+              <div className="text-sm text-red-600 flex items-center justify-between gap-3">
+                <span className="truncate">{audioError}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setAudioUrls((prev) => {
+                      const next = { ...prev }
+                      delete next[currentQuestion.id]
+                      return next
+                    })
+                  }}
+                >
+                  重试
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Rating */}

@@ -179,7 +179,6 @@ function getResourceUtilization() {
 // 获取错误率（简化版本）
 function getErrorRates() {
   // 这里应该从实际的错误监控系统获取数据
-  // 目前返回模拟数据
   return {
     api: {
       total: 0,

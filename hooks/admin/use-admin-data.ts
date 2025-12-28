@@ -26,10 +26,45 @@ export interface SystemStats {
   averageAccuracy: number
 }
 
+export interface EffectReportRow {
+  anonymousId: string
+  sessionsCount: number
+  usageDays: number
+  levelBefore: string
+  levelAfter: string
+  accuracyBefore: number
+  accuracyAfter: number
+  errorRateBefore: number
+  errorRateAfter: number
+  improved: boolean
+}
+
+export interface EffectReportSummary {
+  totalUsers: number
+  improvedUsers: number
+  improvedRate: number
+  averageSessions: number
+  averageAccuracyBefore: number
+  averageAccuracyAfter: number
+  averageErrorRateBefore: number
+  averageErrorRateAfter: number
+}
+
+export interface EffectReport {
+  summary: EffectReportSummary
+  rows: EffectReportRow[]
+  meta: {
+    isSynthetic: boolean
+    seed: number
+    note: string
+  }
+}
+
 export function useAdminData() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [recentSessions, setRecentSessions] = useState<PracticeSession[]>([])
   const [stats, setStats] = useState<SystemStats | null>(null)
+  const [effectReport, setEffectReport] = useState<EffectReport | null>(null)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
@@ -92,16 +127,33 @@ export function useAdminData() {
     }
   }, [])
 
+  const loadEffectReport = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/effect-report', {
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setEffectReport(data)
+      }
+    } catch (error) {
+      console.error('Failed to load effect report:', error)
+    }
+  }, [])
+
   const loadAllData = useCallback(() => {
     loadUsers()
     loadRecentSessions()
     loadStats()
-  }, [loadUsers, loadRecentSessions, loadStats])
+    loadEffectReport()
+  }, [loadUsers, loadRecentSessions, loadStats, loadEffectReport])
 
   return {
     users,
     recentSessions,
     stats,
+    effectReport,
     loading,
     loadAllData
   }

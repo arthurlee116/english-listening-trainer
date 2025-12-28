@@ -1,4 +1,4 @@
-import { type RefObject } from "react"
+import { type RefObject, useEffect, useMemo, useState } from "react"
 
 import { Loader2, Sparkles, Newspaper } from "lucide-react"
 
@@ -7,8 +7,10 @@ import { AchievementPanel } from "@/components/achievement-panel"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -23,6 +25,11 @@ import {
   DURATION_OPTIONS,
 } from "@/lib/constants/practice-config"
 import { LANGUAGE_OPTIONS } from "@/lib/language-config"
+import type { FocusArea } from "@/lib/types"
+import { FOCUS_AREA_LIST } from "@/lib/types"
+import { loadSpecializedModeSettings, saveSpecializedModeSettings } from "@/lib/specialized-mode"
+import { loadDifficultyMode, loadManualDifficulty, saveDifficultyMode } from "@/lib/difficulty-mode"
+import { loadPersonalization } from "@/lib/personalization"
 import type {
   DifficultyLevel,
   ListeningLanguage,
@@ -71,8 +78,60 @@ export function PracticeConfiguration({
   achievements,
 }: PracticeConfigurationProps) {
   const { t } = useBilingualText()
+  const { difficulty, onDifficultyChange } = practiceSetup
 
   // handleSelectRecommendedTopic logic moved to parent
+  const [specializedEnabled, setSpecializedEnabled] = useState(false)
+  const [selectedFocusAreas, setSelectedFocusAreas] = useState<FocusArea[]>([])
+  const [difficultyMode, setDifficultyMode] = useState<'auto' | 'manual'>('manual')
+  const [autoHint, setAutoHint] = useState<string>('')
+
+  useEffect(() => {
+    const settings = loadSpecializedModeSettings()
+    setSpecializedEnabled(settings.enabled)
+    setSelectedFocusAreas(settings.selectedFocusAreas)
+
+    const mode = loadDifficultyMode()
+    setDifficultyMode(mode)
+
+    const personalization = loadPersonalization()
+    if (personalization) {
+      setAutoHint(`${personalization.cefr} (${personalization.difficultyRange.min}-${personalization.difficultyRange.max})`)
+    } else {
+      setAutoHint(t("labels.selectDifficulty"))
+    }
+  }, [])
+
+  useEffect(() => {
+    saveSpecializedModeSettings({ enabled: specializedEnabled, selectedFocusAreas })
+  }, [specializedEnabled, selectedFocusAreas])
+
+  useEffect(() => {
+    saveDifficultyMode(difficultyMode)
+    if (difficultyMode === 'auto') {
+      const personalization = loadPersonalization()
+      if (personalization) {
+        if (personalization.cefr !== difficulty) {
+          onDifficultyChange(personalization.cefr)
+        }
+      }
+    } else {
+      const manual = loadManualDifficulty()
+      if (manual) {
+        if (manual !== difficulty) {
+          onDifficultyChange(manual)
+        }
+      }
+    }
+  }, [difficultyMode, difficulty, onDifficultyChange])
+
+  const selectedCountLabel = useMemo(() => {
+    return t("components.specializedPractice.selectedAreas", {
+      values: { count: selectedFocusAreas.length },
+    })
+  }, [selectedFocusAreas.length, t])
+
+  const canSelectMore = selectedFocusAreas.length < 5
 
 
   return (
@@ -92,9 +151,28 @@ export function PracticeConfiguration({
             <Label htmlFor="difficulty" className="text-base font-medium text-slate-700">
               <BilingualText translationKey="labels.difficulty" />
             </Label>
+
+            <div className="mt-2 mb-3 flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-600">
+                {difficultyMode === 'auto' ? (
+                  <span>Auto: {autoHint}</span>
+                ) : (
+                  <span>Manual</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-600">Auto</span>
+                <Switch
+                  checked={difficultyMode === 'auto'}
+                  onCheckedChange={(checked) => setDifficultyMode(checked ? 'auto' : 'manual')}
+                  aria-label="Difficulty Auto Mode"
+                />
+              </div>
+            </div>
             <Select
               value={practiceSetup.difficulty}
               onValueChange={(value) => practiceSetup.onDifficultyChange(value as DifficultyLevel | "")}
+              disabled={difficultyMode === 'auto'}
             >
               <SelectTrigger
                 aria-label={t("labels.difficulty")}
@@ -116,6 +194,76 @@ export function PracticeConfiguration({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Specialized Practice Mode */}
+          <Card className="p-4 border border-slate-200/60 bg-white/50">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-medium text-slate-800">
+                  <BilingualText translationKey="components.specializedPractice.title" />
+                </div>
+                <div className="text-xs text-slate-600">
+                  <BilingualText translationKey="components.specializedPractice.description" />
+                </div>
+              </div>
+              <Switch
+                id="specialized-mode"
+                checked={specializedEnabled}
+                onCheckedChange={setSpecializedEnabled}
+                aria-label="Specialized Mode"
+              />
+            </div>
+
+            {specializedEnabled && (
+              <div className="mt-4 space-y-3">
+                <div className="text-sm text-slate-700 font-medium">
+                  {selectedCountLabel}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {FOCUS_AREA_LIST.map((area) => {
+                    const checked = selectedFocusAreas.includes(area)
+                    const disabled = !checked && !canSelectMore
+                    return (
+                      <label
+                        key={area}
+                        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${disabled ? 'opacity-60' : 'cursor-pointer hover:bg-slate-50'}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          disabled={disabled}
+                          onCheckedChange={(next) => {
+                            const isChecked = Boolean(next)
+                            setSelectedFocusAreas((prev) => {
+                              if (isChecked) {
+                                if (prev.includes(area) || prev.length >= 5) return prev
+                                return [...prev, area]
+                              }
+                              return prev.filter((a) => a !== area)
+                            })
+                          }}
+                          aria-label={area}
+                        />
+                        <span>
+                          <BilingualText translationKey={`components.specializedPractice.focusAreas.${area}`} />
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                {selectedFocusAreas.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setSelectedFocusAreas([])}
+                  >
+                    <BilingualText translationKey="components.specializedPractice.clearSelection" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </Card>
 
           <div>
             <Label htmlFor="language" className="text-base font-medium text-slate-700">

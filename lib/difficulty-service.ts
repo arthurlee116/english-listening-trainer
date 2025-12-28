@@ -11,12 +11,12 @@ export interface DifficultyRange {
 }
 
 export const DIFFICULTY_RANGES: DifficultyRange[] = [
-  { min: 1, max: 5, name: '初学者', nameEn: 'Beginner', description: '非常慢语速，最基础词汇，简单句' },
-  { min: 6, max: 10, name: '入门', nameEn: 'Elementary', description: '慢语速，日常词汇，基础句式' },
-  { min: 11, max: 15, name: '初级', nameEn: 'Pre-Intermediate', description: '正常语速，常用词汇，一般句式' },
-  { min: 16, max: 20, name: '中级', nameEn: 'Intermediate', description: '略快语速，丰富词汇，复合句' },
-  { min: 21, max: 25, name: '中高级', nameEn: 'Upper-Intermediate', description: '快语速，专业词汇，复杂句式' },
-  { min: 26, max: 30, name: '高级', nameEn: 'Advanced', description: '很快语速，学术词汇，长难句' },
+  { min: 1, max: 5, name: 'A1 - 初学者', nameEn: 'A1 - Beginner', description: '非常慢语速，最基础词汇，简单句' },
+  { min: 6, max: 10, name: 'A2 - 基础级', nameEn: 'A2 - Elementary', description: '慢语速，日常词汇，基础句式' },
+  { min: 11, max: 15, name: 'B1 - 中级', nameEn: 'B1 - Intermediate', description: '正常语速，常用词汇，一般句式' },
+  { min: 16, max: 20, name: 'B2 - 中高级', nameEn: 'B2 - Upper Intermediate', description: '略快语速，丰富词汇，复合句' },
+  { min: 21, max: 25, name: 'C1 - 高级', nameEn: 'C1 - Advanced', description: '快语速，专业词汇，复杂句式' },
+  { min: 26, max: 30, name: 'C2 - 精通级', nameEn: 'C2 - Proficient', description: '很快语速，学术词汇，长难句' },
 ]
 
 // 测试音频定义
@@ -24,6 +24,7 @@ export interface AssessmentAudio {
   id: number
   filename: string
   difficulty: number
+  speed: number
   weight: number
   topic: string
   description: string
@@ -35,6 +36,7 @@ export const ASSESSMENT_AUDIOS: AssessmentAudio[] = [
     id: 1,
     filename: 'test-1-level6.wav',
     difficulty: 6,
+    speed: 0.85,
     weight: 0.1,
     topic: 'Simple Shopping Conversation',
     description: '超级简单购物对话，0.8倍慢语速，最基础词汇，短句',
@@ -49,6 +51,7 @@ B: Thank you! Have a nice day!`
     id: 2,
     filename: 'test-2-level12.wav',
     difficulty: 12,
+    speed: 1.0,
     weight: 0.15,
     topic: 'University Life Discussion',
     description: '校园生活讨论，正常语速，教育词汇，复合句',
@@ -61,6 +64,7 @@ Student B: That's a great idea! I'll ask for permission first.`
     id: 3,
     filename: 'test-3-level18.wav',
     difficulty: 18,
+    speed: 1.15,
     weight: 0.2,
     topic: 'Business Meeting Report',
     description: '商务会议报告，1.2倍略快语速，商务术语，复杂句型',
@@ -70,6 +74,7 @@ Student B: That's a great idea! I'll ask for permission first.`
     id: 4,
     filename: 'test-4-level24.wav',
     difficulty: 24,
+    speed: 1.3,
     weight: 0.25,
     topic: 'AI Technology News',
     description: '人工智能科技新闻，1.4倍快语速，科技术语，长难句',
@@ -79,6 +84,7 @@ Student B: That's a great idea! I'll ask for permission first.`
     id: 5,
     filename: 'test-5-level30.wav',
     difficulty: 30,
+    speed: 1.45,
     weight: 0.3,
     topic: 'Quantum Physics Lecture',
     description: '量子物理学术讲座，1.5倍极快语速，量子力学专业术语，复杂学术句式',

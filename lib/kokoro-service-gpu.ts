@@ -1,688 +1,333 @@
 import { EventEmitter } from 'events'
-import { spawn, ChildProcess } from 'child_process'
-import path from 'path'
+import { spawn, type ChildProcess } from 'child_process'
 import fs from 'fs'
-import { audioCleanupService } from './audio-cleanup-service'
+import path from 'path'
 
-import {
-  buildKokoroPythonEnv,
-  detectKokoroDevicePreference,
-  resolveKokoroPythonExecutable,
-  resolveKokoroWorkingDirectory,
-  resolveKokoroWrapperPath
-} from './kokoro-env'
-
-import { getWavAudioMetadata, GeneratedAudioResult } from './audio-utils'
+import { getWavAudioMetadata, type GeneratedAudioResult } from './audio-utils'
 import { DEFAULT_LANGUAGE, getLanguageConfig, isLanguageSupported } from './language-config'
 import type { ListeningLanguage } from './types'
+import {
+  resolveKokoroPythonExecutable,
+  resolveKokoroWorkingDirectory,
+  resolveKokoroWrapperPath,
+} from './kokoro-env'
 
-/**
- * 电路断路器状态机
- */
-enum CircuitState {
-  CLOSED = 'closed',     // 正常状态
-  OPEN = 'open',         // 故障状态，快速失败
-  HALF_OPEN = 'half_open' // 半开放，测试是否恢复
+type KokoroWorkerResponse = {
+  success: boolean
+  request_id?: number
+  audio_data?: string
+  error?: string
+  device?: string
+  lang_code?: string
+  voice?: string
 }
 
-/**
- * 电路断路器配置
- */
-interface CircuitBreakerConfig {
-  failureThreshold: number      // 失败阈值
-  successThreshold: number      // 半开放状态下的成功阈值
-  timeoutMs: number            // open状态超时时间
-  retryDelayMs: number         // 半开放重试间隔
-  maxRetryDelayMs: number      // 最大重试延迟
-  exponentialBackoff: boolean  // 是否启用指数退避
+type PendingRequest = {
+  startTime: number
+  timeout: NodeJS.Timeout
+  resolve: (value: KokoroWorkerResponse) => void
+  reject: (error: Error) => void
 }
 
-/**
- * 电路断路器实现
- */
-class CircuitBreaker {
-  private state: CircuitState = CircuitState.CLOSED
-  private failures = 0
-  private successes = 0
-  private lastFailureTime = 0
-  private nextAttemptTime = 0
-
-  constructor(private config: CircuitBreakerConfig) {}
-
-  canExecute(): boolean {
-    switch (this.state) {
-      case CircuitState.CLOSED:
-        return true
-      case CircuitState.OPEN:
-        if (Date.now() >= this.nextAttemptTime) {
-          this.state = CircuitState.HALF_OPEN
-          return true
-        }
-        return false
-      case CircuitState.HALF_OPEN:
-        return true
-      default:
-        return false
-    }
-  }
-
-  recordSuccess(): void {
-    this.failures = 0
-    this.successes++
-
-    if (this.state === CircuitState.HALF_OPEN && this.successes >= this.config.successThreshold) {
-      this.state = CircuitState.CLOSED
-      this.successes = 0
-      console.log('🚧 Circuit breaker: CLOSED (recovered)')
-    }
-  }
-
-  recordFailure(): void {
-    this.failures++
-    this.lastFailureTime = Date.now()
-
-    if (this.state === CircuitState.HALF_OPEN) {
-      this.state = CircuitState.OPEN
-      this.successes = 0
-      this.nextAttemptTime = Date.now() + this.calculateRetryDelay()
-      console.log('🚧 Circuit breaker: OPEN (half-open failure)')
-    } else if (this.failures >= this.config.failureThreshold) {
-      this.state = CircuitState.OPEN
-      this.nextAttemptTime = Date.now() + this.calculateRetryDelay()
-      console.log('🚧 Circuit breaker: OPEN (threshold exceeded)')
-    }
-  }
-
-  private calculateRetryDelay(): number {
-    if (!this.config.exponentialBackoff) {
-      return this.config.retryDelayMs
-    }
-
-    // 指数退避：baseDelay * 2^(failures-1)
-    const baseDelay = this.config.retryDelayMs
-    const multiplier = Math.pow(2, Math.min(this.failures - 1, 5)) // 最多2^5倍
-    return Math.min(baseDelay * multiplier, this.config.maxRetryDelayMs)
-  }
-
-  getState(): CircuitState {
-    return this.state
-  }
-
-  getFailures(): number {
-    return this.failures
-  }
-
-  getNextAttemptTime(): number {
-    return this.nextAttemptTime
-  }
-
-  reset(): void {
-    this.state = CircuitState.CLOSED
-    this.failures = 0
-    this.successes = 0
-    this.lastFailureTime = 0
-    this.nextAttemptTime = 0
-  }
+const globalForKokoro = globalThis as typeof globalThis & {
+  __kokoroTTSGPU?: KokoroTTSService
+  __kokoroTTSGPU_CREATED?: boolean
+  __kokoroSignalHandlersRegistered?: boolean
 }
 
-/**
- * 增强版Kokoro TTS服务，专为GPU服务器优化
- * 支持CUDA加速和真实Kokoro模型
- * 集成电路断路器防止级联故障
- */
-const globalForKokoro = globalThis as typeof globalThis & { __kokoroTTSGPU?: KokoroTTSGPUService, __kokoroTTSGPU_CREATED?: boolean }
-
-export class KokoroTTSGPUService extends EventEmitter {
+export class KokoroTTSService extends EventEmitter {
   private process: ChildProcess | null = null
   private initialized = false
-  private pendingRequests: Map<number, { resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string; request_id?: number }) => void; reject: (error: Error) => void; startTime: number; timeout: NodeJS.Timeout }> = new Map()
-  private requestIdCounter = 0
-  private circuitBreaker: CircuitBreaker
-  private restartAttempts = 0
-  private maxRestartAttempts = 10
-  private lastError: string = ''
-
-  // 统计信息
-  private stats = {
-    totalRequests: 0,
-    successfulRequests: 0,
-    failedRequests: 0,
-    responseTimes: [] as number[], // 最近100次响应时间
-  }
-
-  // 最近错误记录（最多保留20个）
-  private recentErrors: Array<{ message: string; timestamp: number; requestId?: number }> = []
+  private startPromise: Promise<void> | null = null
+  private pendingRequests = new Map<number, PendingRequest>()
+  private nextRequestId = 0
 
   constructor() {
     super()
 
     if (globalForKokoro.__kokoroTTSGPU_CREATED) {
-      throw new Error('KokoroTTSGPUService is a singleton; use kokoroTTSGPU instance instead.')
+      throw new Error('KokoroTTSService is a singleton; use kokoroTTSGPU instance instead.')
     }
     globalForKokoro.__kokoroTTSGPU_CREATED = true
-
-    // 初始化电路断路器
-    this.circuitBreaker = new CircuitBreaker({
-      failureThreshold: 5,        // 5次失败后打开
-      successThreshold: 3,        // 半开放状态需3次成功
-      timeoutMs: 60 * 1000,       // 1分钟后半开放
-      retryDelayMs: 5 * 1000,     // 5秒基础重试延迟
-      maxRetryDelayMs: 5 * 60 * 1000, // 5分钟最大延迟
-      exponentialBackoff: true
-    })
-
-    console.log('🚀 Initializing Kokoro GPU TTS Service...')
-    // 启动一次清理服务（幂等）
-    try {
-      audioCleanupService.start()
-    } catch (err) {
-      console.warn('⚠️ Failed to start audio cleanup service:', err)
-    }
-    this.startPythonProcess().catch(error => console.error('Init failed:', error instanceof Error ? error.message : String(error)))
   }
 
-  // Add shutdown method
   async shutdown(): Promise<void> {
-    console.log('Shutting down GPU TTS service...')
+    this.failAllPending(new Error('Kokoro TTS worker shut down'))
+    this.initialized = false
+
     if (this.process) {
       this.process.kill()
       this.process = null
     }
-    this.pendingRequests.clear()
-    this.initialized = false
-  }
-
-  private async startPythonProcess(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const pythonPath = resolveKokoroWrapperPath()
-
-      if (!fs.existsSync(pythonPath)) {
-        console.error('❌ Kokoro GPU wrapper not found:', pythonPath)
-        reject(new Error(`Kokoro GPU wrapper not found at ${pythonPath}`))
-        return
-      }
-
-      console.log('🚀 Starting Kokoro GPU Python process...')
-
-      // Heuristically pick the best accelerator for the host (Apple → MPS, NVIDIA → CUDA, fallback → auto)
-      const preferredDevice = detectKokoroDevicePreference()
-      const env = buildKokoroPythonEnv()
-
-      console.log(`🔧 TTS device preference: ${preferredDevice} (KOKORO_DEVICE=${env.KOKORO_DEVICE})`)
-      if (env.PATH) {
-        console.log(`🔧 PATH: ${env.PATH}`)
-      }
-      if (env[process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH']) {
-        console.log(
-          `🔧 ${process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH'}: ${
-            env[process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH']
-          }`
-        )
-      }
-      if (env.https_proxy || env.http_proxy) {
-        console.log(`🌐 Proxy: ${env.https_proxy || env.http_proxy}`)
-      }
-
-      let pythonExecutable = resolveKokoroPythonExecutable()
-      if ((path.isAbsolute(pythonExecutable) || pythonExecutable.includes(path.sep)) && !fs.existsSync(pythonExecutable)) {
-        console.warn(`⚠️ Python executable ${pythonExecutable} not found, falling back to system python3`)
-        pythonExecutable = 'python3'
-      }
-
-      // 启动Python进程
-      this.process = spawn(pythonExecutable, [pythonPath], {
-        cwd: resolveKokoroWorkingDirectory(),
-        env,
-        stdio: ['pipe', 'pipe', 'pipe']
-      })
-
-      // 处理标准输出
-      let jsonBuffer = ''
-      if (this.process.stdout) {
-        this.process.stdout.on('data', (data: Buffer) => {
-          const output = data.toString()
-          jsonBuffer += output
-
-          const lines = jsonBuffer.split('\n')
-          jsonBuffer = lines.pop() || ''
-
-          for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed) continue
-            try {
-              const response = JSON.parse(trimmed) as { success: boolean; error?: string; audio_data?: string; device?: string; request_id?: number }
-              this.handleResponse(response)
-            } catch (err) {
-              console.warn('⚠️ Failed to parse Kokoro response line:', err, trimmed)
-            }
-          }
-        })
-      }
-
-      // 处理标准错误（日志）
-      if (this.process.stderr) {
-        this.process.stderr.on('data', (data: Buffer) => {
-          const errorOutput = data.toString()
-          console.log('🐍 Kokoro GPU stderr:', errorOutput.trim())
-          
-          // 检查初始化完成（匹配任何包含 "service is ready" 的消息）
-          if (errorOutput.includes('service is ready')) {
-            this.initialized = true
-            this.emit('ready')
-            resolve(undefined)
-          }
-        })
-      }
-
-      // 处理进程退出
-      if (this.process) {
-        this.process.on('exit', (code, signal) => {
-          console.log(`📴 Kokoro GPU process exited with code ${code}, signal: ${signal}`)
-          // intentionally restart via handler
-          this.handleProcessExit()
-        })
-
-        this.process.on('error', (error) => {
-          console.error('💥 Kokoro GPU process error:', error)
-          reject(error)
-        })
-      }
-
-      // 超时设置 - Tesla P40 首次加载需要更长时间
-      const timeout = setTimeout(() => {
-        if (!this.initialized) {
-          reject(new Error('Kokoro GPU initialization timeout'))
-        }
-      }, 600000) // 10分钟超时，给GPU首次加载足够时间
-
-      this.once('ready', () => {
-        clearTimeout(timeout)
-        resolve(undefined)
-      })
-    })
-  }
-
-  private recordRequestStats(params: { requestId: number; success: boolean; responseTime?: number; errorMessage?: string }): void {
-    this.stats.totalRequests++
-    if (typeof params.responseTime === 'number') {
-      this.stats.responseTimes.push(params.responseTime)
-      if (this.stats.responseTimes.length > 100) {
-        this.stats.responseTimes.shift() // 保持最近100次
-      }
-    }
-
-    if (params.success) {
-      this.stats.successfulRequests++
-    } else {
-      this.stats.failedRequests++
-      if (params.errorMessage) {
-        this.addRecentError(params.errorMessage, params.requestId)
-      }
-    }
-  }
-
-  private handleResponse(response: { success: boolean; error?: string; audio_data?: string; device?: string; request_id?: number }): void {
-    let requestId = response.request_id
-    if (requestId === undefined || !this.pendingRequests.has(requestId)) {
-      // 尝试回退到队列中的第一个请求，避免悬挂
-      const firstPending = this.pendingRequests.keys().next().value as number | undefined
-      if (firstPending === undefined) {
-        console.warn('⚠️ Received response with no matching pending request', response)
-        return
-      }
-      requestId = firstPending
-    }
-
-    const { resolve, reject, startTime, timeout } = this.pendingRequests.get(requestId)!
-    clearTimeout(timeout)
-    const responseTime = Date.now() - startTime
-    this.pendingRequests.delete(requestId)
-
-    if (response.success) {
-      this.recordRequestStats({ requestId, success: true, responseTime })
-      resolve(response)
-    } else {
-      const errorMessage = response.error || 'Unknown error'
-      this.recordRequestStats({
-        requestId,
-        success: false,
-        responseTime,
-        errorMessage
-      })
-      reject(new Error(response.error || 'Unknown error'))
-    }
-  }
-
-  /**
-   * 记录最近错误
-   */
-  private addRecentError(message: string, requestId?: number): void {
-    this.recentErrors.push({
-      message,
-      timestamp: Date.now(),
-      requestId
-    })
-    if (this.recentErrors.length > 20) {
-      this.recentErrors.shift()
-    }
-  }
-
-  private handleProcessExit(): void {
-    this.initialized = false
-    this.process = null
-    this.circuitBreaker.recordFailure()
-    this.restartAttempts++
-
-    const state = this.circuitBreaker.getState()
-    const delay = Math.min(5 * 1000 * Math.pow(2, this.restartAttempts), 5 * 60 * 1000) // 指数退避，最大5分钟
-
-    if (state === 'open') {
-      console.log(`🔄 Circuit breaker OPEN, retry delay: ${delay}ms`)
-    } else if (this.restartAttempts > this.maxRestartAttempts) {
-      console.error('❌ Max restart attempts reached, service unavailable')
-      this.lastError = 'TTS service unavailable after maximum restart attempts'
-      return
-    }
-
-    console.log(`🔄 Restarting GPU TTS (attempt ${this.restartAttempts}/${this.maxRestartAttempts}) in ${delay}ms...`)
-
-    setTimeout(() => {
-      this.startPythonProcess().catch(error => {
-        console.error('❌ Failed to restart GPU TTS process:', error instanceof Error ? error.message : String(error))
-        this.lastError = `Restart failed: ${error instanceof Error ? error.message : String(error)}`
-        this.circuitBreaker.recordFailure()
-      })
-    }, delay)
+    this.startPromise = null
   }
 
   async isReady(): Promise<boolean> {
-    // 检查电路断路器状态
-    if (!this.circuitBreaker.canExecute()) {
-      console.warn(`🚧 Circuit breaker blocked request: ${this.circuitBreaker.getState()}`)
+    try {
+      await this.ensureStarted()
+      return this.initialized && this.process !== null
+    } catch {
       return false
     }
-
-    if (this.initialized && this.process) {
-      // 服务已正常运行，记录成功
-      this.circuitBreaker.recordSuccess()
-      return true
-    }
-
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        cleanup()
-        // 初始化超时也算失败
-        this.circuitBreaker.recordFailure()
-        resolve(this.initialized && this.process !== null)
-      }, 10000) // 10秒超时，增加一点时间
-
-      const handleReady = () => {
-        cleanup()
-        this.circuitBreaker.recordSuccess()
-        resolve(true)
-      }
-
-      const handleError = () => {
-        cleanup()
-        this.circuitBreaker.recordFailure()
-        resolve(false)
-      }
-
-      const cleanup = () => {
-        clearTimeout(timeout)
-        this.off('ready', handleReady)
-        this.off('error', handleError)
-      }
-
-      this.once('ready', handleReady)
-      this.once('error', handleError)
-    })
   }
 
-  /**
-   * 获取服务状态和错误信息
-   */
-  getServiceStatus() {
-    return {
-      state: this.circuitBreaker.getState(),
-      failures: this.circuitBreaker.getFailures(),
-      initialized: this.initialized,
-      processAlive: this.process !== null,
-      lastError: this.lastError || 'None',
-      restartAttempts: this.restartAttempts
-    }
-  }
-
-  /**
-   * 获取服务统计信息
-   */
-  getStats() {
-    const avgResponseTime = this.stats.responseTimes.length > 0
-      ? this.stats.responseTimes.reduce((a, b) => a + b, 0) / this.stats.responseTimes.length
-      : 0
-
-    const sortedTimes = [...this.stats.responseTimes].sort((a, b) => a - b)
-    const p50 = sortedTimes[Math.floor(sortedTimes.length * 0.5)] || 0
-    const p90 = sortedTimes[Math.floor(sortedTimes.length * 0.9)] || 0
-    const p99 = sortedTimes[Math.floor(sortedTimes.length * 0.99)] || 0
-
-    return {
-      totalRequests: this.stats.totalRequests,
-      successfulRequests: this.stats.successfulRequests,
-      failedRequests: this.stats.failedRequests,
-      successRate: this.stats.totalRequests > 0
-        ? (this.stats.successfulRequests / this.stats.totalRequests * 100).toFixed(2) + '%'
-        : '0%',
-      averageResponseTime: Math.round(avgResponseTime),
-      responseTimeP50: Math.round(p50),
-      responseTimeP90: Math.round(p90),
-      responseTimeP99: Math.round(p99),
-      lastUpdated: new Date().toISOString()
-    }
-  }
-
-  /**
-   * 获取队列信息
-   */
-  getQueueInfo() {
-    return {
-      queueLength: this.pendingRequests.size,
-      activeRequests: this.pendingRequests.size,
-      isProcessing: this.pendingRequests.size > 0,
-      oldestRequestAge: this.pendingRequests.size > 0
-        ? Date.now() - Math.min(...Array.from(this.pendingRequests.values()).map(req => req.startTime))
-        : 0
-    }
-  }
-
-  /**
-   * 获取健康信息
-   */
-  getHealthInfo() {
-    const circuitState = this.circuitBreaker.getState()
-    const nextAttemptTime = this.circuitBreaker.getNextAttemptTime()
-
-    return {
-      circuitBreakerState: circuitState,
-      isHealthy: circuitState === CircuitState.CLOSED,
-      failures: this.circuitBreaker.getFailures(),
-      nextAttemptIn: circuitState === CircuitState.OPEN
-        ? Math.max(0, nextAttemptTime - Date.now())
-        : 0,
-      initialized: this.initialized,
-      processAlive: this.process !== null,
-      lastError: this.lastError,
-      restartAttempts: this.restartAttempts,
-      maxRestartAttempts: this.maxRestartAttempts
-    }
-  }
-
-  /**
-   * 获取最近错误
-   */
-  getRecentErrors() {
-    return this.recentErrors.map(err => ({
-      message: err.message,
-      timestamp: new Date(err.timestamp).toISOString(),
-      requestId: err.requestId
-    }))
-  }
-
-  async generateAudio(text: string, speed: number = 1.0, language: string = DEFAULT_LANGUAGE): Promise<GeneratedAudioResult> {
-    // 检查电路断路器状态
-    if (!this.circuitBreaker.canExecute()) {
-      const state = this.circuitBreaker.getState()
-      const nextAttempt = this.circuitBreaker.getNextAttemptTime()
-      const waitTime = Math.max(0, nextAttempt - Date.now())
-
-      throw new Error(`TTS service unavailable (circuit breaker ${state}). Next attempt in ${Math.ceil(waitTime / 1000)}s`)
-    }
-
-    if (!this.initialized || !this.process) {
-      this.circuitBreaker.recordFailure()
-      throw new Error('Kokoro GPU TTS service not initialized')
-    }
-
+  async generateAudio(
+    text: string,
+    speed: number = 1.0,
+    language: string = DEFAULT_LANGUAGE
+  ): Promise<GeneratedAudioResult> {
     if (!text || text.trim() === '') {
       throw new Error('Text cannot be empty')
     }
 
-    return new Promise((resolve, reject) => {
-      const requestId = this.requestIdCounter++
-      const startTime = Date.now()
+    const isReady = await this.isReady()
+    if (!isReady) {
+      throw new Error('Kokoro TTS service not initialized')
+    }
 
-      const estimatedChunks = Math.max(1, Math.ceil(text.length / 100))
-      const estimatedTimeout = Math.min(300000, Math.max(60000, estimatedChunks * 4000))
+    const requestId = this.nextRequestId++
+    const startTime = Date.now()
 
+    const requestedLanguage = (language ?? DEFAULT_LANGUAGE) as ListeningLanguage
+    const effectiveLanguage = isLanguageSupported(requestedLanguage) ? requestedLanguage : DEFAULT_LANGUAGE
+    const languageConfig = getLanguageConfig(effectiveLanguage)
+    const langCodeForPython = languageConfig.code.length === 1 ? languageConfig.code : languageConfig.code.toLowerCase()
+    const voiceForPython = languageConfig.voice
+
+    const estimatedChunks = Math.max(1, Math.ceil(text.length / 300))
+    const timeoutMs = Math.min(5 * 60 * 1000, Math.max(60 * 1000, estimatedChunks * 30 * 1000))
+
+    const response = await new Promise<KokoroWorkerResponse>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId)
-        const timeoutError = `GPU audio generation timeout after ${Math.round(estimatedTimeout / 1000)} seconds`
-        this.recordRequestStats({
-          requestId,
-          success: false,
-          responseTime: Date.now() - startTime,
-          errorMessage: timeoutError
-        })
-        console.error('⏰ GPU audio generation timeout')
-        this.circuitBreaker.recordFailure()
-        this.lastError = 'Audio generation timeout'
-        reject(new Error(timeoutError))
-      }, estimatedTimeout)
+        reject(new Error(`TTS generation timeout after ${Math.round(timeoutMs / 1000)} seconds`))
+      }, timeoutMs)
 
-      this.pendingRequests.set(requestId, {
-        startTime,
-        timeout,
-        resolve: (response: { success: boolean; audio_data?: string; device?: string; error?: string; request_id?: number }) => {
-          if (response.success && response.audio_data) {
-            const audioHex = response.audio_data
-            const responseDevice = response.device
-            ;(async () => {
-              try {
-                const audioBuffer = Buffer.from(audioHex, 'hex')
-
-                if (audioBuffer.length === 0) {
-                  throw new Error('Audio buffer is empty after hex decoding')
-                }
-
-                if (audioBuffer.length < 100) {
-                  console.warn(`⚠️ Audio buffer suspiciously small: ${audioBuffer.length} bytes`)
-                }
-
-                const timestamp = Date.now()
-                const filename = `tts_audio_${timestamp}.wav`
-                const filepath = path.join(process.cwd(), 'public', filename)
-
-                await fs.promises.writeFile(filepath, audioBuffer)
-
-                console.log(`💾 GPU Audio saved: ${filename} (${audioBuffer.length} bytes)`)
-                console.log(`🔥 Generated using device: ${responseDevice || 'unknown'}`)
-
-                const metadata = getWavAudioMetadata(audioBuffer)
-
-                // 成功时记录到电路断路器
-                this.circuitBreaker.recordSuccess()
-                this.restartAttempts = 0 // 重置重启计数
-                this.lastError = '' // 清除错误
-
-                resolve({
-                  audioUrl: `/${filename}`,
-                  duration: metadata.duration,
-                  byteLength: audioBuffer.length
-                })
-              } catch (error) {
-                console.error('❌ Failed to save GPU audio file:', error)
-                const errorMessage = error instanceof Error ? error.message : String(error)
-                this.addRecentError(`File save error: ${errorMessage}`, requestId)
-                this.circuitBreaker.recordFailure()
-                this.lastError = `File save error: ${errorMessage}`
-                reject(new Error(`Failed to save GPU audio file: ${errorMessage}`))
-              }
-            })().catch(reject)
-          } else {
-            const errorMsg = response.error || 'Failed to generate GPU audio'
-            console.error('❌ GPU audio generation failed:', errorMsg)
-            this.circuitBreaker.recordFailure()
-            this.lastError = errorMsg
-            reject(new Error(errorMsg))
-          }
-        },
-        reject: (error: Error) => {
-          console.error('❌ GPU audio generation error:', error)
-          this.circuitBreaker.recordFailure()
-          this.lastError = error.message
-          reject(error)
-        }
-      })
-
-      const requestedLanguage = (language ?? DEFAULT_LANGUAGE) as ListeningLanguage
-      const effectiveLanguage = isLanguageSupported(requestedLanguage) ? requestedLanguage : DEFAULT_LANGUAGE
-      const languageConfig = getLanguageConfig(effectiveLanguage)
-      // Align GPU path with the shared language→voice mapping so we reuse the
-      // same Kokoro voice packs as the CPU service.
-      const langCodeForPython = languageConfig.code.length === 1 ? languageConfig.code : languageConfig.code.toLowerCase()
-      const voiceForPython = languageConfig.voice
-
-      console.log(`🎙️ GPU voice configuration → lang: ${effectiveLanguage} (${langCodeForPython}), voice: ${voiceForPython}`)
+      this.pendingRequests.set(requestId, { startTime, timeout, resolve, reject })
 
       const request = {
         request_id: requestId,
         text,
         speed,
         lang_code: langCodeForPython,
-        voice: voiceForPython
+        voice: voiceForPython,
       }
-
-      const requestLine = JSON.stringify(request) + '\n'
 
       try {
         if (!this.process?.stdin || this.process.stdin.destroyed) {
-          throw new Error('GPU Python process stdin is not available or destroyed')
+          throw new Error('Python worker stdin is not available')
         }
-
-        this.process.stdin.write(requestLine)
-        console.log(`📤 GPU TTS request sent: ${text.length} chars`)
+        this.process.stdin.write(`${JSON.stringify(request)}\n`)
       } catch (error) {
-        console.error('❌ Failed to send GPU TTS request:', error)
+        clearTimeout(timeout)
         this.pendingRequests.delete(requestId)
-        this.circuitBreaker.recordFailure()
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        this.lastError = `Send failure: ${errorMessage}`
-        reject(new Error(`Failed to send request to GPU process: ${errorMessage}`))
+        reject(error instanceof Error ? error : new Error(String(error)))
       }
     })
+
+    if (!response.success || !response.audio_data) {
+      throw new Error(response.error || 'Failed to generate audio')
+    }
+
+    const audioBuffer = Buffer.from(response.audio_data, 'hex')
+    if (audioBuffer.length === 0) {
+      throw new Error('Audio buffer is empty after hex decoding')
+    }
+
+    const filename = `tts_audio_${Date.now()}_${requestId}.wav`
+    const filepath = path.join(process.cwd(), 'public', filename)
+    await fs.promises.writeFile(filepath, audioBuffer)
+    await pruneOldTtsAudioFiles(5)
+
+    const metadata = getWavAudioMetadata(audioBuffer)
+    const duration = metadata.duration
+
+    return {
+      audioUrl: `/${filename}`,
+      duration,
+      byteLength: audioBuffer.length,
+    }
+  }
+
+  private async ensureStarted(): Promise<void> {
+    if (this.startPromise) {
+      return this.startPromise
+    }
+
+    this.startPromise = this.startWorker()
+    try {
+      await this.startPromise
+    } catch (error) {
+      this.startPromise = null
+      throw error
+    }
+  }
+
+  private async startWorker(): Promise<void> {
+    const pythonScript = resolveKokoroWrapperPath()
+    if (!fs.existsSync(pythonScript)) {
+      throw new Error(`Kokoro wrapper not found at ${pythonScript}`)
+    }
+
+    let pythonExecutable = resolveKokoroPythonExecutable()
+    if ((path.isAbsolute(pythonExecutable) || pythonExecutable.includes(path.sep)) && !fs.existsSync(pythonExecutable)) {
+      pythonExecutable = 'python3'
+    }
+
+    const env: NodeJS.ProcessEnv = { ...process.env }
+    this.initialized = false
+
+    this.process = spawn(pythonExecutable, [pythonScript], {
+      cwd: resolveKokoroWorkingDirectory(),
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    this.process.on('exit', () => {
+      this.initialized = false
+      this.process = null
+      this.startPromise = null
+      this.failAllPending(new Error('Kokoro TTS worker exited'))
+    })
+
+    this.process.on('error', (error) => {
+      this.initialized = false
+      this.process = null
+      this.startPromise = null
+      this.failAllPending(error)
+    })
+
+    let jsonBuffer = ''
+    this.process.stdout?.on('data', (data: Buffer) => {
+      jsonBuffer += data.toString()
+      const lines = jsonBuffer.split('\n')
+      jsonBuffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        try {
+          const response = JSON.parse(trimmed) as KokoroWorkerResponse
+          this.handleResponse(response)
+        } catch {
+          // If stdout isn't JSON, we intentionally ignore to avoid breaking the stream parser.
+        }
+      }
+    })
+
+    this.process.stderr?.on('data', (data: Buffer) => {
+      const output = data.toString()
+      if (output.includes('service is ready')) {
+        this.initialized = true
+        this.emit('ready')
+      }
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Kokoro TTS initialization timeout'))
+      }, 10 * 60 * 1000)
+
+      this.once('ready', () => {
+        clearTimeout(timeout)
+        resolve()
+      })
+
+      this.process?.once('exit', () => {
+        clearTimeout(timeout)
+        reject(new Error('Kokoro TTS worker exited during initialization'))
+      })
+    })
+  }
+
+  private handleResponse(response: KokoroWorkerResponse): void {
+    let requestId = response.request_id
+    if (requestId === undefined || !this.pendingRequests.has(requestId)) {
+      const firstPending = this.pendingRequests.keys().next().value as number | undefined
+      if (firstPending === undefined) return
+      requestId = firstPending
+    }
+
+    const pending = this.pendingRequests.get(requestId)
+    if (!pending) return
+
+    clearTimeout(pending.timeout)
+    this.pendingRequests.delete(requestId)
+
+    if (response.success) {
+      pending.resolve(response)
+      return
+    }
+
+    pending.reject(new Error(response.error || 'Unknown error'))
+  }
+
+  private failAllPending(error: Error): void {
+    for (const [, pending] of this.pendingRequests) {
+      clearTimeout(pending.timeout)
+      pending.reject(error)
+    }
+    this.pendingRequests.clear()
   }
 }
 
-// 导出增强版服务（全局单例，避免HMR/多实例重复启动子进程）
-export const kokoroTTSGPU = globalForKokoro.__kokoroTTSGPU ?? (globalForKokoro.__kokoroTTSGPU = new KokoroTTSGPUService())
+async function pruneOldTtsAudioFiles(keepCount: number): Promise<void> {
+  if (!Number.isFinite(keepCount) || keepCount < 0) return
 
-// 优雅关闭处理（防止重复注册）
-if (!(globalForKokoro as Record<string, unknown>).__kokoroSignalHandlersRegistered) {
-  (globalForKokoro as Record<string, unknown>).__kokoroSignalHandlersRegistered = true
+  const publicDir = path.join(process.cwd(), 'public')
+  let entries: string[]
+  try {
+    entries = await fs.promises.readdir(publicDir)
+  } catch {
+    return
+  }
+
+  const candidates = entries.filter(
+    (name) => name.startsWith('tts_audio_') && name.endsWith('.wav')
+  )
+  if (candidates.length <= keepCount) return
+
+  const filesWithStats = await Promise.all(
+    candidates.map(async (name) => {
+      const fullPath = path.join(publicDir, name)
+      try {
+        const stat = await fs.promises.stat(fullPath)
+        return { name, fullPath, mtimeMs: stat.mtimeMs }
+      } catch {
+        return null
+      }
+    })
+  )
+
+  const existing = filesWithStats.filter(
+    (item): item is NonNullable<(typeof filesWithStats)[number]> => item !== null
+  )
+
+  existing.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  const toDelete = existing.slice(keepCount)
+
+  await Promise.all(
+    toDelete.map(async (file) => {
+      try {
+        await fs.promises.unlink(file.fullPath)
+      } catch {
+        // best-effort
+      }
+    })
+  )
+}
+
+export const kokoroTTSGPU =
+  globalForKokoro.__kokoroTTSGPU ?? (globalForKokoro.__kokoroTTSGPU = new KokoroTTSService())
+
+if (!globalForKokoro.__kokoroSignalHandlersRegistered) {
+  globalForKokoro.__kokoroSignalHandlersRegistered = true
+
   process.on('SIGINT', async () => {
     await kokoroTTSGPU.shutdown()
     process.exit(0)
   })
+
   process.on('SIGTERM', async () => {
     await kokoroTTSGPU.shutdown()
     process.exit(0)

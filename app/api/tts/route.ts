@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         duration: cachedAudio.duration,
         byteLength: cachedAudio.byteLength,
         cached: true,
-        provider: 'kokoro-gpu',
+        provider: 'kokoro-coreml',
         message: 'Audio retrieved from cache'
       })
     }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       duration: audioResult.duration,
       byteLength: audioResult.byteLength,
       cached: false,
-      provider: 'kokoro-gpu',
+      provider: 'kokoro-coreml',
       message: 'Audio generated successfully'
     })
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const normalizedMessage = rawMessage.toLowerCase()
 
     let statusCode = 500
-    let userFacingMessage = 'GPU音频生成失败'
+    let userFacingMessage = '音频生成失败'
 
     if (normalizedMessage.includes('queue is full')) {
       statusCode = 429
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     if (normalizedMessage.includes('timeout')) {
       statusCode = 504
-      userFacingMessage = 'GPU音频生成超时，长文本需要更多时间，请稍后重试'
+      userFacingMessage = '音频生成超时，长文本需要更多时间，请稍后重试'
     } else if (
       normalizedMessage.includes('not initialized') ||
       normalizedMessage.includes('not ready') ||
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       normalizedMessage.includes('初始化中')
     ) {
       statusCode = 503
-      userFacingMessage = 'GPU TTS服务初始化中，请稍后重试'
+      userFacingMessage = 'TTS服务初始化中，请稍后重试'
     } else if (normalizedMessage.includes('text cannot be empty')) {
       statusCode = 400
       userFacingMessage = '文本内容不能为空'
@@ -119,15 +119,12 @@ export async function POST(request: NextRequest) {
     } else if (normalizedMessage.includes('kokoro modules not available')) {
       statusCode = 503
       userFacingMessage = 'Kokoro模块不可用，请检查服务器配置'
-    } else if (normalizedMessage.includes('cuda') || normalizedMessage.includes('gpu')) {
-      statusCode = 503
-      userFacingMessage = 'GPU加速服务异常，请检查CUDA配置'
     }
 
     return NextResponse.json({
       error: userFacingMessage,
       details: rawMessage,
-      provider: 'kokoro-gpu'
+      provider: 'kokoro-coreml'
     }, { status: statusCode })
   }
 }

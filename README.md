@@ -151,7 +151,6 @@ Traditional listening practice often lacks:
 - **Prisma ORM** — Database abstraction layer
 - **Cerebras API** — AI content generation and analysis
 - **Kokoro TTS** — Text-to-speech synthesis (local)
-- **OpenAI TTS** — Fallback audio generation
 
 ### Database
 - **SQLite** — Development database
@@ -178,7 +177,7 @@ Traditional listening practice often lacks:
 - **Docker & Docker Compose** (for containerized development)
 - **Git** for version control
 - **M4 processor recommended** (verified on Apple Silicon and x86-64 systems)
-- **32GB RAM recommended** for GPU-accelerated TTS
+- **32GB RAM recommended** for local TTS
 
 ### Environment Configuration
 
@@ -208,12 +207,8 @@ Traditional listening practice often lacks:
    AI_TIMEOUT=30000
    AI_MAX_RETRIES=3
 
-   # Kokoro TTS (optional, defaults to local if available)
+   # Kokoro TTS (local, CoreML)
    KOKORO_ENABLED=true
-   KOKORO_DEVICE=auto
-
-   # OpenAI (fallback TTS)
-   OPENAI_API_KEY=your_openai_api_key_if_using_fallback
 
    # Application
    NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -348,6 +343,9 @@ npm run admin
 npm run admin-dev
 ```
 
+Admin demo/screenshot data:
+- Set `ADMIN_DEMO_DATA=1` to show a clearly-labeled simulated “效果统计” table in `/admin` (default: off).
+
 ### Project Structure
 
 ```
@@ -387,7 +385,7 @@ english-listening-trainer/
 │   ├── schema.prisma          # Database schema definition
 │   └── migrations/            # Database migrations
 ├── kokoro_local/              # Kokoro TTS wrapper (Python)
-│   ├── kokoro_wrapper.py      # Main wrapper script
+│   ├── kokoro_coreml_wrapper.py # CoreML wrapper script
 │   ├── text_chunker.py        # Text segmentation logic
 │   └── ...
 ├── public/                    # Static assets and audio files
@@ -816,8 +814,7 @@ Sessions are automatically saved after grading. View history:
 │  └──────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ TTS Services                                      │  │
-│  │  - Kokoro (Primary, GPU-accelerated)             │  │
-│  │  - OpenAI (Fallback)                             │  │
+│  │  - Kokoro (CoreML wrapper, local)                │  │
 │  └──────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ Practice Session Management                      │  │
@@ -829,7 +826,7 @@ Sessions are automatically saved after grading. View history:
                  │              │              │
     ┌────────────▼────┐  ┌──────▼────┐  ┌────▼──────────┐
     │  Database       │  │ Cerebras  │  │ Kokoro TTS    │
-    │ (SQLite/PG)     │  │    API    │  │ (Local/GPU)   │
+    │ (SQLite/PG)     │  │    API    │  │ (CoreML)      │
     └─────────────────┘  └───────────┘  └───────────────┘
 ```
 
@@ -847,8 +844,7 @@ Sessions are automatically saved after grading. View history:
 
 3. **Audio Synthesis** (via `lib/kokoro-service-gpu.ts`)
    - Stream transcript to local Kokoro TTS
-   - GPU acceleration for real-time performance
-   - Fallback to OpenAI if Kokoro unavailable
+   - CoreML wrapper for acceleration (macOS)
 
 4. **User Answers Questions**
    - Frontend collects responses
@@ -900,7 +896,6 @@ Sessions are automatically saved after grading. View history:
 **Error Handling**:
 - Automatic retry with exponential backoff
 - Circuit breaker pattern for failing endpoints
-- Fallback chains (e.g., Kokoro → OpenAI TTS)
 - User-friendly error messages
 
 ---
@@ -935,10 +930,9 @@ Sessions are automatically saved after grading. View history:
 
 **Solutions:**
 - Run setup: `npm run setup-kokoro`
-- Verify Python 3.8+ installed: `python --version`
-- Check Kokoro model files downloaded: `ls kokoro_local/`
-- Review GPU status: `nvidia-smi` (for NVIDIA) or `system_profiler SPPowerDataType` (for Apple Silicon)
-- Fallback to OpenAI: Set `OPENAI_API_KEY`
+- Verify Python 3.10-3.12 installed: `python3 --version`
+- Verify venv exists: `ls kokoro_local/venv`
+- Verify CoreML models exist: `ls kokoro_local/coreml/*.mlpackage`
 
 #### 4. Audio Playback Issues
 
@@ -1205,7 +1199,7 @@ Before requesting review:
 
 - Initial production release
 - Core features: listening practice, AI feedback, progress tracking
-- TTS integration (Kokoro + OpenAI fallback)
+- TTS integration (Kokoro CoreML)
 - Multi-language support (8 languages)
 
 ---

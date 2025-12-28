@@ -87,4 +87,69 @@ describe('rss-fetcher proxy configuration', () => {
     expect(HttpsProxyAgent).toHaveBeenCalledWith('http://corp-proxy.example:3128')
     expect((globalThis as any).__rssParserOptions?.requestOptions?.agent).toBe(agentInstance)
   })
+
+  it('includes China Daily, CNBC and CNN RSS sources', async () => {
+    vi.doMock('https-proxy-agent', () => ({ HttpsProxyAgent: vi.fn() }))
+    vi.doMock('rss-parser', () => ({
+      default: class ParserMock {
+        constructor(_options: unknown) {}
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async parseURL() {
+          return { items: [] }
+        }
+      }
+    }))
+
+    const { RSS_SOURCES } = await import('@/lib/news/rss-fetcher')
+
+    expect(RSS_SOURCES).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'CNN (Top Stories)',
+          url: 'http://rss.cnn.com/rss/edition.rss',
+          category: 'general'
+        }),
+        expect.objectContaining({
+          name: 'China Daily (China)',
+          url: 'https://www.chinadaily.com.cn/rss/china_rss.xml',
+          category: 'general'
+        }),
+        expect.objectContaining({
+          name: 'CNBC (Top News)',
+          url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',
+          category: 'general'
+        }),
+        expect.objectContaining({
+          name: 'China Daily (World)',
+          url: 'https://www.chinadaily.com.cn/rss/world_rss.xml',
+          category: 'world'
+        }),
+        expect.objectContaining({
+          name: 'CNN (World)',
+          url: 'http://rss.cnn.com/rss/edition_world.rss',
+          category: 'world'
+        }),
+        expect.objectContaining({
+          name: 'CNN (Technology)',
+          url: 'http://rss.cnn.com/rss/edition_technology.rss',
+          category: 'tech'
+        }),
+        expect.objectContaining({
+          name: 'CNN (Business)',
+          url: 'http://rss.cnn.com/rss/edition_business.rss',
+          category: 'business'
+        }),
+        expect.objectContaining({
+          name: 'China Daily (BizChina)',
+          url: 'https://www.chinadaily.com.cn/rss/bizchina_rss.xml',
+          category: 'business'
+        }),
+        expect.objectContaining({
+          name: 'CNBC (Business)',
+          url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html',
+          category: 'business'
+        })
+      ])
+    )
+  })
 })

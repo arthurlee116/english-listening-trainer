@@ -7,7 +7,7 @@ import { Play, Pause, Volume2 } from "lucide-react"
 import { BilingualText } from "@/components/ui/bilingual-text"
 
 interface AssessmentAudioPlayerProps {
-  src: string
+  src?: string | null
   onEnded: () => void
   disabled?: boolean
   className?: string
@@ -84,8 +84,10 @@ export default function AssessmentAudioPlayer({
       } catch {
         // 某些浏览器可能禁止直接设置 currentTime，忽略即可
       }
-      // 触发浏览器重新加载新的音频资源
-      audio.load()
+      if (src) {
+        // 触发浏览器重新加载新的音频资源
+        audio.load()
+      }
     }
   }, [src])
 
@@ -109,12 +111,12 @@ export default function AssessmentAudioPlayer({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <audio ref={audioRef} src={src} preload="metadata" />
+      <audio ref={audioRef} src={src ?? undefined} preload="metadata" />
       
       <div className="flex items-center justify-center">
         <Button
           onClick={handlePlayPause}
-          disabled={disabled || hasPlayed}
+          disabled={disabled || hasPlayed || !src}
           size="lg"
           variant={isPlaying ? "destructive" : "default"}
           className="flex items-center space-x-2"

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { getPrismaClient } from '@/lib/database'
 import fs from 'fs'
 import path from 'path'
 import { resolveKokoroWrapperPath } from '@/lib/kokoro-env'
@@ -30,9 +30,8 @@ export async function GET(_request: NextRequest) {
     let databaseStatus = 'unknown'
     try {
       // 尝试一个简单的数据库操作
-      const prisma = new PrismaClient()
+      const prisma = getPrismaClient()
       await prisma.user.count()
-      await prisma.$disconnect()
       databaseStatus = 'connected'
     } catch (error) {
       console.error('Database health check failed:', error)

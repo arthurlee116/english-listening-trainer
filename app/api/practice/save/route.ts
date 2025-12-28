@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { ensureTableColumn } from '@/lib/database'
-import { PrismaClient } from '@prisma/client'
+import { getPrismaClient, ensureTableColumn } from '@/lib/database'
 import type { FocusArea } from '@/lib/types'
 import type { Prisma } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const prisma = getPrismaClient()
 
 export async function POST(request: NextRequest) {
   try {

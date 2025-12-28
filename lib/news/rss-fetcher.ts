@@ -56,20 +56,29 @@ export interface FetchedArticle {
 export const RSS_SOURCES: RSSSource[] = [
   // General News
   { name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', language: 'en-GB', category: 'general' },
+  { name: 'CNN (Top Stories)', url: 'http://rss.cnn.com/rss/edition.rss', language: 'en-US', category: 'general' },
+  { name: 'China Daily (China)', url: 'https://www.chinadaily.com.cn/rss/china_rss.xml', language: 'en-US', category: 'general' },
+  { name: 'CNBC (Top News)', url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', language: 'en-US', category: 'general' },
   { name: 'NPR', url: 'https://feeds.npr.org/1001/rss.xml', language: 'en-US', category: 'general' },
   { name: 'VOA News', url: 'https://www.voanews.com/api/zqboml-vomx-tpeivmy', language: 'en-US', category: 'general' },
   
   // World News
+  { name: 'China Daily (World)', url: 'https://www.chinadaily.com.cn/rss/world_rss.xml', language: 'en-US', category: 'world' },
+  { name: 'CNN (World)', url: 'http://rss.cnn.com/rss/edition_world.rss', language: 'en-US', category: 'world' },
   { name: 'Reuters', url: 'https://feeds.reuters.com/reuters/topNews', language: 'en-US', category: 'world' },
   { name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', language: 'en-GB', category: 'world' },
   { name: 'VOA Africa', url: 'https://www.voanews.com/api/z-botl-vomx-tpertmq', language: 'en-US', category: 'world' },
   
   // Tech News
+  { name: 'CNN (Technology)', url: 'http://rss.cnn.com/rss/edition_technology.rss', language: 'en-US', category: 'tech' },
   { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', language: 'en-US', category: 'tech' },
   { name: 'Wired', url: 'https://www.wired.com/feed/rss', language: 'en-US', category: 'tech' },
   
   // Business News
   { name: 'BBC Business', url: 'http://feeds.bbci.co.uk/news/business/rss.xml', language: 'en-GB', category: 'business' },
+  { name: 'CNN (Business)', url: 'http://rss.cnn.com/rss/edition_business.rss', language: 'en-US', category: 'business' },
+  { name: 'China Daily (BizChina)', url: 'https://www.chinadaily.com.cn/rss/bizchina_rss.xml', language: 'en-US', category: 'business' },
+  { name: 'CNBC (Business)', url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html', language: 'en-US', category: 'business' },
   
   // Science News
   { name: 'BBC Science', url: 'http://feeds.bbci.co.uk/news/science_and_environment/rss.xml', language: 'en-GB', category: 'science' },

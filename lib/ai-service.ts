@@ -36,7 +36,7 @@ export async function generateTopics(
   difficulty: DifficultyLevel, 
   wordCount: number, 
   language: ListeningLanguage = 'en-US', 
-  difficultyLevel?: DifficultyLevel,
+  difficultyLevel?: number,
   focusAreas?: FocusArea[],
   excludedTopics?: string[]
 ): Promise<TopicGenerationResponse> {

@@ -205,3 +205,11 @@ code-quality-report.md
 --version
 kokoro_local/coreml/*.mlpackage/
 .claude/
+
+# Personal documents
+documents/essay.md
+documents/thesis-chapters/
+documents/thesis-figures/
+
+# Generated assessment audio
+public/assessment-audio/

@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 允许通过环境变量自定义构建目录，防止多个实例冲突
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   // Docker 部署配置 - 启用 standalone 模式
   output: 'standalone',
   

@@ -1,163 +1,69 @@
-# English Listening Trainer - AI Coding Guide
+# English Listening Trainer - AI Coding Instructions
 
-This guide helps AI agents understand the project architecture, conventions, and workflows.
+## Project Overview
+AI-powered language learning platform using Next.js 15, React 19, Prisma, Cerebras AI (content), and local Kokoro TTS (audio).
 
-## 1. Project Overview & Core Technologies
+## Architecture & Data Flow
 
-This is a Next.js 15 (App Router) application for AI-powered English listening practice.
+### 1. AI Content Pipeline (`lib/ai/`)
+- **Cerebras Integration**: Use `invokeStructured()` for all AI calls with Zod schemas.
+- **Prompt Templates**: Centralized in `lib/ai/prompt-templates.ts`.
+- **Validation**: Automatic retry with exponential backoff if focus area coverage < 80%.
+- **Telemetry**: All AI requests are tracked via `lib/ai/telemetry.ts`.
 
-- **Frontend:** Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend:** Next.js API Routes, Prisma ORM with SQLite (WAL mode)
-- **AI & TTS:** Cerebras for content generation, local Kokoro Python engine for Text-to-Speech.
-- **Authentication:** JWT in HTTP-only cookies, with client-side hydration (`hooks/use-auth-state.ts`) and server-side caching (`lib/auth.ts`).
+### 2. TTS Pipeline (`lib/kokoro-service-gpu.ts`)
+- **Local Synthesis**: Uses Python worker with CoreML/ANE on Apple Silicon.
+- **Streaming**: Supports HTTP Range requests for audio seeking.
+- **Circuit Breaker**: Monitored in `lib/kokoro-service-gpu.ts`; check for `Circuit breaker: OPEN`.
+- **Audio Storage**: Generated audio is saved to `public/audio/` and served via `/api/audio/[filename]`.
 
-## 2. Architecture & Key Patterns
+### 3. Database Access (`lib/database.ts`)
+- **Wrapper**: Always use `withDatabase()` for Prisma operations to ensure proper error handling and retries.
+  ```typescript
+  const result = await withDatabase(async (prisma) => {
+    return await prisma.user.findUnique({ where: { id } });
+  }, 'fetch user');
+  ```
+- **WAL Mode**: Enabled for SQLite to support higher concurrency.
 
-- **Content Generation:** The flow is orchestrated via API routes in `app/api/ai/`. User actions trigger calls to Cerebras for topics, transcripts, and questions. See `lib/ai-service.ts`.
-- **Audio Generation (Kokoro TTS):**
-    - `lib/kokoro-service.ts` (CPU) and `lib/kokoro-service-gpu.ts` (GPU) manage Python worker processes.
-    - These services implement a **circuit breaker pattern** to handle failures. Monitor logs for `Circuit breaker: OPEN`.
-    - The `/api/tts` endpoint returns audio metadata (`duration`, `byteLength`) for immediate UI feedback.
-- **Database Access:** Always use the `withDatabase()` wrapper from `lib/database.ts` for Prisma operations to ensure proper connection management.
-- **API Authentication:** Use `requireAuth(request)` from `lib/auth.ts` in API routes to protect endpoints. It throws a 401 error if the user is not authenticated.
-- **Centralized Types:** Core type definitions like `DifficultyLevel` and `FocusArea` are in `lib/types.ts`.
+### 4. Bilingual UI System
+- **Components**: Use `BilingualText` for UI labels. Prefer `BilingualDialog`, `BilingualAlertDialog`, and `BilingualLoading` for complex UI elements.
+- **Hooks**: Use `useBilingualText` for programmatic translations.
+- **Format**: "English 中文" (e.g., `t('common.buttons.generate')` -> "Generate 生成").
+- **Translations**: Centralized in `lib/i18n/translations/` (common, components, pages).
 
-## 3. Developer Workflow & Commands
+## Coding Conventions
 
-- **Development:**
-    - `npm run dev`: Starts the main app on port 3000.
-    - `npm run admin`: Starts the admin dashboard on port 3005.
-- **Testing:**
-    - `npm test`: Runs the Vitest suite in watch mode.
-    - `npm run test:run`: Runs all tests once (for CI/validation).
-    - Test structure is documented in `tests/README.md`. Mocks and fixtures are crucial.
-- **Database:**
-    - `npm run db:generate`: Generates the Prisma client.
-    - `npm run db:migrate`: Applies database migrations.
-    - `npm run db:studio`: Opens Prisma Studio for database inspection.
+### 1. Naming & Structure
+- **Components**: `PascalCase` (e.g., `AudioPlayer.tsx`).
+- **Hooks/Utils**: `kebab-case` (e.g., `use-audio-player.ts`, `config-manager.ts`).
+- **Path Aliases**: Always use `@/` for absolute imports.
+- **Server-Only**: Use `import 'server-only'` in modules that must not reach the client.
 
-## 4. Configuration
+### 2. Import Organization
+1. External packages (React, Lucide, etc.)
+2. Absolute imports (`@/components/...`, `@/lib/...`)
+3. Relative imports (`../hooks/...`)
 
-- **Environment:** Copy `.env.example` to `.env.local`. Key variables include `CEREBRAS_API_KEY`, `JWT_SECRET`, and `KOKORO_DEVICE` (`auto`, `cpu`, `cuda`, `metal`).
-- **TTS Setup:** First-time setup requires `npm run setup-kokoro` to create a Python venv and download models. This is essential for TTS to function.
+## Performance & Caching
+- **Auth**: Cached in `hooks/use-auth-state.ts` with 15-min TTL.
+- **Audio**: Preload `metadata` only; cache duration info.
+- **LRU Cache**: Use for frequently accessed data (e.g., translation lookups).
 
-## 5. Important Conventions
+## Testing Guidelines
+- **Framework**: Vitest + Testing Library + MSW.
+- **Structure**: `tests/unit/`, `tests/integration/`, `tests/e2e/`.
+- **Coverage**: Aim for 70% line, 60% branch, 80% function.
 
-- **Path Aliases:** The `@/` alias maps to the project root.
-- **Server-Side Code:** Use the `server-only` package to mark modules that should only run on the server.
-- **Honesty & Verification:** As per `AGENTS.md`, be transparent about uncertainties. If you are unsure about an implementation detail, state it and propose a way to verify (e.g., a small test or checking a specific file).
-- **Follow Existing Patterns:** Before adding new interfaces or services, check `lib/` and `hooks/` for existing implementations to reuse.
+## Critical Workflows
+- `npm run dev-kokoro`: Start dev server with local TTS support.
+- `npm run db:migrate`: Apply schema changes.
+- `npm run setup-kokoro`: Initialize TTS environment (Python venv, models).
+- `npm run test:run`: Execute full test suite.
 
-## User Rule (Superimportant)
-1. My system is Mac/Windows.
-2. My system has a M4 processor.
-3. My system  has 32GB of RAM.
-4. 以暗猜接口为耻，以认真查阅为荣。
-5. 以模糊执行为耻，以寻求确认为荣。
-6. 以盲想业务为耻，以人类确认为荣。
-7. 以创造接口为耻，以复用现有为荣。
-8. 以跳过验证为耻，以主动测试为荣。
-9. 以破坏架构为耻，以遵循规范为荣。
-10. 以假装理解为耻，以诚实无知为荣。
-11. 以盲目修改为耻，以谨慎重构为荣。
-12. 不要每次完成任务都打开一个brower preview
-
-# AI 协作守则（执行版本）
-
-> 面向：执行具体开发任务的 AI（以下简称“执行 AI”）
-> 目标：保持高效率、真实反馈，主动揭示风险与盲点，确保交付可靠。
-
-## 核心心态
-1. **诚实优先**：如实说明现状、风险和知识盲区；对不确定事项直接说“不确定”，并提出验证方案。
-2. **揭示未知**：主动指出用户可能未察觉的问题或前置条件，给出影响和检查步骤。
-3. **务实执行**：所有建议必须配套可操作方案（命令、脚本或明确步骤），拒绝空泛概念和未经验证的“最佳实践”。
-
-## 全流程互动步骤
-> 适用于执行 AI 从接收任务到回报结果的完整流程。
-
-### 1. 接收任务前（会话启动）
-- 按 `documents/future-roadmap/session-boot-checklist.md` 加载上下文。
-- 阅读以下文档，并确认其中的信息是否最新：
-  - `documents/project-status.md`
-  - `documents/project-board.md`
-  - `documents/workflow-snapshots/` 下相关快照
-  - `documents/future-roadmap/` 内路线图与本守则
-  - `WORKFLOW_TESTING_GUIDE.md`
-  - `SERVER_DEPLOYMENT_TEST_GUIDE.md`
-- 若发现文档过期或缺失，记录问题并在首条消息中提示。
-
-### 2. 会话首条回复（自检响应）
-首条消息必须按以下格式输出：
-```
-- 已阅读：<列出确认过的文档/清单项>
-- 当前理解的目标：<简要概述当前核心任务>
-- 负责任务：<引用 project-board 中的条目>
-- 最新状态：<CI/部署快照摘要 + 阻塞项>
-- 需补充信息：<缺失资料或访问限制，如无则填“无”>
-```
-如缺少关键信息（例如 GitHub run 链接），应立即请求用户提供。
-
-### 3. 规划阶段
-- 在执行任何更改前，提交行动计划，包括：
-  - 预期修改范围、涉及文件。
-  - 验证步骤（lint、测试、脚本运行等）。
-  - 风险评估与缓解措施（例如磁盘空间、缓存失效）。
-- 等待用户确认计划后再继续。
-
-### 4. 执行阶段
-- 按计划逐项实施。
-- 每完成一个关键步骤即记录结果；遇到新情况立即更新计划并说明影响。
-- 对需要额外资源或权限的操作（拉取大镜像、访问远端）提前报备。
-- 所有修改完成后执行自测（lint/测试/脚本），记录结果或失败原因。
-
-### 5. 文档与状态同步
-- 任何状态变更（任务开始、完成、阻塞）必须更新：
-  - `documents/project-status.md`
-  - `documents/project-board.md`
-  - 对应的 `documents/workflow-snapshots/*.md`
-- 若无权限修改文件，需在回复中明确说明，并请求用户手动更新。
-- 原则：**先更新文档，再提交代码** 或发起 PR。
-
-### 6. 回报结果
-- 最终回报使用结构：“问题/风险 → 主要修改 → 验证情况 → 待办/建议”。
-- 引用具体文件与行号说明改动。
-- 如果存在仍未解决的问题，明确标注并提出下一步方案。
-- 汇总需用户执行的操作（例如提供日志、确认部署）。
-
-### 7. 会话收尾
-- 确认看板、状态总表与快照已反映最新状态。
-- 列出下一步建议或跟进事项。
-- 若需要下次会话引用的资料（日志、run 链接），写在快照或状态页面中。
-
-## 行为准则补充
-- **明确风险等级**：输出时先列出问题或风险，按严重程度排序，再给出处理建议，最后才提亮点。
-- **透明验证**：执行命令或测试后必须报告关键结果及获取方式。若未执行，说明原因并给出替代方案。
-- **拒绝空洞恭维**：禁止使用“完全正确”“绝对没问题”等讨好语言，除非附上客观证据。
-- **不写额外总结文件**：除非明确要求，禁止新建“总结/完成报告”类 Markdown；需要记录时更新指定文档或 PR 描述。
-- **保持文件整洁**：遵守命名规范，不引入无关依赖，修改范围聚焦。发现脏工作区或第三方改动时先暂停询问。
-
-## 评审与实施流程（摘要版）
-1. 接收任务：复述需求、列开放问题。
-2. 实施前：提交行动计划，提醒成本/风险。
-3. 实施中：按计划执行，自测并更新文档。
-4. 回报结果：用规定结构总结，引用文件行号。
-
-## 尤其要注意的盲区
-- **缓存与部署链条**：改动 Dockerfile、CI、部署脚本时核查缓存标签、远程预热、镜像体积。
-- **TTS 模块**：修改 `kokoro_local/` 或 `lib/kokoro-service*.ts` 时确保与自检脚本、离线模型路径、分块逻辑一致。
-- **数据与密钥**：涉及敏感配置时确认 `.env` 是否同步，并避免泄露。
-- **文档同步**：代码改动影响使用方式时必须更新指南，不可仅口头提醒。
-- **未知依赖**：对外部依赖不确定时先确认。
-
-## 输出格式建议
-- 使用标题/编号结构化表达。
-- 代码/命令使用 fenced code block，注明语言类型。
-- 优先给出结论及关键数据，细节放在后续段落。
-
-## 最终使命
-执行 AI 的价值在于成为可靠的技术合作伙伴：
-- 帮助使用者看清风险与选择；
-- 提供可落地的解决方案与验证路径；
-- 必要时果断指出“不知道”或“需要更多信息”。
-
-持续遵守本守则，可建立专业、可信且高效的合作关系。
+## Key Files & Directories
+- `lib/ai/cerebras-service.ts`: Core AI invocation logic (`invokeStructured`).
+- `lib/kokoro-service-gpu.ts`: TTS service management.
+- `lib/database.ts`: Database connection and `withDatabase` wrapper.
+- `components/ui/bilingual-text.tsx`: Primary component for bilingual text.
+- `lib/i18n/translations/`: JSON translation files.

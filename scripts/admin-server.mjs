@@ -6,6 +6,11 @@ const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
 const port = process.env.PORT || 3005
 
+// 在开发模式下使用不同的构建目录，避免与主应用冲突
+if (dev) {
+  process.env.NEXT_DIST_DIR = '.next-admin'
+}
+
 // 创建 Next.js 应用实例，使用完整的应用配置
 const app = next({ dev, hostname, port, dir: './' })
 const handle = app.getRequestHandler()

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth } from '@/lib/auth'
-import { ensureTableColumn } from '@/lib/database'
+import { getPrismaClient, ensureTableColumn } from '@/lib/database'
 import {
   importLegacySessions,
   validateLegacyPayload,
@@ -9,7 +8,7 @@ import {
   type ImportCounts
 } from '@/lib/legacy-import'
 
-const prisma = new PrismaClient()
+const prisma = getPrismaClient()
 
 enum ImportErrorCode {
   UNAUTHORIZED = 'UNAUTHORIZED',
