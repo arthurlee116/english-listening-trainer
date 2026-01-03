@@ -13,4 +13,6 @@ services:
     volumes:
       - ./prisma/data:/app/prisma/data
       - ./public/audio:/app/public/audio
-    command: ["sh","-lc","npx prisma migrate deploy && npm run start"]
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: ["sh","-lc","npx prisma db push --accept-data-loss && npm run start"]
