@@ -3,8 +3,14 @@ import { HttpsProxyAgent } from 'https-proxy-agent'
 import Cerebras from '@cerebras/cerebras_cloud_sdk'
 import type { AIServiceConfig } from '../config-manager'
 
-// 硬编码代理地址 - 生产服务器代理
-const PROXY_URL = 'http://127.0.0.1:10808'
+function resolveCerebrasProxyUrl(): string | undefined {
+  const candidates = [process.env.CEREBRAS_PROXY_URL, process.env.PROXY_URL, process.env.HTTPS_PROXY, process.env.HTTP_PROXY]
+  for (const value of candidates) {
+    const trimmed = value?.trim()
+    if (trimmed) return trimmed
+  }
+  return undefined
+}
 
 export interface ProxyStatusSnapshot {
   proxyUrl: string
@@ -16,6 +22,7 @@ export interface ProxyStatusSnapshot {
 class CerebrasClientManager {
   private proxyClient: Cerebras | null = null
   private proxyAgent: HttpsProxyAgent<string> | null = null
+  private proxyAgentUrl: string | null = null
   private configFingerprint: string | null = null
 
   reset(config?: AIServiceConfig): void {
@@ -43,20 +50,27 @@ class CerebrasClientManager {
   }
 
   private getProxyAgent(): HttpsProxyAgent<string> {
-    if (!this.proxyAgent) {
-      this.proxyAgent = new HttpsProxyAgent(PROXY_URL)
+    const proxyUrl = resolveCerebrasProxyUrl()
+    if (!proxyUrl) {
+      throw new Error('Cerebras proxy URL is not configured')
+    }
+
+    if (!this.proxyAgent || this.proxyAgentUrl !== proxyUrl) {
+      this.proxyAgent = new HttpsProxyAgent(proxyUrl)
+      this.proxyAgentUrl = proxyUrl
     }
     return this.proxyAgent
   }
 
   private createClient(config: AIServiceConfig): Cerebras {
+    const proxyUrl = resolveCerebrasProxyUrl()
     return new Cerebras({
       apiKey: config.cerebrasApiKey,
       baseURL: config.baseUrl,
       timeout: config.timeout,
       maxRetries: config.maxRetries,
       warmTCPConnection: false,
-      httpAgent: this.getProxyAgent()
+      ...(proxyUrl ? { httpAgent: this.getProxyAgent() } : {})
     })
   }
 
@@ -70,8 +84,9 @@ class CerebrasClientManager {
   }
 
   getProxyStatus(): ProxyStatusSnapshot {
+    const proxyUrl = resolveCerebrasProxyUrl() ?? ''
     return {
-      proxyUrl: PROXY_URL,
+      proxyUrl,
       healthy: true,
       lastCheckedAt: Date.now()
     }

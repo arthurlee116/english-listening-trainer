@@ -8,7 +8,6 @@ import { HttpsProxyAgent } from 'https-proxy-agent'
 
 import { detectAudioFormat, getWavAudioMetadata } from './audio-utils'
 
-const TOGETHER_PROXY_URL = 'http://127.0.0.1:10808'
 const DEFAULT_BASE_URL = 'https://api.together.xyz/v1'
 const DEFAULT_MODEL = 'hexgrad/Kokoro-82M'
 const DEFAULT_VOICE_FALLBACK = 'af_alloy'
@@ -51,13 +50,30 @@ class TogetherTtsError extends Error {
 
 const globalForTogether = globalThis as typeof globalThis & {
   __togetherProxyAgent?: HttpsProxyAgent<string>
+  __togetherProxyAgentUrl?: string
   __togetherProxyLastFailure?: string
   __togetherProxyLastCheckedAt?: number
 }
 
-function getProxyAgent(): HttpsProxyAgent<string> {
-  if (!globalForTogether.__togetherProxyAgent) {
-    globalForTogether.__togetherProxyAgent = new HttpsProxyAgent(TOGETHER_PROXY_URL)
+function resolveTogetherProxyUrl(): string | undefined {
+  const candidates = [
+    process.env.TOGETHER_PROXY_URL,
+    process.env.PROXY_URL,
+    process.env.HTTPS_PROXY,
+    process.env.HTTP_PROXY,
+  ]
+
+  for (const value of candidates) {
+    const trimmed = value?.trim()
+    if (trimmed) return trimmed
+  }
+  return undefined
+}
+
+function getProxyAgent(proxyUrl: string): HttpsProxyAgent<string> {
+  if (!globalForTogether.__togetherProxyAgent || globalForTogether.__togetherProxyAgentUrl !== proxyUrl) {
+    globalForTogether.__togetherProxyAgent = new HttpsProxyAgent(proxyUrl)
+    globalForTogether.__togetherProxyAgentUrl = proxyUrl
   }
   return globalForTogether.__togetherProxyAgent
 }
@@ -101,6 +117,8 @@ async function fetchTogetherWavBytes(payload: TogetherAudioSpeechRequest, timeou
   try {
     const endpoint = new URL(`${baseUrl}/audio/speech`)
     const body = JSON.stringify(payload)
+    const proxyUrl = resolveTogetherProxyUrl()
+    const agent = proxyUrl ? (getProxyAgent(proxyUrl) as unknown as https.Agent) : undefined
 
     const buffer = await new Promise<{
       statusCode: number
@@ -113,7 +131,7 @@ async function fetchTogetherWavBytes(payload: TogetherAudioSpeechRequest, timeou
           hostname: endpoint.hostname,
           path: endpoint.pathname + endpoint.search,
           method: 'POST',
-          agent: getProxyAgent() as unknown as https.Agent,
+          agent,
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
@@ -288,8 +306,9 @@ export async function runTogetherTtsHealthProbe(params?: { timeoutMs?: number })
 }
 
 export function getTogetherProxyStatus(): TogetherProxyStatusSnapshot {
+  const proxyUrl = resolveTogetherProxyUrl() ?? ''
   return {
-    proxyUrl: TOGETHER_PROXY_URL,
+    proxyUrl,
     healthy: !globalForTogether.__togetherProxyLastFailure,
     lastCheckedAt: globalForTogether.__togetherProxyLastCheckedAt ?? Date.now(),
     lastFailure: globalForTogether.__togetherProxyLastFailure,

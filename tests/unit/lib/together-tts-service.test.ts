@@ -22,10 +22,11 @@ describe('together-tts-service', () => {
     vi.clearAllMocks()
   })
 
-  it('requests wav bytes via fixed proxy and writes to public/audio', async () => {
+  it('uses a proxy agent when TOGETHER_PROXY_URL is set and writes to public/audio', async () => {
     process.env.TOGETHER_API_KEY = 'test-key'
     process.env.TOGETHER_BASE_URL = 'https://api.together.xyz/v1'
     process.env.TOGETHER_TTS_MODEL = 'hexgrad/Kokoro-82M'
+    process.env.TOGETHER_PROXY_URL = 'http://127.0.0.1:10808'
 
     const agentInstance = { kind: 'proxy-agent' }
     const HttpsProxyAgent = vi.fn().mockImplementation(() => agentInstance)
