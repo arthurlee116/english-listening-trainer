@@ -14,7 +14,7 @@
 - `npm run lint`: run ESLint (Next.js config).
 - `npm run test`: run Vitest in watch mode; `npm run test:run` for CI style runs.
 - `npm run db:migrate` / `npm run db:generate`: apply migrations or regenerate Prisma client.
-- `npm run setup-kokoro` and `npm run dev-kokoro`: setup and run with local TTS support.
+- TTS uses Together Kokoro-82M; requires `TOGETHER_API_KEY` and a proxy at `http://127.0.0.1:10808`.
 
 ## Coding Style & Naming Conventions
 - TypeScript + React with Tailwind CSS; follow ESLint output in `eslint.config.mjs`.

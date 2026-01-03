@@ -1,8 +1,0 @@
-# CoreML 导出和推理依赖
-coremltools>=8.0.0
-torch>=2.0.0
-torchaudio>=2.0.0
-soundfile>=0.12.0
-numpy>=1.21.0,<2.0.0
-kokoro>=0.7.16
-safetensors

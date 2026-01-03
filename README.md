@@ -207,8 +207,11 @@ Traditional listening practice often lacks:
    AI_TIMEOUT=30000
    AI_MAX_RETRIES=3
 
-   # Kokoro TTS (local, CoreML)
-   KOKORO_ENABLED=true
+   # Together TTS (Kokoro-82M)
+   # Note: outbound Together calls require an HTTP(S) proxy at http://127.0.0.1:10808
+   TOGETHER_API_KEY=your_together_api_key_here
+   TOGETHER_BASE_URL=https://api.together.xyz/v1
+   TOGETHER_TTS_MODEL=hexgrad/Kokoro-82M
 
    # Application
    NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -256,14 +259,12 @@ npm run dev
 docker-compose up -d
 ```
 
-#### Option C: GPU-Accelerated TTS Setup
+#### Option C: Together TTS Setup
+
+Set `TOGETHER_API_KEY` in your `.env.local`, ensure your proxy is running on `http://127.0.0.1:10808`, then start the dev server:
 
 ```bash
-# Install and configure Kokoro TTS with GPU support
-npm run setup-kokoro
-
-# Start dev server with Kokoro enabled
-npm run dev-kokoro
+npm run dev
 ```
 
 ---
@@ -373,7 +374,7 @@ english-listening-trainer/
 │   │   └── telemetry.ts
 │   ├── arkovy-helper.ts       # Ark API wrapper
 │   ├── config-manager.ts      # Configuration management
-│   ├── kokoro-service-gpu.ts  # Kokoro TTS service
+│   ├── together-tts-service.ts  # Together Kokoro-82M TTS service
 │   ├── database.ts            # Database helpers
 │   ├── auth.ts                # Authentication utilities
 │   └── ...
@@ -384,10 +385,6 @@ english-listening-trainer/
 ├── prisma/
 │   ├── schema.prisma          # Database schema definition
 │   └── migrations/            # Database migrations
-├── kokoro_local/              # Kokoro TTS wrapper (Python)
-│   ├── kokoro_coreml_wrapper.py # CoreML wrapper script
-│   ├── text_chunker.py        # Text segmentation logic
-│   └── ...
 ├── public/                    # Static assets and audio files
 ├── scripts/                   # Utility and deployment scripts
 ├── documents/                 # Project documentation
@@ -814,7 +811,7 @@ Sessions are automatically saved after grading. View history:
 │  └──────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ TTS Services                                      │  │
-│  │  - Kokoro (CoreML wrapper, local)                │  │
+│  │  - Together Kokoro-82M (cloud)                   │  │
 │  └──────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ Practice Session Management                      │  │
@@ -825,8 +822,8 @@ Sessions are automatically saved after grading. View history:
 └────────────────┬──────────────┬──────────────┬──────────┘
                  │              │              │
     ┌────────────▼────┐  ┌──────▼────┐  ┌────▼──────────┐
-    │  Database       │  │ Cerebras  │  │ Kokoro TTS    │
-    │ (SQLite/PG)     │  │    API    │  │ (CoreML)      │
+    │  Database       │  │ Cerebras  │  │ Together TTS  │
+    │ (SQLite/PG)     │  │    API    │  │ (Kokoro-82M)  │
     └─────────────────┘  └───────────┘  └───────────────┘
 ```
 
@@ -842,7 +839,7 @@ Sessions are automatically saved after grading. View history:
    - Generate questions (Cerebras, with focus area validation)
    - Coverage validation: If below 80%, regenerate with expanded prompt
 
-3. **Audio Synthesis** (via `lib/kokoro-service-gpu.ts`)
+3. **Audio Synthesis** (via `lib/together-tts-service.ts`)
    - Stream transcript to local Kokoro TTS
    - CoreML wrapper for acceleration (macOS)
 
@@ -924,15 +921,14 @@ Sessions are automatically saved after grading. View history:
 - Confirm billing status in Cerebras dashboard
 - Test with: `curl -H "Authorization: Bearer $CEREBRAS_API_KEY" https://api.cerebras.ai/v1/models`
 
-#### 3. Kokoro TTS Not Initializing
+#### 3. Together TTS Issues
 
-**Error:** `Kokoro service failed to start` or `Python not found`
+**Error:** `Unauthorized`, `TOGETHER_API_KEY is not set`, `proxy` connection errors, or non-WAV responses
 
 **Solutions:**
-- Run setup: `npm run setup-kokoro`
-- Verify Python 3.10-3.12 installed: `python3 --version`
-- Verify venv exists: `ls kokoro_local/venv`
-- Verify CoreML models exist: `ls kokoro_local/coreml/*.mlpackage`
+- Verify `TOGETHER_API_KEY` is set in `.env.local`
+- Ensure an HTTP(S) proxy is running at `http://127.0.0.1:10808`
+- Check health probe: `curl http://localhost:3000/api/health`
 
 #### 4. Audio Playback Issues
 
@@ -940,7 +936,7 @@ Sessions are automatically saved after grading. View history:
 
 **Solutions:**
 - Check browser audio permissions
-- Verify audio endpoint: `curl http://localhost:3000/api/tts` (should return WAV)
+- Verify TTS endpoint: `curl -X POST http://localhost:3000/api/tts -H "Content-Type: application/json" -d '{"text":"hello","language":"en-US"}'`
 - Check `Range` header support for seek: `curl -H "Range: bytes=0-1000" http://localhost:3000/api/audio/filename.wav`
 - Clear browser cache: Ctrl+Shift+Delete (or Cmd+Shift+Delete on macOS)
 
@@ -1128,7 +1124,7 @@ Before requesting review:
 ### Submitting Changes
 
 **For AI/TTS Changes:**
-- Request review from [`@ark-helper`](lib/ark-helper.ts) and [`@kokoro-service-gpu`](lib/kokoro-service-gpu.ts) maintainers
+- Request review from [`@ark-helper`](lib/ark-helper.ts) maintainers
 - Add telemetry metrics to [`lib/monitoring.ts`](lib/monitoring.ts)
 
 **For Database Changes:**

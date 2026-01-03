@@ -7,7 +7,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPrismaClient } from '@/lib/database'
 import fs from 'fs'
 import path from 'path'
-import { resolveKokoroWrapperPath } from '@/lib/kokoro-env'
+import { getTogetherProxyStatus, runTogetherTtsHealthProbe } from '@/lib/together-tts-service'
+
+const globalForHealth = globalThis as typeof globalThis & {
+  __togetherTtsProbeLastAt?: number
+  __togetherTtsProbeLastResult?: { ok: boolean; latencyMs: number; error?: string }
+}
 
 /**
  * 健康检查处理器
@@ -38,26 +43,25 @@ export async function GET(_request: NextRequest) {
       databaseStatus = 'disconnected'
     }
 
-    // 检查 TTS 服务状态 (简化检查)
+    // 检查 TTS 服务状态（真实轻量探测，带频率限制）
     let ttsStatus = 'unknown'
-    const ttsMode = process.env.TTS_MODE || 'local'
+    const enableTts = process.env.ENABLE_TTS !== 'false'
     
-    if (ttsMode === 'disabled') {
+    if (!enableTts) {
       ttsStatus = 'disabled'
-    } else if (ttsMode === 'local') {
-      // 检查 Kokoro TTS 文件是否存在
-      try {
-        const kokoroPath = resolveKokoroWrapperPath()
-        if (fs.existsSync(kokoroPath)) {
-          ttsStatus = 'ready'
-        } else {
-          ttsStatus = 'not_found'
-        }
-      } catch {
-        ttsStatus = 'error'
-      }
     } else {
-      ttsStatus = 'cloud'
+      const now = Date.now()
+      const lastAt = globalForHealth.__togetherTtsProbeLastAt ?? 0
+      const shouldProbe = now - lastAt > 60_000
+
+      if (shouldProbe) {
+        const result = await runTogetherTtsHealthProbe({ timeoutMs: 15_000 })
+        globalForHealth.__togetherTtsProbeLastAt = now
+        globalForHealth.__togetherTtsProbeLastResult = result
+      }
+
+      const probe = globalForHealth.__togetherTtsProbeLastResult
+      ttsStatus = probe?.ok ? 'ready' : 'unhealthy'
     }
 
     // 检查重要目录是否存在
@@ -74,7 +78,9 @@ export async function GET(_request: NextRequest) {
       ...appStatus,
       services: {
         database: databaseStatus,
-        tts: ttsStatus
+        tts: ttsStatus,
+        proxy: getTogetherProxyStatus(),
+        ttsProbe: globalForHealth.__togetherTtsProbeLastResult ?? null
       },
       directories: dirChecks,
       performance: {
@@ -89,7 +95,7 @@ export async function GET(_request: NextRequest) {
 
     // 确定整体健康状态
     const isHealthy = databaseStatus === 'connected' && 
-                     (ttsStatus === 'ready' || ttsStatus === 'disabled' || ttsStatus === 'cloud')
+                     (ttsStatus === 'ready' || ttsStatus === 'disabled')
 
     const httpStatus = isHealthy ? 200 : 503
     healthData.status = isHealthy ? 'healthy' : 'unhealthy'

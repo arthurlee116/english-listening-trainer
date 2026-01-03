@@ -4,11 +4,6 @@
  */
 
 import { ErrorHandler, ErrorCode, ErrorSeverity } from './error-handler'
-import {
-  resolveKokoroPythonExecutable,
-  resolveKokoroWorkingDirectory
-} from './kokoro-env'
-import path from 'path'
 
 export interface AIServiceConfig {
   cerebrasApiKey: string
@@ -21,8 +16,10 @@ export interface AIServiceConfig {
 }
 
 export interface TTSServiceConfig {
-  pythonPath: string
-  venvPath: string
+  provider: 'together'
+  baseUrl: string
+  model: string
+  voiceFallback: string
   timeout: number
   maxConcurrentRequests: number
   maxRestartAttempts: number
@@ -74,9 +71,14 @@ export interface ConfigSummary {
     hasApiKey: boolean;
   };
   tts: {
+    provider: 'together';
+    baseUrl: string;
+    model: string;
+    voiceFallback: string;
     timeout: number;
     maxConcurrentRequests: number;
     maxRestartAttempts: number;
+    hasApiKey: boolean;
   };
   database: {
     path: string;
@@ -132,10 +134,6 @@ class ConfigurationManager {
   private buildConfig(): AppConfig {
     const env = process.env.NODE_ENV || 'development'
 
-    // 使用 kokoro-env 获取默认 TTS 路径
-    const defaultPythonPath = resolveKokoroPythonExecutable()
-    const defaultVenvPath = path.join(resolveKokoroWorkingDirectory(), 'venv')
-
     const parsedTemperature = Number(process.env.AI_DEFAULT_TEMPERATURE)
     const defaultTemperature = Number.isFinite(parsedTemperature) ? parsedTemperature : 0.3
 
@@ -158,8 +156,10 @@ class ConfigurationManager {
       },
 
       tts: {
-        pythonPath: process.env.TTS_PYTHON_PATH || defaultPythonPath,
-        venvPath: process.env.TTS_VENV_PATH || defaultVenvPath,
+        provider: 'together',
+        baseUrl: process.env.TOGETHER_BASE_URL || 'https://api.together.xyz/v1',
+        model: process.env.TOGETHER_TTS_MODEL || 'hexgrad/Kokoro-82M',
+        voiceFallback: 'af_alloy',
         timeout: parseInt(process.env.TTS_TIMEOUT || '30000'),
         maxConcurrentRequests: parseInt(process.env.TTS_MAX_CONCURRENT || '1'),
         maxRestartAttempts: parseInt(process.env.TTS_MAX_RESTARTS || '3'),
@@ -343,9 +343,14 @@ class ConfigurationManager {
         hasApiKey: !!config.ai.cerebrasApiKey
       },
       tts: {
+        provider: config.tts.provider,
+        baseUrl: config.tts.baseUrl,
+        model: config.tts.model,
+        voiceFallback: config.tts.voiceFallback,
         timeout: config.tts.timeout,
         maxConcurrentRequests: config.tts.maxConcurrentRequests,
-        maxRestartAttempts: config.tts.maxRestartAttempts
+        maxRestartAttempts: config.tts.maxRestartAttempts,
+        hasApiKey: !!process.env.TOGETHER_API_KEY
       },
       database: {
         path: config.database.path,

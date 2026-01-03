@@ -21,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
     }
     
-    const filePath = path.join(process.cwd(), 'public', filename)
+    const filePath = path.join(process.cwd(), 'public', 'audio', filename)
     
     if (!existsSync(filePath)) {
       return NextResponse.json({ error: 'Audio file not found' }, { status: 404 })

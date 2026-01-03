@@ -39,8 +39,8 @@
       "zh": "正在生成音频"
     },
     "loadingMessage": {
-      "en": "Please wait, generating audio content using local Kokoro model",
-      "zh": "请稍候，正在使用本地Kokoro模型生成音频内容"
+      "en": "Please wait, generating audio content using Together Kokoro model",
+      "zh": "请稍候，正在使用Together Kokoro模型生成音频内容"
     },
     "error": {
       "en": "Error",
@@ -56,20 +56,20 @@
     },
     "errorReasons": {
       "localTtsNotStarted": {
-        "en": "Local TTS service not started",
-        "zh": "本地TTS服务未启动"
+        "en": "TTS service unavailable",
+        "zh": "TTS服务不可用"
       },
       "modelLoadFailed": {
-        "en": "Model loading failed",
-        "zh": "模型加载失败"
+        "en": "TTS provider error",
+        "zh": "TTS服务提供方错误"
       },
       "insufficientResources": {
-        "en": "Insufficient system resources",
-        "zh": "系统资源不足"
+        "en": "Rate limit or transient failure",
+        "zh": "限流或临时故障"
       },
       "pythonConfigIssue": {
-        "en": "Python environment configuration issue",
-        "zh": "Python环境配置问题"
+        "en": "Missing API key or proxy issue",
+        "zh": "缺少API Key或代理异常"
       }
     },
     "retryGenerateAudio": {

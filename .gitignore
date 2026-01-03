@@ -9,6 +9,7 @@ pnpm-debug.log*
 
 # next.js
 /.next/
+/.next-admin/
 /out/
 
 # production

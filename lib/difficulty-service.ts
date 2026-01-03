@@ -151,7 +151,7 @@ export function getDifficultyPromptModifier(level: number, language: ListeningLa
     throw new Error(`难度等级必须是大于0的数字，但接收到: ${level}`)
   }
   const range = getDifficultyRange(level)
-  
+
   const languageMap = {
     'en-US': 'American English',
     'en-GB': 'British English',
@@ -162,14 +162,14 @@ export function getDifficultyPromptModifier(level: number, language: ListeningLa
     'pt-BR': 'Portuguese',
     'hi': 'Hindi'
   }
-  
+
   const languageName = languageMap[language] || 'English'
-  
+
   // 根据难度等级生成具体的提示词修饰符
   let speedModifier = ''
   let vocabularyModifier = ''
   let syntaxModifier = ''
-  
+
   if (level <= 5) {
     speedModifier = 'very slow speaking pace, clear pronunciation'
     vocabularyModifier = 'very basic vocabulary (high-frequency words only), simple everyday terms'
@@ -226,21 +226,4 @@ export function mapDifficultyToCEFR(level: number): string {
   if (level <= 20) return 'B2'
   if (level <= 25) return 'C1'
   return 'C2'
-}
-
-/**
- * 根据CEFR等级估算难度等级
- * @param cefr CEFR等级
- * @returns 难度等级范围
- */
-export function mapCEFRToDifficulty(cefr: string): { min: number, max: number } {
-  switch (cefr.toUpperCase()) {
-    case 'A1': return { min: 1, max: 5 }
-    case 'A2': return { min: 6, max: 10 }
-    case 'B1': return { min: 11, max: 15 }
-    case 'B2': return { min: 16, max: 20 }
-    case 'C1': return { min: 21, max: 25 }
-    case 'C2': return { min: 26, max: 30 }
-    default: return { min: 11, max: 15 } // 默认B1
-  }
 }

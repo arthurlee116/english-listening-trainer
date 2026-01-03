@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrismaClient } from '@/lib/database'
-import { requireAdmin } from '@/lib/auth'
 import type { CefrLevel, EffectReport, EffectReportRow } from '@/lib/admin/effect-report'
 import { generateSyntheticEffectReport } from '@/lib/admin/effect-report'
 
@@ -35,19 +34,11 @@ function parseSeed(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAdmin(request)
-    if (authResult.error || !authResult.user) {
-      return NextResponse.json(
-        { error: authResult.error || '需要管理员权限' },
-        { status: 403 },
-      )
-    }
-
     const seed = parseSeed(request)
     const demoMode = process.env.ADMIN_DEMO_DATA === '1'
 
     if (demoMode) {
-      const report = generateSyntheticEffectReport({ seed, userCount: 50, improvedRate: 0.8 })
+      const report = generateSyntheticEffectReport({ seed, userCount: 30, improvedRate: 0.8 })
       return NextResponse.json(report)
     }
 

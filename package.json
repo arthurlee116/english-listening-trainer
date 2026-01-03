@@ -37,8 +37,6 @@
     "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
     "clean": "npm cache clean --force && rm -rf node_modules && rm -rf .next && npm install",
-    "setup-kokoro": "./scripts/setup-kokoro.sh",
-    "dev-kokoro": "npm run setup-kokoro && next dev --port 3001",
     "refresh-news": "npx tsx --import ./scripts/cli-preload.mjs scripts/refresh-news.ts"
   },
   "dependencies": {

@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-English Listening Trainer is an AI-powered language learning platform built with Next.js 15. It generates personalized listening comprehension exercises using Cerebras AI for content generation and local Kokoro TTS (Text-to-Speech) for audio synthesis.
+English Listening Trainer is an AI-powered language learning platform built with Next.js 15. It generates personalized listening comprehension exercises using Cerebras AI for content generation and Together Kokoro-82M TTS for audio synthesis.
 
-**Tech Stack:** Next.js 15 (App Router), React 19, TypeScript, Prisma ORM, Cerebras AI SDK, Kokoro TTS (Python/CoreML), SQLite/PostgreSQL.
+**Tech Stack:** Next.js 15 (App Router), React 19, TypeScript, Prisma ORM, Cerebras AI SDK, Together TTS (Kokoro-82M), SQLite/PostgreSQL.
 
 ## Common Development Commands
 
@@ -14,7 +14,6 @@ English Listening Trainer is an AI-powered language learning platform built with
 # Development
 npm run dev              # Start main app on port 3000
 npm run admin            # Start admin dashboard on port 3005
-npm run dev-kokoro       # Start dev server with Kokoro enabled
 
 # Build & Production
 npm run build            # Production build (includes Prisma generate)
@@ -39,7 +38,7 @@ npm run lint             # Run ESLint
 npx tsc --noEmit         # Type checking
 
 # TTS Setup
-npm run setup-kokoro     # Install and configure Kokoro TTS
+# Requires TOGETHER_API_KEY and an HTTP(S) proxy at http://127.0.0.1:10808
 ```
 
 ## Architecture Overview
@@ -53,9 +52,8 @@ npm run setup-kokoro     # Install and configure Kokoro TTS
 
 ### TTS Pipeline
 - `/api/tts` receives text + language configuration
-- `lib/kokoro-service-gpu.ts` manages Python worker process
-- Python wrapper (`kokoro_local/kokoro_coreml_wrapper.py`) uses CoreML/ANE on Apple Silicon
-- Audio saved to `/public/`, URL returned to client
+- `lib/together-tts-service.ts` calls Together `/v1/audio/speech` via a fixed proxy
+- Audio saved under `/public/audio/`, URL returned via `/api/audio/:filename`
 - Supports HTTP Range requests for audio seeking
 
 ### Authentication
@@ -77,10 +75,9 @@ npm run setup-kokoro     # Install and configure Kokoro TTS
 - Singleton pattern with connection management
 - WAL mode enabled for SQLite
 
-### TTS Circuit Breaker
-- `lib/kokoro-service-gpu.ts` implements circuit breaker pattern
-- Monitor logs for `Circuit breaker: OPEN`
-- Worker auto-restart on failure
+### TTS Reliability
+- Together calls are proxied via `http://127.0.0.1:10808`
+- `/api/health` performs a lightweight real probe (writes then deletes a `public/audio/healthcheck-*.wav` file)
 
 ### Centralized Types
 - Core types (`DifficultyLevel`, `FocusArea`, etc.) in `lib/types.ts`
@@ -112,6 +109,18 @@ import { Button } from '@/components/ui/button'
 import { useCustomHook } from '../hooks'
 ```
 
+## Search Tools Convention
+
+**MANDATORY**: Use `exa` tools for ALL searches. Do NOT use built-in WebSearch, Grep, or mgrep.
+
+| Task | Tool | Command |
+|------|------|---------|
+| Local code search | `mgrep` (via skill) | `mgrep "query"` |
+| Web search | `mcp__exa__web_search_exa` | `exa web search` |
+| Code/API docs | `mcp__exa__get_code_context_exa` | `exa code context` |
+
+**IMPORTANT**: Always use exa for web searches - never use built-in WebSearch or mgrep web mode.
+
 ## User Rules (from `.github/copilot-instructions.md`)
 
 1. System: Mac/Windows with M4 processor, 32GB RAM
@@ -135,13 +144,14 @@ Key variables (see `.env.example` for full list):
 - `DATABASE_URL`: SQLite for dev, PostgreSQL for production
 - `CEREBRAS_API_KEY`: Required for AI features
 - `JWT_SECRET`: For session management
-- `KOKORO_DEVICE`: `auto`, `cpu`, `cuda`, or `metal`
+- `TOGETHER_API_KEY`: Required for TTS
+- `TOGETHER_TTS_MODEL`: Defaults to `hexgrad/Kokoro-82M`
 - `AI_DEFAULT_MODEL`: Default LLM model
 - `NEXT_PUBLIC_APP_URL`: Application URL
 
 ## Troubleshooting
 
-- **Kokoro fails to start**: Run `npm run setup-kokoro`, verify Python 3.10-3.12
+- **Together TTS errors**: Check `TOGETHER_API_KEY` and ensure proxy is running at `http://127.0.0.1:10808`
 - **Database errors**: Check `DATABASE_URL`, run `npm run db:migrate`
 - **AI timeouts**: Check `AI_TIMEOUT` setting, verify Cerebras API access
 - **Audio issues**: Verify `Range` header support, check browser permissions

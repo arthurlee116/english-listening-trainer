@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
 import { getLanguageConfig, isLanguageSupported } from '@/lib/language-config'
-import { ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
+import { cleanupOldAudioFiles, ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
 import crypto from 'crypto'
-import type { GeneratedAudioResult } from '@/lib/audio-utils'
+import { generateTogetherTtsAudio, isTogetherTtsError } from '@/lib/together-tts-service'
 
-// 生成音频缓存键（包含语音与可选模型版本）
-function generateCacheKey(text: string, speed: number, language: string, voice: string): string {
-  const modelVersion = process.env.KOKORO_MODEL_VERSION || 'default'
-  const content = `${text}:${speed}:${language}:${voice}:${modelVersion}`
+type CachedTtsAudio = {
+  filename: string
+  duration: number
+  byteLength: number
+  voiceUsed: string
+  modelUsed: string
+}
+
+// 生成音频缓存键（不包含 speed：speed 仅用于前端 playbackRate）
+function generateCacheKey(text: string, language: string, voice: string, model: string): string {
+  const content = `${text}:${language}:${voice}:${model}`
   return crypto.createHash('md5').update(content).digest('hex')
 }
 
@@ -39,51 +45,60 @@ export async function POST(request: NextRequest) {
     const voice = languageConfig.voice
 
     // 生成缓存键并检查缓存
-    const cacheKey = generateCacheKey(text, effectiveSpeed, language, voice)
-    const cachedAudio = audioCache.get(cacheKey) as GeneratedAudioResult | undefined
+    const model = process.env.TOGETHER_TTS_MODEL || 'hexgrad/Kokoro-82M'
+    const cacheKey = generateCacheKey(text, language, voice, model)
+    const cachedAudio = audioCache.get(cacheKey) as unknown as CachedTtsAudio | undefined
     if (cachedAudio) {
-      const filename = cachedAudio.audioUrl.replace('/', '')
-      const apiAudioUrl = `/api/audio/${filename}`
+      const apiAudioUrl = `/api/audio/${cachedAudio.filename}`
 
       return NextResponse.json({
         success: true,
         audioUrl: apiAudioUrl,
-        staticUrl: cachedAudio.audioUrl,
+        staticUrl: `/audio/${cachedAudio.filename}`,
         duration: cachedAudio.duration,
         byteLength: cachedAudio.byteLength,
         cached: true,
-        provider: 'kokoro-coreml',
+        provider: 'together-kokoro',
         message: 'Audio retrieved from cache'
       })
     }
 
     // 使用并发限制器执行TTS生成
     const audioResult = await ttsRequestLimiter.execute(async () => {
-      // 检查TTS服务是否就绪
-      const isReady = await kokoroTTSGPU.isReady()
-      if (!isReady) {
-        throw new Error('TTS服务未就绪，请稍后重试')
-      }
-
-      // 生成音频
-      return await kokoroTTSGPU.generateAudio(text, effectiveSpeed, language)
+      const generated = await generateTogetherTtsAudio({
+        text,
+        voice,
+        timeoutMs: 60_000,
+      })
+      return generated
     })
 
     // 缓存音频结果
-    audioCache.set(cacheKey, audioResult as unknown as Record<string, unknown>, 30 * 60 * 1000) // 30分钟TTL
+    audioCache.set(
+      cacheKey,
+      {
+        filename: audioResult.filename,
+        duration: audioResult.duration,
+        byteLength: audioResult.byteLength,
+        voiceUsed: audioResult.voiceUsed,
+        modelUsed: audioResult.modelUsed,
+      } satisfies CachedTtsAudio as unknown as Record<string, unknown>,
+      30 * 60 * 1000
+    )
 
-    // 提取文件名并构建 API 路由 URL
-    const filename = audioResult.audioUrl.replace('/', '')
-    const apiAudioUrl = `/api/audio/${filename}`
+    // best-effort cleanup (24h) for public/audio
+    void cleanupOldAudioFiles(24 * 60 * 60 * 1000)
+
+    const apiAudioUrl = `/api/audio/${audioResult.filename}`
 
     return NextResponse.json({
       success: true,
       audioUrl: apiAudioUrl,
-      staticUrl: audioResult.audioUrl,
+      staticUrl: `/audio/${audioResult.filename}`,
       duration: audioResult.duration,
       byteLength: audioResult.byteLength,
       cached: false,
-      provider: 'kokoro-coreml',
+      provider: 'together-kokoro',
       message: 'Audio generated successfully'
     })
 
@@ -103,8 +118,6 @@ export async function POST(request: NextRequest) {
       statusCode = 504
       userFacingMessage = '音频生成超时，长文本需要更多时间，请稍后重试'
     } else if (
-      normalizedMessage.includes('not initialized') ||
-      normalizedMessage.includes('not ready') ||
       normalizedMessage.includes('tts服务未就绪') ||
       normalizedMessage.includes('初始化中')
     ) {
@@ -116,15 +129,19 @@ export async function POST(request: NextRequest) {
     } else if (normalizedMessage.includes('failed to save audio file')) {
       statusCode = 500
       userFacingMessage = '音频文件保存失败'
-    } else if (normalizedMessage.includes('kokoro modules not available')) {
+    } else if (normalizedMessage.includes('together') && normalizedMessage.includes('api_key')) {
       statusCode = 503
-      userFacingMessage = 'Kokoro模块不可用，请检查服务器配置'
+      userFacingMessage = 'TTS服务未配置（缺少 TOGETHER_API_KEY）'
+    } else if (normalizedMessage.includes('content-type') || normalizedMessage.includes('not wav')) {
+      statusCode = 503
+      userFacingMessage = 'TTS服务返回了非WAV音频，请稍后重试'
     }
 
     return NextResponse.json({
       error: userFacingMessage,
       details: rawMessage,
-      provider: 'kokoro-coreml'
+      provider: 'together-kokoro',
+      together: isTogetherTtsError(error) ? { status: error.status, requestId: error.requestId } : undefined
     }, { status: statusCode })
   }
 }
@@ -132,11 +149,9 @@ export async function POST(request: NextRequest) {
 // 健康检查端点
 export async function GET() {
   try {
-    const isReady = await kokoroTTSGPU.isReady()
-
     return NextResponse.json({
-      status: isReady ? 'ready' : 'initializing',
-      message: isReady ? 'TTS service is ready' : 'TTS service is initializing',
+      status: 'ready',
+      message: 'TTS service is available (Together)',
       cacheStats: audioCache.getStats(),
       timestamp: new Date().toISOString()
     })

@@ -82,7 +82,7 @@ git add .
 # 提交更改（使用约定式提交）
 git commit -m "chore: prepare deployment rollout
 
-- 清理 scripts 目录，仅保留 backup/restore/setup-kokoro
+- 清理 scripts 目录，仅保留 backup/restore 等必要脚本
 - 更新部署文档改用手动命令
 - 同步 docker-compose 与 package.json"
 ```

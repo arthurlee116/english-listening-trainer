@@ -77,7 +77,7 @@ export interface BilingualTextProps extends Omit<React.HTMLAttributes<HTMLElemen
 }
 
 // Difficulty levels and duration options
-export interface DifficultyLevel {
+export interface DifficultyLevelOption {
   level: string;
   translation: TranslationKey;
 }
@@ -96,7 +96,7 @@ export interface FallbackStrategy {
 }
 
 export interface I18nErrorBoundaryProps {
-  fallback: React.ComponentType<{error: Error}>;
+  fallback: React.ComponentType<{ error: Error }>;
   children: React.ReactNode;
 }
 

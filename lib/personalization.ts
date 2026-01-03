@@ -1,4 +1,4 @@
-import type { DifficultyLevel, FocusArea } from './types'
+import type { DifficultyLevel } from './types'
 import { getDifficultyRange, mapDifficultyToCEFR } from './difficulty-service'
 
 const PERSONALIZATION_STORAGE_KEY = 'english-listening-personalization'
@@ -70,7 +70,3 @@ function clampDifficultyLevel(level: number): number {
   if (!Number.isFinite(level)) return 11
   return Math.max(1, Math.min(30, Math.round(level)))
 }
-
-// Keep exported type imports used (FocusArea is referenced by other modules that may extend personalization later).
-export type { FocusArea }
-

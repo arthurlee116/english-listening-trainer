@@ -1,4 +1,4 @@
-import { TranslationKey, DifficultyLevel, DurationOption } from './types';
+import { TranslationKey, DifficultyLevelOption, DurationOption } from './types';
 
 /**
  * Utility functions for bilingual text formatting
@@ -21,13 +21,13 @@ export function formatWithUnit(text: string, unit: string): string {
 /**
  * Predefined difficulty levels with bilingual labels
  */
-export const difficultyLevels: DifficultyLevel[] = [
+export const difficultyLevels: DifficultyLevelOption[] = [
   {
     level: 'A1',
     translation: { en: 'A1 - Beginner', zh: 'A1 - 初学者' }
   },
   {
-    level: 'A2', 
+    level: 'A2',
     translation: { en: 'A2 - Elementary', zh: 'A2 - 基础级' }
   },
   {
@@ -95,10 +95,10 @@ export function getDurationLabel(value: string): string {
     console.warn(`Unknown duration value: ${value}`);
     return value;
   }
-  
+
   const baseText = formatBilingualText(duration.translation.en, duration.translation.zh);
   const wordCountText = `(~${duration.wordCount} ${formatBilingualText('words', '词')})`;
-  
+
   return `${baseText} ${wordCountText}`;
 }
 

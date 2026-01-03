@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { existsSync } from 'fs'
 import { mkdir, rename, unlink } from 'fs/promises'
 import path from 'path'
-import { kokoroTTSGPU } from '@/lib/kokoro-service-gpu'
 import { getAssessmentAudioInfo } from '@/lib/difficulty-service'
+import { generateTogetherTtsAudio } from '@/lib/together-tts-service'
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,14 +28,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     await mkdir(dir, { recursive: true })
 
-    const isReady = await kokoroTTSGPU.isReady()
-    if (!isReady) {
-      return NextResponse.json({ error: 'TTS service is initializing' }, { status: 503 })
-    }
-
-    const generated = await kokoroTTSGPU.generateAudio(info.transcript, info.speed, 'en-US')
-    const generatedFilename = generated.audioUrl.replace('/', '')
-    const generatedPath = path.join(process.cwd(), 'public', generatedFilename)
+    const generated = await generateTogetherTtsAudio({
+      text: info.transcript,
+      voice: 'af_alloy',
+      timeoutMs: 60_000,
+    })
+    const generatedPath = generated.filePath
 
     try {
       // Move the freshly generated file into the stable assessment-audio path.
@@ -59,4 +57,3 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Failed to prepare assessment audio' }, { status: 500 })
   }
 }
-

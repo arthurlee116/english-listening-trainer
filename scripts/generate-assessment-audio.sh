@@ -8,7 +8,7 @@ set -euo pipefail
 #   2) Run: ./scripts/generate-assessment-audio.sh
 #
 # This uses curl against the app route `/api/assessment-audio/:id` which will
-# generate the audio (via Kokoro) only if the target file doesn't exist yet.
+# generate the audio (via the configured TTS provider) only if the target file doesn't exist yet.
 
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 
@@ -20,4 +20,3 @@ for id in 1 2 3 4 5; do
 done
 
 echo "Done. Files should now exist in public/assessment-audio/."
-
