@@ -1,0 +1,16 @@
+.git
+.next
+.next-admin
+node_modules
+test-results
+docs/node_modules
+docs/.next
+**/*.log
+.DS_Store
+.vscode
+.idea
+backups
+data
+storage
+public/audio
+

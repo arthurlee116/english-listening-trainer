@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./data:/app/data
+      - ./public/audio:/app/public/audio
+    command: ["sh","-lc","npx prisma migrate deploy && npm run start"]
+
