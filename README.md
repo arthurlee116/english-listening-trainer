@@ -200,7 +200,8 @@ Traditional listening practice often lacks:
 
    # Cerebras API (required for AI features)
    CEREBRAS_API_KEY=your_cerebras_api_key_here
-   CEREBRAS_API_BASE_URL=https://api.cerebras.ai/v1
+   # IMPORTANT: do NOT include /v1 here. The Cerebras SDK requests /v1/... automatically.
+   CEREBRAS_BASE_URL=https://api.cerebras.ai
    AI_DEFAULT_MODEL=llama-3.1-70b
    AI_DEFAULT_TEMPERATURE=0.7
    AI_DEFAULT_MAX_TOKENS=2048
@@ -213,10 +214,23 @@ Traditional listening practice often lacks:
    TOGETHER_BASE_URL=https://api.together.xyz/v1
    TOGETHER_TTS_MODEL=hexgrad/Kokoro-82M
 
+   # Optional per-service proxies (useful in production Docker)
+   # CEREBRAS_PROXY_URL=http://127.0.0.1:10808
+   # TOGETHER_PROXY_URL=http://127.0.0.1:10808
+
    # Application
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    NODE_ENV=development
    ```
+
+---
+
+## Production Deployment (Single VPS + Caddy + Docker)
+
+This repo’s production deployment runbook is maintained in `DEPLOYMENT.md` (authoritative). Use it as the only source of truth for:
+- server inventory (IP, paths, Caddy/Docker topology)
+- exact post-change deploy steps
+- known pitfalls and fixes
 
 4. **Verify environment configuration:**
    ```bash
@@ -387,11 +401,11 @@ english-listening-trainer/
 │   └── migrations/            # Database migrations
 ├── public/                    # Static assets and audio files
 ├── scripts/                   # Utility and deployment scripts
-├── documents/                 # Project documentation
 ├── tests/                     # Test suites
 ├── Dockerfile                 # Container image definition
-├── docker-compose.yml         # Local development setup
+├── docker-compose.prod.yml    # Production deployment (server)
 ├── package.json              # Dependencies and scripts
+├── DEPLOYMENT.md             # Authoritative AI deployment runbook
 └── README.md                 # This file
 ```
 
@@ -1208,7 +1222,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 For issues, feature requests, or questions:
 - **GitHub Issues**: [Create an issue](https://github.com/yourusername/english-listening-trainer/issues)
-- **Documentation**: See [`documents/`](documents/) for detailed guides
+- **Deployment**: See [`DEPLOYMENT.md`](DEPLOYMENT.md) (authoritative runbook used by AI + production)
 - **Email**: laoliarthur@outlook.com
 - **WeChat**: bookspiano
 

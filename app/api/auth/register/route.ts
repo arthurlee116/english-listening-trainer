@@ -3,7 +3,15 @@ import { createUser, findUserByEmail, validateEmail, validatePasswordStrength, g
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name } = await request.json()
+    const { email, password, name, privacyConsent } = await request.json()
+
+    // 验证隐私协议同意
+    if (!privacyConsent) {
+      return NextResponse.json(
+        { error: '请阅读并同意隐私说明' },
+        { status: 400 }
+      )
+    }
 
     // 验证必填字段
     if (!email || !password) {

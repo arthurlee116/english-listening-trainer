@@ -155,3 +155,10 @@ Key variables (see `.env.example` for full list):
 - **Database errors**: Check `DATABASE_URL`, run `npm run db:migrate`
 - **AI timeouts**: Check `AI_TIMEOUT` setting, verify Cerebras API access
 - **Audio issues**: Verify `Range` header support, check browser permissions
+
+## Deployment (Authoritative)
+
+Read `DEPLOYMENT.md` for:
+- the real production server inventory (IP, paths, Caddy/Docker layout)
+- the exact deployment commands to run after changes
+- the “known pitfalls” section (Cerebras base URL, Prisma/OpenSSL, SQLite mounts, proxy wiring, etc.)

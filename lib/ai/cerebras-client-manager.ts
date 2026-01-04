@@ -32,13 +32,15 @@ class CerebrasClientManager {
   }
 
   private computeFingerprint(config: AIServiceConfig): string {
+    const proxyUrl = resolveCerebrasProxyUrl() ?? ''
     return [
       config.baseUrl,
       config.timeout,
       config.maxRetries,
       config.defaultModel,
       config.defaultTemperature,
-      config.defaultMaxTokens
+      config.defaultMaxTokens,
+      proxyUrl
     ].join('|')
   }
 

@@ -725,6 +725,76 @@
     "dontHaveAccount": {
       "en": "Don't have an account?",
       "zh": "没有账户？"
+    },
+    "privacyConsent": {
+      "checkboxLabel": {
+        "en": "I have read and understand the",
+        "zh": "我已阅读并理解"
+      },
+      "privacyLinkText": {
+        "en": "Privacy Notice",
+        "zh": "《隐私说明》"
+      },
+      "dialogTitle": {
+        "en": "Privacy Notice",
+        "zh": "用户信息与隐私说明"
+      },
+      "collectionTitle": {
+        "en": "Information We Collect",
+        "zh": "我们收集的信息"
+      },
+      "collectionText": {
+        "en": "This platform only collects and uses personal information within the necessary scope to provide personalized foreign language listening learning services.",
+        "zh": "本平台仅在必要范围内收集和使用个人信息，用于提供个性化外语听力学习服务。"
+      },
+      "collectionList": {
+        "en": "Email and username provided during registration, along with learning records, usage behavior, and learning preference data generated during your use.",
+        "zh": "注册时提供的邮箱和用户名，以及你在使用过程中产生的学习记录、使用行为和学习偏好数据。"
+      },
+      "usageTitle": {
+        "en": "How We Use Your Information",
+        "zh": "信息用途"
+      },
+      "usageText": {
+        "en": "The above information is only used for:",
+        "zh": "上述信息仅用于："
+      },
+      "usageList": {
+        "en": "Generating personalized learning content and optimizing learning experience and system features. It is not used for commercial marketing purposes and will not be provided to any third party.",
+        "zh": "生成个性化学习内容、优化学习体验和系统功能，不用于商业营销目的，也不会向任何第三方提供。"
+      },
+      "noCollectionTitle": {
+        "en": "Information We Do Not Collect",
+        "zh": "我们不收集的信息"
+      },
+      "noCollectionText": {
+        "en": "We will not collect your real name, ID number, phone number, school, or other real identity information.",
+        "zh": "我们不会收集你的真实姓名、身份证号、手机号、学校等真实身份信息。"
+      },
+      "dataUsageTitle": {
+        "en": "Learning Behavior Data",
+        "zh": "学习行为数据"
+      },
+      "dataUsageText": {
+        "en": "Your learning behavior data is only associated with your account and used for internal system analysis and service improvement.",
+        "zh": "你的学习行为数据仅与账号关联，用于系统内部分析与服务改进。"
+      },
+      "consentStatement": {
+        "en": "By continuing to use this platform, you indicate that you have read and understood the above notice and agree to our processing of your information within the scope described above.",
+        "zh": "继续使用本平台，即表示你已阅读并理解上述说明，并同意我们在上述范围内处理你的信息。"
+      },
+      "lastUpdated": {
+        "en": "Last updated: {date}",
+        "zh": "更新日期：{date}"
+      },
+      "validationError": {
+        "en": "Please read and agree to the Privacy Notice",
+        "zh": "请阅读并同意隐私说明"
+      },
+      "closeButton": {
+        "en": "Close",
+        "zh": "关闭"
+      }
     }
   },
   "navigation": {

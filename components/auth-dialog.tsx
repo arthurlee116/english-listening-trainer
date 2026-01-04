@@ -9,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { PrivacyConsentCheckbox } from "@/components/auth/privacy-consent-checkbox"
+import { useBilingualText } from "@/hooks/use-bilingual-text"
 
 interface User {
   id: string
@@ -25,10 +27,12 @@ interface AuthDialogProps {
 }
 
 const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => {
+  const { t } = useBilingualText()
   const [activeTab, setActiveTab] = useState<"login" | "register">("login")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [privacyConsent, setPrivacyConsent] = useState(false)
   
   // 表单数据
   const [formData, setFormData] = useState({
@@ -44,6 +48,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
     password: "",
     name: "",
     confirmPassword: "",
+    privacyConsent: "",
     general: ""
   })
 
@@ -83,11 +88,19 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
 
   // 验证表单
   const validateForm = useCallback(() => {
-    const newErrors = {
+    const newErrors: {
+      email: string
+      password: string
+      name: string
+      confirmPassword: string
+      privacyConsent: string
+      general: string
+    } = {
       email: "",
       password: "",
       name: "",
       confirmPassword: "",
+      privacyConsent: "",
       general: ""
     }
 
@@ -110,11 +123,15 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
       if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = "两次输入的密码不一致"
       }
+      // 隐私协议验证
+      if (!privacyConsent) {
+        newErrors.privacyConsent = t('components.authDialog.privacyConsent.validationError')
+      }
     }
 
     setErrors(newErrors)
     return Object.values(newErrors).every(error => !error)
-  }, [formData, activeTab, isValidEmail, passwordValidation])
+  }, [formData, activeTab, isValidEmail, passwordValidation, privacyConsent, t])
 
   // 登录处理
   const handleLogin = useCallback(async () => {
@@ -163,7 +180,8 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          name: formData.name || undefined
+          name: formData.name || undefined,
+          privacyConsent
         })
       })
 
@@ -190,7 +208,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
     } finally {
       setLoading(false)
     }
-  }, [formData, validateForm, toast, onUserAuthenticated])
+  }, [formData, validateForm, toast, onUserAuthenticated, privacyConsent])
 
   // 提交处理
   const handleSubmit = useCallback(() => {
@@ -214,10 +232,12 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
       password: "",
       name: "",
       confirmPassword: "",
+      privacyConsent: "",
       general: ""
     })
     setRememberMe(false)
     setShowPassword(false)
+    setPrivacyConsent(false)
   }, [])
 
   // 切换标签时重置表单
@@ -438,6 +458,13 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                 </p>
               )}
             </div>
+
+            {/* Privacy Consent */}
+            <PrivacyConsentCheckbox
+              checked={privacyConsent}
+              onCheckedChange={setPrivacyConsent}
+              error={errors.privacyConsent}
+            />
           </TabsContent>
         </Tabs>
 

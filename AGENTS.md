@@ -5,7 +5,7 @@
 - `components/`, `hooks/`, and `lib/` hold reusable UI, React hooks, and shared services.
 - `prisma/` stores the schema and migrations; `public/` serves static assets.
 - `tests/` includes unit, integration, and e2e suites.
-- `scripts/` provides admin and setup utilities; `documents/` and `docs/` hold reference material.
+- `scripts/` provides admin and setup utilities.
 
 ## Build, Test, and Development Commands
 - `npm run dev`: start the Next.js dev server.
@@ -36,3 +36,7 @@
 ## Configuration & Secrets
 - Copy `.env.example` (or `.env.production.example`) to `.env.local` for local setup.
 - Do not commit real API keys; use placeholders in examples.
+
+## Deployment (Authoritative)
+
+Read `DEPLOYMENT.md` before making any production changes. After changing code, follow the “Routine deployment after code changes (fast path)” section in `DEPLOYMENT.md`.

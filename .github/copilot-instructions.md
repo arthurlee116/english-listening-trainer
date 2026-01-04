@@ -1,69 +1,125 @@
-# English Listening Trainer - AI Coding Instructions
+# Copilot Instructions
 
-## Project Overview
-AI-powered language learning platform using Next.js 15, React 19, Prisma, Cerebras AI (content), and local Kokoro TTS (audio).
+English Listening Trainer: AI-powered listening practice with Cerebras AI (content) + Together Kokoro-82M TTS (audio).
 
-## Architecture & Data Flow
+## Architecture Overview
 
-### 1. AI Content Pipeline (`lib/ai/`)
-- **Cerebras Integration**: Use `invokeStructured()` for all AI calls with Zod schemas.
-- **Prompt Templates**: Centralized in `lib/ai/prompt-templates.ts`.
-- **Validation**: Automatic retry with exponential backoff if focus area coverage < 80%.
-- **Telemetry**: All AI requests are tracked via `lib/ai/telemetry.ts`.
+**Content Pipeline**: User config → `/api/ai/topics` → `/api/ai/transcript` → `/api/ai/questions` → `/api/tts` → practice session.
 
-### 2. TTS Pipeline (`lib/kokoro-service-gpu.ts`)
-- **Local Synthesis**: Uses Python worker with CoreML/ANE on Apple Silicon.
-- **Streaming**: Supports HTTP Range requests for audio seeking.
-- **Circuit Breaker**: Monitored in `lib/kokoro-service-gpu.ts`; check for `Circuit breaker: OPEN`.
-- **Audio Storage**: Generated audio is saved to `public/audio/` and served via `/api/audio/[filename]`.
+Key insight: Focus area coverage is validated after question generation; if <80%, the system regenerates with expanded prompts (`lib/ai/retry-strategy.ts`).
 
-### 3. Database Access (`lib/database.ts`)
-- **Wrapper**: Always use `withDatabase()` for Prisma operations to ensure proper error handling and retries.
-  ```typescript
-  const result = await withDatabase(async (prisma) => {
-    return await prisma.user.findUnique({ where: { id } });
-  }, 'fetch user');
-  ```
-- **WAL Mode**: Enabled for SQLite to support higher concurrency.
+**Service Boundaries**:
+- `lib/ai/` — AI orchestration: client manager, prompts, schemas, retry logic.
+- `lib/together-tts-service.ts` — TTS via Together API with mandatory proxy at `127.0.0.1:10808`.
+- `lib/database.ts` — Always wrap Prisma operations in `withDatabase()` for retry/error handling.
+- `lib/auth.ts` — JWT auth with `requireAuth()` / `requireAdmin()` guards.
 
-### 4. Bilingual UI System
-- **Components**: Use `BilingualText` for UI labels. Prefer `BilingualDialog`, `BilingualAlertDialog`, and `BilingualLoading` for complex UI elements.
-- **Hooks**: Use `useBilingualText` for programmatic translations.
-- **Format**: "English 中文" (e.g., `t('common.buttons.generate')` -> "Generate 生成").
-- **Translations**: Centralized in `lib/i18n/translations/` (common, components, pages).
+## AI Prompt Templates (`lib/ai/prompt-templates.ts`)
 
-## Coding Conventions
+All AI prompts are centralized here. Key builders:
+- `buildTopicsPrompt()` — Generates 5 topics for a language/difficulty/focus area combo
+- `buildQuestionsPrompt()` — Creates comprehension questions with 70%+ focus area coverage
+- `buildTranscriptPrompt()` — Generates listening scripts matching word count targets
 
-### 1. Naming & Structure
-- **Components**: `PascalCase` (e.g., `AudioPlayer.tsx`).
-- **Hooks/Utils**: `kebab-case` (e.g., `use-audio-player.ts`, `config-manager.ts`).
-- **Path Aliases**: Always use `@/` for absolute imports.
-- **Server-Only**: Use `import 'server-only'` in modules that must not reach the client.
+Each builder accepts typed params (e.g., `TopicsPromptParams`, `QuestionsPromptParams`) and returns a formatted string. When modifying prompts:
+1. Keep the Zod schema in `lib/ai/schemas.ts` in sync with expected AI output
+2. Test with `npm run test:integration` to verify AI responses parse correctly
+3. Check focus area coverage thresholds in `lib/ai/retry-strategy.ts`
 
-### 2. Import Organization
-1. External packages (React, Lucide, etc.)
-2. Absolute imports (`@/components/...`, `@/lib/...`)
-3. Relative imports (`../hooks/...`)
+## Admin Dashboard
 
-## Performance & Caching
-- **Auth**: Cached in `hooks/use-auth-state.ts` with 15-min TTL.
-- **Audio**: Preload `metadata` only; cache duration info.
-- **LRU Cache**: Use for frequently accessed data (e.g., translation lookups).
+- **Start**: `npm run admin` (port 3005) or `npm run admin-dev` for hot reload
+- **Entry**: `scripts/admin-server.mjs` serves `app/admin/` routes
+- **Auth**: Uses `requireAdmin()` guard — user must have `isAdmin: true` in DB
+- **Demo mode**: Set `ADMIN_DEMO_DATA=1` to show simulated stats (clearly labeled)
+
+## Essential Commands
+
+```bash
+npm run dev           # Dev server on :3000
+npm run admin         # Admin dashboard on :3005
+npm run test:run      # CI-style test run (Vitest)
+npm run db:migrate    # Apply Prisma migrations
+npm run db:studio     # Visual DB editor
+```
+
+**TTS requires**: `TOGETHER_API_KEY` + HTTP proxy at `http://127.0.0.1:10808`.
+
+## Key Conventions
+
+**File Naming**:
+- Components: `PascalCase.tsx` (e.g., `AudioPlayer.tsx`)
+- Hooks/utils: `kebab-case.ts` with `use-` prefix (e.g., `use-audio-player.ts`)
+- Tests: `*.test.ts` in `tests/unit/`, `tests/integration/`, `tests/e2e/`
+
+**Imports** (always use `@/` alias):
+```typescript
+import { useState } from 'react'           // 1. External
+import { Button } from '@/components/ui/button'  // 2. Absolute (@/)
+import { localHelper } from './helper'     // 3. Relative
+```
+
+**Server-Only Code**: Mark with `import 'server-only'` at top. Never import into client components.
+
+## Core Patterns
+
+**Database Access**:
+```typescript
+import { withDatabase } from '@/lib/database'
+
+const result = await withDatabase(async (prisma) => {
+  return prisma.user.findUnique({ where: { id } })
+}, 'fetch user')
+```
+
+**API Route Auth**:
+```typescript
+import { requireAuth } from '@/lib/auth'
+
+export async function POST(request: NextRequest) {
+  const user = await requireAuth(request)  // Throws 401 if unauthenticated
+  // ...
+}
+```
+
+**AI Structured Output**: Use Zod schemas from `lib/ai/schemas.ts` for type-safe AI responses.
+
+## Environment Pitfalls
+
+- `CEREBRAS_BASE_URL` must be `https://api.cerebras.ai` (no `/v1` — SDK adds it automatically)
+- SQLite DB must use absolute path in Docker: `DATABASE_URL=file:/app/prisma/data/app.db`
+- TTS and Cerebras calls are proxied; check `*_PROXY_URL` env vars in production
+
+## Types Reference
+
+Core types live in `lib/types.ts`:
+- `DifficultyLevel`: `"A1" | "A2" | "B1" | "B2" | "C1" | "C2"`
+- `FocusArea`: 10 skill dimensions (e.g., `"main-idea"`, `"inference"`, `"vocabulary"`)
+- `ListeningLanguage`: `"en-US" | "en-GB" | "es" | "fr" | "ja" | "it" | "pt-BR" | "hi"`
+
+Language/voice mapping in `lib/language-config.ts`.
+
+## Deployment — READ AND UPDATE `DEPLOYMENT.md`
+
+**[DEPLOYMENT.md](../DEPLOYMENT.md) is the authoritative deployment runbook.** It documents:
+- Production server inventory (IP, paths, Caddy/Docker layout)
+- 5 known pitfalls with root causes and fixes (Pitfalls A–E)
+- Exact deployment commands and verification checklist
+
+**IMPORTANT**: If you encounter a new deployment pitfall not covered in `DEPLOYMENT.md`:
+1. Diagnose and fix the issue
+2. Add it as "Pitfall F" (or next letter) following the existing format in section "2) Known pitfalls"
+3. Include: root cause, fix, and how to verify
+
+Fast deployment path after code changes:
+```bash
+ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && git fetch --all && git reset --hard origin/main'
+ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && sudo docker compose -f docker-compose.prod.yml up -d --build app'
+curl -fsS https://leesaitool.com/api/health
+```
 
 ## Testing Guidelines
-- **Framework**: Vitest + Testing Library + MSW.
-- **Structure**: `tests/unit/`, `tests/integration/`, `tests/e2e/`.
-- **Coverage**: Aim for 70% line, 60% branch, 80% function.
 
-## Critical Workflows
-- `npm run dev-kokoro`: Start dev server with local TTS support.
-- `npm run db:migrate`: Apply schema changes.
-- `npm run setup-kokoro`: Initialize TTS environment (Python venv, models).
-- `npm run test:run`: Execute full test suite.
-
-## Key Files & Directories
-- `lib/ai/cerebras-service.ts`: Core AI invocation logic (`invokeStructured`).
-- `lib/kokoro-service-gpu.ts`: TTS service management.
-- `lib/database.ts`: Database connection and `withDatabase` wrapper.
-- `components/ui/bilingual-text.tsx`: Primary component for bilingual text.
-- `lib/i18n/translations/`: JSON translation files.
+- Run `npm run test:run && npm run lint` before committing
+- Use MSW for API mocking in integration tests
+- Test files mirror source structure under `tests/unit/`

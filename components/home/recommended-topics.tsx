@@ -68,6 +68,33 @@ export function RecommendedTopics({
     fetchTopics()
   }, [selectedCategory])
 
+  function normalizeTopics(input: unknown): Record<string, RecommendedTopic[]> {
+    if (!input || typeof input !== 'object') return {}
+
+    const result: Record<string, RecommendedTopic[]> = {}
+
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      if (!Array.isArray(value)) {
+        result[key] = []
+        continue
+      }
+
+      result[key] = value.map((topic) => {
+        if (!topic || typeof topic !== 'object') return topic as RecommendedTopic
+
+        const raw = topic as Partial<RecommendedTopic> & Record<string, unknown>
+        const transcripts = Array.isArray(raw.transcripts) ? (raw.transcripts as TopicTranscript[]) : []
+
+        return {
+          ...(raw as RecommendedTopic),
+          transcripts,
+        }
+      })
+    }
+
+    return result
+  }
+
   async function fetchTopics() {
     setLoading(true)
     try {
@@ -76,7 +103,7 @@ export function RecommendedTopics({
       const res = await fetch(`/api/news/topics?${params}`)
       if (res.ok) {
         const data = await res.json()
-        setTopics(data.topics || {})
+        setTopics(normalizeTopics(data.topics))
         setCategories(data.categories || {})
         setLastRefresh(data.lastRefresh)
       }
@@ -230,12 +257,10 @@ export function RecommendedTopics({
             return (
               <div
                 key={topic.id}
-                className={`p-4 rounded-lg border transition-colors cursor-pointer ${
-                  hasTranscript
-                    ? 'hover:bg-sky-50 hover:border-sky-200'
-                    : 'opacity-60 cursor-not-allowed'
+                className={`p-4 rounded-lg border transition-colors cursor-pointer hover:bg-sky-50 hover:border-sky-200 ${
+                  hasTranscript ? '' : 'opacity-80'
                 }`}
-                onClick={() => hasTranscript && onSelectTopic(topic, selectedDuration)}
+                onClick={() => onSelectTopic(topic, selectedDuration)}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -245,6 +270,11 @@ export function RecommendedTopics({
                       <Badge variant="outline" className="text-xs">
                         {topic.article.source}
                       </Badge>
+                      {!hasTranscript && (
+                        <Badge variant="secondary" className="text-xs">
+                          {currentLanguage === 'zh' ? '需生成' : 'Generate'}
+                        </Badge>
+                      )}
                       {topic.article.category && (
                         <Badge variant="secondary" className="text-xs">
                           {getCategoryLabel(topic.article.category)}

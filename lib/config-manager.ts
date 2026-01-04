@@ -150,7 +150,7 @@ class ConfigurationManager {
         baseUrl: process.env.CEREBRAS_BASE_URL || 'https://api.cerebras.ai',
         timeout: parseInt(process.env.AI_TIMEOUT || '30000'),
         maxRetries: parseInt(process.env.AI_MAX_RETRIES || '3'),
-        defaultModel: process.env.AI_DEFAULT_MODEL || 'llama3.1-8b',
+        defaultModel: process.env.AI_DEFAULT_MODEL || 'gpt-oss-120b',
         defaultTemperature,
         defaultMaxTokens
       },
