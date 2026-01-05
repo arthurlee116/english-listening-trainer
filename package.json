@@ -42,7 +42,7 @@
   "dependencies": {
     "@cerebras/cerebras_cloud_sdk": "^1.46.0",
     "@hookform/resolvers": "^3.9.1",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^6.19.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -127,7 +127,7 @@
     "jsdom": "^27.0.0",
     "msw": "^2.11.3",
     "postcss": "^8.5",
-    "prisma": "^5.22.0",
+    "prisma": "^6.19.1",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.1",
     "typescript": "^5",

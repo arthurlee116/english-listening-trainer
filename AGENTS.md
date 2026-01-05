@@ -40,3 +40,15 @@
 ## Deployment (Authoritative)
 
 Read `DEPLOYMENT.md` before making any production changes. After changing code, follow the “Routine deployment after code changes (fast path)” section in `DEPLOYMENT.md`.
+
+## Search Tools Convention
+
+**MANDATORY**: Use `exa` tools for ALL web searches. Do NOT use built-in WebSearch or Grep.
+
+| Task | Tool | Command |
+|------|------|---------|
+| Local code search | `mgrep` (via skill) | `mgrep "query"` |
+| Web search | `mcp__exa__web_search_exa` | `exa web search` |
+| Code/API docs | `mcp__exa__get_code_context_exa` | `exa code context` |
+
+**IMPORTANT**: Always use exa for web searches - never use built-in WebSearch.

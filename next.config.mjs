@@ -18,6 +18,10 @@ const nextConfig = {
     unoptimized: true,
   },
   serverExternalPackages: [],
+
+  outputFileTracingExcludes: {
+    '*': ['data/app.db-shm', 'data/app.db-wal'],
+  },
   
   // 环境变量配置
   env: {

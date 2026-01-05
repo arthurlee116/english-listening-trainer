@@ -17,7 +17,12 @@ export default function HomePage() {
     isAuthenticated,
     isLoading,
     showAuthDialog,
+    hasConsent,
+    showConsentDialog,
+    user,
     handleUserAuthenticated,
+    handleConsentAgreed,
+    handleConsentRefused,
   } = authState
 
   // Client-side mount detection
@@ -38,7 +43,12 @@ export default function HomePage() {
       hasMounted={hasMounted}
       isAuthenticated={isAuthenticated}
       showAuthDialog={showAuthDialog}
+      hasConsent={hasConsent}
+      showConsentDialog={showConsentDialog}
+      user={user}
       onUserAuthenticated={handleUserAuthenticatedCallback}
+      onConsentAgreed={handleConsentAgreed}
+      onConsentRefused={handleConsentRefused}
     >
       {/* MainApp 内部统一管理状态、侧边栏和主内容 */}
       <MainApp authState={authState} />

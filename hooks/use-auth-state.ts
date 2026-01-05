@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { hasCurrentSessionConsent, clearConsent } from '@/lib/privacy-consent'
 
 export interface AuthUserInfo {
   id: string
@@ -95,6 +96,10 @@ export function useAuthState() {
   const [authRefreshing, setAuthRefreshing] = useState<boolean>(false)
   const [cacheStale, setCacheStale] = useState<boolean>(false)
 
+  // Privacy consent state
+  const [hasConsent, setHasConsent] = useState<boolean>(false)
+  const [showConsentDialog, setShowConsentDialog] = useState<boolean>(false)
+
   const checkAuthStatus = useCallback(async (options: { initial?: boolean } = {}) => {
     const { initial = false } = options
     const controller = new AbortController()
@@ -178,15 +183,25 @@ export function useAuthState() {
         if (!isStale) {
           setCacheStale(false)
         }
+
+        // Check consent status after authentication
+        const consentGiven = hasCurrentSessionConsent(serverUser.id)
+        setHasConsent(consentGiven)
+        if (!consentGiven) {
+          setShowConsentDialog(true)
+        }
       } else {
         // 认证失败，清理状态
         console.log('❌ 用户未认证，显示登录对话框...')
         document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         clearCache()
+        clearConsent() // Also clear consent on auth failure
         setUser(null)
         setIsAuthenticated(false)
         setShowAuthDialog(true)
         setCacheStale(false)
+        setHasConsent(false)
+        setShowConsentDialog(false)
         console.log('Auth check failed: user not authenticated')
       }
     } catch (error) {
@@ -198,9 +213,12 @@ export function useAuthState() {
       }
       // 认证检查出错，清理状态并显示登录对话框
       clearCache()
+      clearConsent() // Also clear consent on error
       setUser(null)
       setIsAuthenticated(false)
       setShowAuthDialog(true)
+      setHasConsent(false)
+      setShowConsentDialog(false)
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId)
@@ -230,15 +248,25 @@ export function useAuthState() {
     }
 
     writeCache(userData, metadata)
+
+    // Check consent status on login
+    const consentGiven = hasCurrentSessionConsent(userData.id)
+    setHasConsent(consentGiven)
+    if (!consentGiven) {
+      setShowConsentDialog(true)
+    }
   }, [])
 
   const handleLogout = useCallback(async (): Promise<boolean> => {
     clearCache()
+    clearConsent() // Clear consent on logout
     setUser(null)
     setIsAuthenticated(false)
     setShowAuthDialog(true)
     setAuthRefreshing(false)
     setCacheStale(false)
+    setHasConsent(false)
+    setShowConsentDialog(false)
 
     let success = false
 
@@ -257,6 +285,17 @@ export function useAuthState() {
     return success
   }, [])
 
+  const handleConsentAgreed = useCallback(() => {
+    setHasConsent(true)
+    setShowConsentDialog(false)
+  }, [])
+
+  const handleConsentRefused = useCallback(async () => {
+    setShowConsentDialog(false)
+    // Trigger logout
+    await handleLogout()
+  }, [handleLogout])
+
   return {
     user,
     isAuthenticated,
@@ -264,8 +303,12 @@ export function useAuthState() {
     showAuthDialog,
     authRefreshing, // 认证状态正在刷新
     cacheStale, // 缓存状态过期
+    hasConsent, // Privacy consent status
+    showConsentDialog, // Show consent dialog
     handleUserAuthenticated,
     handleLogout,
+    handleConsentAgreed, // Consent given
+    handleConsentRefused, // Consent refused (logout)
     checkAuthStatus,
   }
 }

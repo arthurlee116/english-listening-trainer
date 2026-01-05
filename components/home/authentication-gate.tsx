@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { Loader2 } from "lucide-react"
 
 import { AuthDialog } from "@/components/auth-dialog"
+import { LoginConsentDialog } from "@/components/auth/login-consent-dialog"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { Card } from "@/components/ui/card"
 import type { AuthUserInfo } from "@/hooks/use-auth-state"
@@ -14,7 +15,12 @@ interface AuthenticationGateProps {
   hasMounted: boolean
   isAuthenticated: boolean
   showAuthDialog: boolean
+  hasConsent: boolean
+  showConsentDialog: boolean
+  user: AuthUserInfo | null
   onUserAuthenticated: (user: AuthUserInfo, token: string) => void
+  onConsentAgreed: () => void
+  onConsentRefused: () => void
   children: ReactNode
 }
 
@@ -23,7 +29,12 @@ export function AuthenticationGate({
   hasMounted,
   isAuthenticated,
   showAuthDialog,
+  hasConsent,
+  showConsentDialog,
+  user,
   onUserAuthenticated,
+  onConsentAgreed,
+  onConsentRefused,
   children,
 }: AuthenticationGateProps) {
   if (isLoading || !hasMounted) {
@@ -46,6 +57,21 @@ export function AuthenticationGate({
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <AuthDialog open={showAuthDialog} onUserAuthenticated={onUserAuthenticated} />
+      </div>
+    )
+  }
+
+  // Authenticated but no consent - show consent dialog
+  if (isAuthenticated && !hasConsent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <AuthDialog open={showAuthDialog} onUserAuthenticated={onUserAuthenticated} />
+        <LoginConsentDialog
+          open={showConsentDialog}
+          onConsent={onConsentAgreed}
+          onRefuse={onConsentRefused}
+          userId={user?.id || ''}
+        />
       </div>
     )
   }

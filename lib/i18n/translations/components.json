@@ -797,6 +797,36 @@
       }
     }
   },
+  "loginConsent": {
+    "title": {
+      "en": "Privacy Consent Required",
+      "zh": "需要隐私同意"
+    },
+    "description": {
+      "en": "To continue using the English Listening Trainer, please review and agree to our Privacy Notice.",
+      "zh": "要继续使用英语听力训练系统，请查阅并同意我们的隐私说明。"
+    },
+    "policyVersion": {
+      "en": "Policy Version: {version}",
+      "zh": "政策版本：{version}"
+    },
+    "readNotice": {
+      "en": "Please take a moment to read our Privacy Notice before continuing.",
+      "zh": "请花时间阅读我们的隐私说明，然后继续。"
+    },
+    "viewPrivacyNotice": {
+      "en": "View Privacy Notice",
+      "zh": "查看隐私说明"
+    },
+    "agreeButton": {
+      "en": "I Agree",
+      "zh": "我同意"
+    },
+    "logoutButton": {
+      "en": "Logout",
+      "zh": "退出登录"
+    }
+  },
   "navigation": {
     "home": {
       "en": "Home",

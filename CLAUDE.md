@@ -111,7 +111,7 @@ import { useCustomHook } from '../hooks'
 
 ## Search Tools Convention
 
-**MANDATORY**: Use `exa` tools for ALL searches. Do NOT use built-in WebSearch, Grep, or mgrep.
+**MANDATORY**: Use `exa` tools for ALL web searches. Do NOT use built-in WebSearch or Grep.
 
 | Task | Tool | Command |
 |------|------|---------|
