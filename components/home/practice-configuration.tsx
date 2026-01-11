@@ -138,22 +138,22 @@ export function PracticeConfiguration({
     <div className="space-y-4">
 
 
-      <Card className="glass-effect p-8 shadow-2xl">
+      <Card className="glass-effect p-8 shadow-[0_30px_60px_-40px_rgba(33,21,10,0.75)]">
         <div className="flex items-center gap-3 mb-6">
-          <Sparkles className="w-6 h-6 text-sky-600" />
-          <h2 className="text-2xl font-bold text-sky-700">
+          <Sparkles className="w-6 h-6 text-primary" />
+          <h2 className="text-2xl font-semibold text-foreground">
             <BilingualText translationKey="labels.createExercise" />
           </h2>
         </div>
 
         <div className="space-y-6">
           <div>
-            <Label htmlFor="difficulty" className="text-base font-medium text-slate-700">
+            <Label htmlFor="difficulty" className="text-base font-medium text-foreground-secondary">
               <BilingualText translationKey="labels.difficulty" />
             </Label>
 
             <div className="mt-2 mb-3 flex items-center justify-between gap-3">
-              <div className="text-xs text-slate-600">
+              <div className="text-xs text-foreground-muted">
                 {difficultyMode === 'auto' ? (
                   <span>Auto: {autoHint}</span>
                 ) : (
@@ -161,7 +161,7 @@ export function PracticeConfiguration({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-600">Auto</span>
+                <span className="text-xs text-foreground-muted">Auto</span>
                 <Switch
                   checked={difficultyMode === 'auto'}
                   onCheckedChange={(checked) => setDifficultyMode(checked ? 'auto' : 'manual')}
@@ -184,7 +184,7 @@ export function PracticeConfiguration({
                 {DIFFICULTY_LEVELS.map((level) => (
                   <SelectItem key={level.value} value={level.value}>
                     <BilingualText translationKey={level.labelKey} />{" "}
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-foreground-muted">
                       (
                       {DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].min}-
                       {DIFFICULTY_RANGE_MAP[level.value as DifficultyLevel].max})
@@ -196,13 +196,13 @@ export function PracticeConfiguration({
           </div>
 
           {/* Specialized Practice Mode */}
-          <Card className="p-4 border border-slate-200/60 bg-white/50">
+          <Card className="p-4 border border-border/60 bg-background/60">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="font-medium text-slate-800">
+                <div className="font-medium text-foreground">
                   <BilingualText translationKey="components.specializedPractice.title" />
                 </div>
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-foreground-muted">
                   <BilingualText translationKey="components.specializedPractice.description" />
                 </div>
               </div>
@@ -216,7 +216,7 @@ export function PracticeConfiguration({
 
             {specializedEnabled && (
               <div className="mt-4 space-y-3">
-                <div className="text-sm text-slate-700 font-medium">
+                <div className="text-sm text-foreground-secondary font-medium">
                   {selectedCountLabel}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -226,7 +226,7 @@ export function PracticeConfiguration({
                     return (
                       <label
                         key={area}
-                        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${disabled ? 'opacity-60' : 'cursor-pointer hover:bg-slate-50'}`}
+                        className={`flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm ${disabled ? 'opacity-60' : 'cursor-pointer hover:bg-accent/60'}`}
                       >
                         <Checkbox
                           checked={checked}
@@ -266,7 +266,7 @@ export function PracticeConfiguration({
           </Card>
 
           <div>
-            <Label htmlFor="language" className="text-base font-medium text-slate-700">
+            <Label htmlFor="language" className="text-base font-medium text-foreground-secondary">
               <BilingualText translationKey="labels.listeningLanguage" />
             </Label>
             <Select
@@ -290,7 +290,7 @@ export function PracticeConfiguration({
           </div>
 
           <div>
-            <Label htmlFor="duration" className="text-base font-medium text-slate-700">
+            <Label htmlFor="duration" className="text-base font-medium text-foreground-secondary">
               <BilingualText translationKey="labels.duration" />
             </Label>
             <Select
@@ -420,7 +420,7 @@ export function PracticeConfiguration({
                 <Newspaper className="w-4 h-4 mr-2" />
                 <BilingualText translationKey="news.newsEnhanced" />
               </Button>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-foreground-muted">
                 <BilingualText translationKey="news.newsEnhancedHint" />
               </p>
             </div>

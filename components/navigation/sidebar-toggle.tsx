@@ -64,8 +64,8 @@ export const SidebarToggle = forwardRef<HTMLButtonElement, SidebarToggleProps>(f
           w-11
           min-h-[44px]
           min-w-[44px]
-          text-sky-700
-          hover:bg-slate-100
+          text-primary
+          hover:bg-accent/80
           ${className}
           sidebar-toggle-button
         `}
@@ -97,11 +97,11 @@ export const SidebarToggle = forwardRef<HTMLButtonElement, SidebarToggleProps>(f
         h-6
         w-6
         rounded-full
-        bg-white
+        bg-card/90
         border
-        border-slate-200
-        hover:bg-slate-50
-        text-sky-700
+        border-border/70
+        hover:bg-card
+        text-foreground
         ${className}
         sidebar-toggle-button
       `}

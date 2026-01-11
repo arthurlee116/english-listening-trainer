@@ -51,9 +51,14 @@ export function AppLayoutWithSidebar({
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="relative min-h-screen flex overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute -top-40 -left-24 h-72 w-72 rounded-full bg-[hsl(var(--primary)/0.18)] blur-3xl" />
+        <div className="absolute top-24 -right-28 h-96 w-96 rounded-full bg-[hsl(var(--accent)/0.35)] blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[hsl(var(--secondary)/0.5)] blur-3xl" />
+      </div>
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex relative">
+      <div className="relative z-10 hidden md:flex">
         <Sidebar
           collapsed={collapsed}
           currentStep={currentStep}
@@ -68,7 +73,7 @@ export function AppLayoutWithSidebar({
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 min-w-0">
+      <main className="relative z-10 flex-1 min-w-0">
         {children}
       </main>
     </div>

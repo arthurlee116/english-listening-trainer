@@ -150,7 +150,7 @@ export function RecommendedTopics({
   if (loading && !hasTopics) {
     return (
       <Card className="p-6">
-        <div className="flex items-center justify-center gap-2 text-slate-500">
+        <div className="flex items-center justify-center gap-2 text-foreground-muted">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span><BilingualText translationKey="news.loading" /></span>
         </div>
@@ -162,14 +162,14 @@ export function RecommendedTopics({
     <Card className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Newspaper className="w-5 h-5 text-sky-600" />
-          <h3 className="font-semibold text-slate-700">
+          <Newspaper className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold text-foreground-secondary">
             <BilingualText translationKey="news.recommendedTopics" />
           </h3>
         </div>
         <div className="flex items-center gap-2">
           {lastRefresh && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-foreground-muted">
               {formatTimeAgo(lastRefresh)}
             </span>
           )}
@@ -190,7 +190,7 @@ export function RecommendedTopics({
 
       {/* Category filter */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="w-4 h-4 text-slate-500" />
+        <Filter className="w-4 h-4 text-foreground-muted" />
         <Button
           variant={selectedCategory === '' ? 'default' : 'outline'}
           size="sm"
@@ -214,7 +214,7 @@ export function RecommendedTopics({
 
       {/* Duration selector */}
       <div className="flex items-center gap-2">
-        <Clock className="w-4 h-4 text-slate-500" />
+        <Clock className="w-4 h-4 text-foreground-muted" />
         <div className="flex gap-1">
           {DURATION_OPTIONS.map(d => (
             <Button
@@ -232,7 +232,7 @@ export function RecommendedTopics({
 
       {!hasTopics ? (
         <div className="text-center space-y-4 py-4">
-          <p className="text-slate-600"><BilingualText translationKey="news.noTopics" /></p>
+          <p className="text-foreground-secondary"><BilingualText translationKey="news.noTopics" /></p>
           <Button onClick={handleRefresh} disabled={refreshing} variant="outline">
             {refreshing ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -243,11 +243,11 @@ export function RecommendedTopics({
           </Button>
         </div>
       ) : !difficulty ? (
-        <p className="text-sm text-slate-500 text-center py-4">
+        <p className="text-sm text-foreground-muted text-center py-4">
           <BilingualText translationKey="news.selectDifficultyFirst" />
         </p>
       ) : currentTopics.length === 0 ? (
-        <p className="text-sm text-slate-500 text-center py-4">
+        <p className="text-sm text-foreground-muted text-center py-4">
           <BilingualText translationKey="news.noTopicsForDifficulty" />
         </p>
       ) : (
@@ -257,16 +257,16 @@ export function RecommendedTopics({
             return (
               <div
                 key={topic.id}
-                className={`p-4 rounded-lg border transition-colors cursor-pointer hover:bg-sky-50 hover:border-sky-200 ${
+                className={`p-4 rounded-lg border border-border/70 bg-background/60 transition-colors cursor-pointer hover:bg-accent/70 hover:border-border-emphasis ${
                   hasTranscript ? '' : 'opacity-80'
                 }`}
                 onClick={() => onSelectTopic(topic, selectedDuration)}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-slate-800 truncate">{topic.topic}</h4>
-                    <p className="text-sm text-slate-600 mt-1 line-clamp-2">{topic.briefSummary}</p>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-slate-500 flex-wrap">
+                    <h4 className="font-medium text-foreground truncate">{topic.topic}</h4>
+                    <p className="text-sm text-foreground-secondary mt-1 line-clamp-2">{topic.briefSummary}</p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-foreground-muted flex-wrap">
                       <Badge variant="outline" className="text-xs">
                         {topic.article.source}
                       </Badge>
@@ -286,7 +286,7 @@ export function RecommendedTopics({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-sky-600 hover:underline"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
                       >
                         <BilingualText translationKey="news.viewOriginal" />
                         <ExternalLink className="w-3 h-3" />

@@ -1,10 +1,6 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Image (Manual)
 
 on:
-  push:
-    branches:
-      - main
-      - feature/exercise-template
   workflow_dispatch:
     inputs:
       branch:
