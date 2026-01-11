@@ -17,35 +17,35 @@ type IconType =
 type Emphasis = 'default' | 'emphasis' | 'strong'
 
 const textPalette: Record<TextLevel, string> = {
-  primary: 'text-slate-900',
-  secondary: 'text-slate-700',
-  tertiary: 'text-slate-600',
-  muted: 'text-slate-500',
+  primary: 'text-foreground',
+  secondary: 'text-foreground-secondary',
+  tertiary: 'text-foreground-tertiary',
+  muted: 'text-foreground-muted',
 }
 
 const iconPalette: Record<IconType, string> = {
-  primary: 'text-slate-900',
-  secondary: 'text-slate-700',
-  tertiary: 'text-slate-500',
-  interactive: 'text-slate-600 transition-colors hover:text-slate-900',
-  nav: 'text-slate-600 transition-colors hover:text-slate-900',
+  primary: 'text-foreground',
+  secondary: 'text-foreground-secondary',
+  tertiary: 'text-foreground-tertiary',
+  interactive: 'text-foreground-secondary transition-colors hover:text-foreground',
+  nav: 'text-foreground-tertiary transition-colors hover:text-foreground',
   success: 'text-emerald-600',
   warning: 'text-amber-600',
   error: 'text-rose-600',
-  info: 'text-sky-600',
-  loading: 'text-sky-600',
+  info: 'text-primary',
+  loading: 'text-primary',
 }
 
 const borderPalette: Record<Emphasis, string> = {
-  default: 'border-slate-200',
-  emphasis: 'border-slate-300',
-  strong: 'border-slate-400',
+  default: 'border-border',
+  emphasis: 'border-border-emphasis',
+  strong: 'border-border-emphasis',
 }
 
 const separatorPalette: Record<Emphasis, string> = {
-  default: 'border-slate-200',
-  emphasis: 'border-slate-300',
-  strong: 'border-slate-400',
+  default: 'border-border',
+  emphasis: 'border-border-emphasis',
+  strong: 'border-border-emphasis',
 }
 
 export function useThemeClasses() {

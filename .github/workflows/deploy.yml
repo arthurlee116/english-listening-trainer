@@ -1,0 +1,85 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          host="${{ secrets.SSH_HOST }}"
+          port="${{ secrets.SSH_PORT }}"
+          if [ -z "$port" ]; then
+            port=22
+          fi
+          ssh-keyscan -p "$port" -H "$host" >> ~/.ssh/known_hosts
+
+      - name: Sync code on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          port="${SSH_PORT:-22}"
+          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
+            'cd /srv/leesaitool/english-listening-trainer && git fetch --all && git reset --hard origin/main'
+
+      - name: Rebuild and restart app
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          port="${SSH_PORT:-22}"
+          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
+            'cd /srv/leesaitool/english-listening-trainer && sudo docker compose -f docker-compose.prod.yml up -d --build app'
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          for i in {1..10}; do
+            if curl -fsS https://leesaitool.com/api/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed after retries." >&2
+          exit 1
+
+      - name: Fetch logs on failure
+        if: failure()
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          port="${SSH_PORT:-22}"
+          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
+            'sudo docker logs --tail=200 english-listening-trainer-app-1'

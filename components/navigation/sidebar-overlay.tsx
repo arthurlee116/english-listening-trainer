@@ -59,8 +59,8 @@ export function SidebarOverlay({
       className={`
         fixed
         inset-0
-        bg-black/60
-        backdrop-blur-sm
+        bg-foreground/30
+        backdrop-blur-md
         z-30
         md:hidden
         animate-overlay-fade-in

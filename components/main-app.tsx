@@ -1,20 +1,11 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useCallback, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book } from "lucide-react"
-import { Toaster } from "@/components/ui/toaster"
-import { AuthDialog } from "@/components/auth-dialog"
-import { MigrationNotification } from "@/components/migration-notification"
-import { AudioPlayer } from "@/components/audio-player"
-import { QuestionInterface } from "@/components/question-interface"
-import { ResultsDisplay } from "@/components/results-display"
-import { HistoryPanel } from "@/components/history-panel"
-import { WrongAnswersBook } from "@/components/wrong-answers-book"
-import { AssessmentResult } from "@/components/assessment-result"
-import { AssessmentInterface } from "@/components/assessment-interface"
 import { MobileSidebarWrapper } from "@/components/navigation/mobile-sidebar-wrapper"
 import { AppLayoutWithSidebar } from "@/components/app-layout-with-sidebar"
 import { RecommendedTopics, type RecommendedTopic } from "@/components/home/recommended-topics"
@@ -26,6 +17,47 @@ import type { NavigationAction } from "@/lib/types"
 import { useThemeClasses, combineThemeClasses } from "@/hooks/use-theme-classes"
 import { useExerciseWorkflow, type ExerciseStep } from "@/hooks/use-exercise-workflow"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
+
+const AuthDialog = dynamic(
+  () => import("@/components/auth-dialog").then((mod) => mod.AuthDialog),
+  { ssr: false }
+)
+const MigrationNotification = dynamic(
+  () => import("@/components/migration-notification").then((mod) => mod.MigrationNotification),
+  { ssr: false }
+)
+const AudioPlayer = dynamic(
+  () => import("@/components/audio-player").then((mod) => mod.AudioPlayer),
+  { ssr: false }
+)
+const QuestionInterface = dynamic(
+  () => import("@/components/question-interface").then((mod) => mod.QuestionInterface),
+  { ssr: false }
+)
+const ResultsDisplay = dynamic(
+  () => import("@/components/results-display").then((mod) => mod.ResultsDisplay),
+  { ssr: false }
+)
+const HistoryPanel = dynamic(
+  () => import("@/components/history-panel").then((mod) => mod.HistoryPanel),
+  { ssr: false }
+)
+const WrongAnswersBook = dynamic(
+  () => import("@/components/wrong-answers-book").then((mod) => mod.WrongAnswersBook),
+  { ssr: false }
+)
+const AssessmentResult = dynamic(
+  () => import("@/components/assessment-result").then((mod) => mod.AssessmentResult),
+  { ssr: false }
+)
+const AssessmentInterface = dynamic(
+  () => import("@/components/assessment-interface").then((mod) => mod.AssessmentInterface),
+  { ssr: false }
+)
+const Toaster = dynamic(
+  () => import("@/components/ui/toaster").then((mod) => mod.Toaster),
+  { ssr: false }
+)
 
 type MainAppProps = {
   authState: AuthState
@@ -156,7 +188,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
             <BilingualText translationKey="messages.loadingApp" />
           </h2>
           <p className={combineThemeClasses(
-            "text-gray-600",
+            "text-foreground-muted",
             textClass('secondary')
           )}>
             <BilingualText translationKey="messages.verifyingLogin" />
@@ -176,7 +208,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <p className={combineThemeClasses(
-              "text-gray-600",
+            "text-foreground-muted",
               textClass('secondary')
             )}>
               <BilingualText en="Please log in to use the application" zh="请先登录以使用应用" />
@@ -204,14 +236,14 @@ export const MainApp = ({ authState }: MainAppProps) => {
       >
         {/* Header */}
         <header className={combineThemeClasses(
-          "sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200",
+          "sticky top-0 z-50 bg-background/90 backdrop-blur-xl border-b shadow-[0_14px_36px_-28px_rgba(33,21,10,0.7)]",
           borderClass('default')
         )} role="banner">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
                 <h1 className={combineThemeClasses(
-                  "text-xl font-bold text-gray-900",
+                  "text-2xl font-semibold tracking-tight",
                   textClass('primary')
                 )}>
                   <BilingualText translationKey="pages.home.title" />
@@ -223,7 +255,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
                 <div className="flex items-center space-x-2" role="region" aria-label={t("labels.userMenu")}>
                   <User className={combineThemeClasses("w-4 h-4", iconClass('nav'))} />
                   <span className={combineThemeClasses(
-                    "text-sm text-gray-700",
+                    "text-sm text-foreground-secondary",
                     textClass('secondary')
                   )}>
                     {user?.name || user?.email}
@@ -288,7 +320,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
         )}
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="page-reveal max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
           {/* History Panel */}
           {state.currentStep === "history" && (
             <HistoryPanel

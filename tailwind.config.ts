@@ -13,6 +13,23 @@ const config: Config = {
   ],
   theme: {
         extend: {
+                fontFamily: {
+                        display: [
+                                'var(--font-display)',
+                                '"Noto Serif SC"',
+                                '"Source Han Serif SC"',
+                                '"Songti SC"',
+                                'serif'
+                        ],
+                        body: [
+                                'var(--font-body)',
+                                '"Noto Sans SC"',
+                                '"PingFang SC"',
+                                '"Microsoft YaHei"',
+                                'system-ui',
+                                'sans-serif'
+                        ]
+                },
                 colors: {
                         background: {
                                 DEFAULT: 'hsl(var(--background))',
