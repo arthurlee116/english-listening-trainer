@@ -63,7 +63,14 @@ jobs:
       - name: Health check
         run: |
           set -euo pipefail
-          curl -fsS https://leesaitool.com/api/health
+          for i in {1..10}; do
+            if curl -fsS https://leesaitool.com/api/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed after retries." >&2
+          exit 1
 
       - name: Fetch logs on failure
         if: failure()
