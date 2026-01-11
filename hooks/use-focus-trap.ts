@@ -2,6 +2,15 @@
 
 import { MutableRefObject, useEffect, useRef } from 'react'
 
+declare global {
+  interface HTMLElement {
+    checkVisibility?: (options?: {
+      checkOpacity?: boolean
+      checkVisibilityCSS?: boolean
+    }) => boolean
+  }
+}
+
 const FOCUSABLE_SELECTORS = [
   'a[href]',
   'area[href]',
@@ -35,7 +44,7 @@ interface FocusTrapOptions {
   fallbackToContainer?: boolean
 }
 
-const isElementVisible = (element: HTMLElement): boolean => {
+export const isElementVisible = (element: HTMLElement): boolean => {
   if (typeof element.checkVisibility === 'function') {
     return element.checkVisibility({
       checkOpacity: true,
@@ -43,11 +52,7 @@ const isElementVisible = (element: HTMLElement): boolean => {
     })
   }
 
-  if (element.offsetParent !== null) {
-    return true
-  }
-
-  return element.getClientRects().length > 0
+  return element.offsetWidth > 0 || element.offsetHeight > 0 || element.getClientRects().length > 0
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {

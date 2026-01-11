@@ -23,28 +23,36 @@ const AuthDialog = dynamic(
   { ssr: false }
 )
 const MigrationNotification = dynamic(
-  () => import("@/components/migration-notification").then((mod) => mod.MigrationNotification)
+  () => import("@/components/migration-notification").then((mod) => mod.MigrationNotification),
+  { ssr: false }
 )
 const AudioPlayer = dynamic(
-  () => import("@/components/audio-player").then((mod) => mod.AudioPlayer)
+  () => import("@/components/audio-player").then((mod) => mod.AudioPlayer),
+  { ssr: false }
 )
 const QuestionInterface = dynamic(
-  () => import("@/components/question-interface").then((mod) => mod.QuestionInterface)
+  () => import("@/components/question-interface").then((mod) => mod.QuestionInterface),
+  { ssr: false }
 )
 const ResultsDisplay = dynamic(
-  () => import("@/components/results-display").then((mod) => mod.ResultsDisplay)
+  () => import("@/components/results-display").then((mod) => mod.ResultsDisplay),
+  { ssr: false }
 )
 const HistoryPanel = dynamic(
-  () => import("@/components/history-panel").then((mod) => mod.HistoryPanel)
+  () => import("@/components/history-panel").then((mod) => mod.HistoryPanel),
+  { ssr: false }
 )
 const WrongAnswersBook = dynamic(
-  () => import("@/components/wrong-answers-book").then((mod) => mod.WrongAnswersBook)
+  () => import("@/components/wrong-answers-book").then((mod) => mod.WrongAnswersBook),
+  { ssr: false }
 )
 const AssessmentResult = dynamic(
-  () => import("@/components/assessment-result").then((mod) => mod.AssessmentResult)
+  () => import("@/components/assessment-result").then((mod) => mod.AssessmentResult),
+  { ssr: false }
 )
 const AssessmentInterface = dynamic(
-  () => import("@/components/assessment-interface").then((mod) => mod.AssessmentInterface)
+  () => import("@/components/assessment-interface").then((mod) => mod.AssessmentInterface),
+  { ssr: false }
 )
 const Toaster = dynamic(
   () => import("@/components/ui/toaster").then((mod) => mod.Toaster),
