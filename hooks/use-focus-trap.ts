@@ -56,9 +56,11 @@ export const isElementVisible = (element: HTMLElement): boolean => {
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from<HTMLElement>(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
-  ).filter((el) => {
+  const focusables = Array.from(
+    container.querySelectorAll(FOCUSABLE_SELECTORS)
+  ) as HTMLElement[]
+
+  return focusables.filter((el) => {
     const isDisabled =
       el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true'
     const isVisible = isElementVisible(el)
