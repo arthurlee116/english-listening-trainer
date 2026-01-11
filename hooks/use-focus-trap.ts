@@ -35,14 +35,28 @@ interface FocusTrapOptions {
   fallbackToContainer?: boolean
 }
 
+const isElementVisible = (element: HTMLElement): boolean => {
+  if (typeof element.checkVisibility === 'function') {
+    return element.checkVisibility({
+      checkOpacity: true,
+      checkVisibilityCSS: true,
+    })
+  }
+
+  if (element.offsetParent !== null) {
+    return true
+  }
+
+  return element.getClientRects().length > 0
+}
+
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(
     container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
   ).filter((el) => {
     const isDisabled =
       el.hasAttribute('disabled') || el.getAttribute('aria-hidden') === 'true'
-    const rect = el.getBoundingClientRect()
-    const isVisible = rect.width > 0 || rect.height > 0
+    const isVisible = isElementVisible(el)
     return !isDisabled && isVisible
   })
 }
