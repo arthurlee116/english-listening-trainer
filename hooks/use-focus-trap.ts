@@ -56,7 +56,7 @@ export const isElementVisible = (element: HTMLElement): boolean => {
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(
+  return Array.from<HTMLElement>(
     container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
   ).filter((el) => {
     const isDisabled =
