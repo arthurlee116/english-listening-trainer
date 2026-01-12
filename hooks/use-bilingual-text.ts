@@ -121,9 +121,11 @@ export function useBilingualText(): UseBilingualTextReturn {
       return record[key] !== undefined ? record[key] : undefined;
     }, obj);
 
-    // Cache the result using managed cache
-    translationCache.set(cacheKey, result);
-    i18nPerformanceMonitor.updateMemoryUsage(translationCache.size(), 0);
+    // Cache string results only; nested objects are handled per-call
+    if (typeof result === 'string') {
+      translationCache.set(cacheKey, result);
+      i18nPerformanceMonitor.updateMemoryUsage(translationCache.size(), 0);
+    }
 
     return result;
   }, [currentLanguage]);
