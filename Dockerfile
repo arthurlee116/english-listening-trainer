@@ -27,13 +27,11 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-c
 
 RUN useradd -m -u 10001 nodeapp
 
-COPY --from=build /app/package.json /app/package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/prisma ./prisma
-
-RUN chown -R nodeapp:nodeapp /app
+COPY --from=build --chown=nodeapp:nodeapp /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=nodeapp:nodeapp /app/node_modules ./node_modules
+COPY --from=build --chown=nodeapp:nodeapp /app/.next ./.next
+COPY --from=build --chown=nodeapp:nodeapp /app/public ./public
+COPY --from=build --chown=nodeapp:nodeapp /app/prisma ./prisma
 
 USER nodeapp
 EXPOSE 3000
