@@ -40,7 +40,7 @@ English Listening Trainer 是一款革命性的AI驱动英语听力训练平台�
 
 ### 技术架构亮点
 
-平台采用现代Web技术栈：Next.js 15构建的前端应用，TypeScript确保代码质量，Prisma ORM管理数据库。AI服务集成Cerebras API进行智能内容生成，本地Kokoro TTS提供高性能语音合成。支持Docker容器化部署，可选GPU加速以提升音频处理效率。
+平台采用现代Web技术栈：Next.js 16构建的前端应用，TypeScript确保代码质量，Prisma ORM管理数据库。AI服务集成Cerebras API进行智能内容生成，本地Kokoro TTS提供高性能语音合成。支持Docker容器化部署，可选GPU加速以提升音频处理效率。
 
 ### 快速开始体验
 
@@ -138,7 +138,7 @@ Traditional listening practice often lacks:
 ## Technology Stack
 
 ### Frontend
-- **Next.js 15** (App Router) — Modern React framework with optimized performance
+- **Next.js 16** (App Router) — Modern React framework with optimized performance
 - **React 19** — UI component library
 - **TypeScript** — Type-safe development
 - **Tailwind CSS** — Utility-first styling
@@ -808,7 +808,7 @@ Sessions are automatically saved after grading. View history:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Client (Browser)                      │
-│  React 19 + Next.js 15 App Router + Tailwind CSS        │
+│  React 19 + Next.js 16 App Router + Tailwind CSS        │
 └────────────────────┬────────────────────────────────────┘
                      │ HTTP/HTTPS
 ┌────────────────────▼────────────────────────────────────┐

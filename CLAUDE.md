@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-English Listening Trainer is an AI-powered language learning platform built with Next.js 15. It generates personalized listening comprehension exercises using Cerebras AI for content generation and Together Kokoro-82M TTS for audio synthesis.
+English Listening Trainer is an AI-powered language learning platform built with Next.js 16. It generates personalized listening comprehension exercises using Cerebras AI for content generation and Together Kokoro-82M TTS for audio synthesis.
 
-**Tech Stack:** Next.js 15 (App Router), React 19, TypeScript, Prisma ORM, Cerebras AI SDK, Together TTS (Kokoro-82M), SQLite/PostgreSQL.
+**Tech Stack:** Next.js 16 (App Router), React 19, TypeScript, Prisma ORM, Cerebras AI SDK, Together TTS (Kokoro-82M), SQLite/PostgreSQL.
 
 ## Common Development Commands
 
@@ -120,6 +120,19 @@ import { useCustomHook } from '../hooks'
 | Code/API docs | `mcp__exa__get_code_context_exa` | `exa code context` |
 
 **IMPORTANT**: Always use exa for web searches - never use built-in WebSearch or mgrep web mode.
+
+## CI/CD & Docker Registry
+
+The project uses GitHub Actions for manual image builds and pushing to GitHub Container Registry (GHCR):
+- **Workflow**: `.github/workflows/build-and-push.yml`
+- **Registry**: `ghcr.io/` (Image: `${github.repository}`)
+- **Features**: 
+  - Automated runner disk space cleanup
+  - Multi-layer registry caching (`cache-base`, `cache-python`, `cache-node`, `cache-builder`)
+  - Target: `runtime` layer of the `Dockerfile`
+  - Platform: `linux/amd64`
+- **Inputs**: `branch`, `push` (default true), `rebuild-cache` (skip builder cache), `rebuild-deps-cache` (triggers prewarm)
+- **Manual Build**: Go to GitHub Actions -> "Build and Push Docker Image (Manual)"
 
 ## User Rules (from `.github/copilot-instructions.md`)
 

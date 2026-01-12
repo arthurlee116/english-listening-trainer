@@ -18,7 +18,6 @@ import type {
   Exercise,
   Question,
   DifficultyLevel,
-  GradingResult,
   ListeningLanguage,
   AchievementNotification
 } from "@/lib/types"

@@ -5,13 +5,13 @@ export interface BatchProcessingState {
   isProcessing: boolean
   progress: number
   status: QueueStatus
-  results: BatchResult<any> | null
+  results: BatchResult<unknown> | null
   error: string | null
 }
 
-export interface BatchProcessingOptions {
+export interface BatchProcessingOptions<TOutput = unknown> {
   onProgress?: (status: QueueStatus) => void
-  onComplete?: (results: BatchResult<any>) => void
+  onComplete?: (results: BatchResult<TOutput>) => void
   onError?: (error: string) => void
 }
 
@@ -30,7 +30,7 @@ export function useBatchProcessing(concurrencyService: ConcurrencyService) {
     error: null
   })
 
-  const optionsRef = useRef<BatchProcessingOptions>({})
+  const optionsRef = useRef<BatchProcessingOptions<unknown>>({})
   const unsubscribeRef = useRef<(() => void) | null>(null)
 
   const updateState = useCallback((updates: Partial<BatchProcessingState>) => {
@@ -40,10 +40,10 @@ export function useBatchProcessing(concurrencyService: ConcurrencyService) {
   const processBatch = useCallback(async <TInput, TOutput>(
     items: TInput[],
     processor: (item: TInput) => Promise<TOutput>,
-    options: BatchProcessingOptions = {}
+    options: BatchProcessingOptions<TOutput> = {}
   ): Promise<BatchResult<TOutput>> => {
     // Store options for callbacks
-    optionsRef.current = options
+    optionsRef.current = options as BatchProcessingOptions<unknown>
 
     try {
       // Reset state

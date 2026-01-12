@@ -6,9 +6,8 @@ const nextConfig = {
   // Docker 部署配置 - 启用 standalone 模式
   output: 'standalone',
   
-  eslint: {
-    // 生产构建保留校验，阻止问题代码进入产物
-    ignoreDuringBuilds: false,
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
   },
   typescript: {
     // 构建时必须通过类型检查
@@ -67,24 +66,6 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
-          },
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
-          },
-        ],
-      },
-      {
-        // 为 public 目录下的所有文件添加 CORS
-        source: '/tts_audio_:id*.wav',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'audio/wav',
-          },
-          {
-            key: 'Accept-Ranges',
-            value: 'bytes',
           },
           {
             key: 'Access-Control-Allow-Origin',

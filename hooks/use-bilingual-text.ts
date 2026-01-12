@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useEffect } from 'react';
-import { FormatOptions, TranslationKey, UseBilingualTextReturn, bilingualConfig } from '@/lib/i18n/types';
+import { FormatOptions, TranslationKey, UseBilingualTextReturn } from '@/lib/i18n/types';
 import { useLanguage, Language } from '@/components/providers/language-provider';
 
 import { translationCache } from '@/lib/i18n/memory-management';
@@ -19,6 +19,14 @@ const translationsLoaded = true;
 const achievementsTranslations: Record<string, unknown> = achievementsTranslationsData as Record<string, unknown>;
 const achievementsSection: Record<string, unknown> =
   (achievementsTranslations['achievements'] as Record<string, unknown>) || {};
+
+const isTranslationKey = (value: unknown): value is TranslationKey => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return typeof record.en === 'string' && typeof record.zh === 'string';
+};
 
 /**
  * Select language text based on current language preference
@@ -94,7 +102,7 @@ export function useBilingualText(): UseBilingualTextReturn {
   /**
    * Get nested object value by dot notation path with optimized caching
    */
-  const getNestedValue = useCallback((obj: any, path: string): any => {
+  const getNestedValue = useCallback((obj: Record<string, unknown> | undefined, path: string): unknown => {
     const cacheKey = `nested:${currentLanguage}:${path}`;
     
     const cached = translationCache.get(cacheKey);
@@ -105,8 +113,12 @@ export function useBilingualText(): UseBilingualTextReturn {
 
     i18nPerformanceMonitor.recordCacheMiss('translation');
 
-    const result = path.split('.').reduce((current, key) => {
-      return current && current[key] !== undefined ? current[key] : undefined;
+    const result = path.split('.').reduce<unknown>((current, key) => {
+      if (!current || typeof current !== 'object') {
+        return undefined;
+      }
+      const record = current as Record<string, unknown>;
+      return record[key] !== undefined ? record[key] : undefined;
     }, obj);
 
     // Cache the result using managed cache
@@ -139,7 +151,7 @@ export function useBilingualText(): UseBilingualTextReturn {
       }
 
       // Determine which translation file to use based on key prefix
-      let translationObj: any;
+      let translationObj: Record<string, unknown> | undefined;
       let actualKey = key;
 
       if (key.startsWith('common.')) {
@@ -162,16 +174,17 @@ export function useBilingualText(): UseBilingualTextReturn {
         }
       } else {
         // Try to find in common first, then components, then pages
-        translationObj = getNestedValue(commonTranslations, key) ||
-                        getNestedValue(componentsTranslations, key) ||
-                        getNestedValue(pagesTranslations, key) ||
-                        getNestedValue(achievementsTranslations, key) ||
-                        (key.startsWith('achievements.')
-                          ? getNestedValue(achievementsSection, key.substring(13))
-                          : undefined);
+        const candidate =
+          getNestedValue(commonTranslations, key) ||
+          getNestedValue(componentsTranslations, key) ||
+          getNestedValue(pagesTranslations, key) ||
+          getNestedValue(achievementsTranslations, key) ||
+          (key.startsWith('achievements.')
+            ? getNestedValue(achievementsSection, key.substring(13))
+            : undefined);
 
-        if (translationObj && translationObj.en && translationObj.zh) {
-          const result = formatBilingual(translationObj.en, translationObj.zh, options);
+        if (isTranslationKey(candidate)) {
+          const result = formatBilingual(candidate.en, candidate.zh, options);
           
           // Cache the result using managed cache
           translationCache.set(cacheKey, result);
@@ -180,13 +193,17 @@ export function useBilingualText(): UseBilingualTextReturn {
           
           return result;
         }
+
+        translationObj = candidate && typeof candidate === 'object'
+          ? (candidate as Record<string, unknown>)
+          : undefined;
       }
 
       // Get the translation object using dot notation
       const translation = getNestedValue(translationObj, actualKey);
 
       // Check if it's a valid TranslationKey object
-      if (translation && typeof translation === 'object' && translation.en && translation.zh) {
+      if (isTranslationKey(translation)) {
         const result = formatBilingual(translation.en, translation.zh, options);
         
         // Cache the result using managed cache

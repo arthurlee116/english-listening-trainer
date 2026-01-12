@@ -87,7 +87,6 @@ function isCacheStale(localVersion: number, serverVersion: number, localModified
 
 export function useAuthState() {
   const initialUser = typeof window !== 'undefined' ? readCachedUser() : null
-  const initialMetadata = typeof window !== 'undefined' ? readAuthMetadata() : null
 
   const [user, setUser] = useState<AuthUserInfo | null>(initialUser)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(initialUser))
