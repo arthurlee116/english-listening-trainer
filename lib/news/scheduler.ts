@@ -112,7 +112,7 @@ export async function refreshNews(categories?: NewsCategory[]): Promise<RefreshR
     
     await prisma.newsRefreshState.update({
       where: { id: REFRESH_STATE_ID },
-      data: { lastRefreshAt: new Date(), isRefreshing: false }
+      data: { lastRefreshAt: new Date() }
     })
     
     const duration = Date.now() - startTime
