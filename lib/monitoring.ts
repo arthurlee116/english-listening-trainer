@@ -31,6 +31,7 @@ setInterval(() => {
 
 process.on('uncaughtException', (error) => {
   logger.fatal('Uncaught Exception', error)
+  process.exit(1)
 })
 
 process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
