@@ -18,11 +18,29 @@ interface RefreshResult {
 }
 
 async function getRefreshState() {
-  return prisma.newsRefreshState.upsert({
-    where: { id: REFRESH_STATE_ID },
-    create: { id: REFRESH_STATE_ID, isRefreshing: false, lastRefreshAt: null },
-    update: {}
+  const existing = await prisma.newsRefreshState.findUnique({
+    where: { id: REFRESH_STATE_ID }
   })
+  if (existing) {
+    return existing
+  }
+
+  try {
+    return await prisma.newsRefreshState.create({
+      data: { id: REFRESH_STATE_ID, isRefreshing: false, lastRefreshAt: null }
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.toLowerCase().includes('unique')) {
+      const retry = await prisma.newsRefreshState.findUnique({
+        where: { id: REFRESH_STATE_ID }
+      })
+      if (retry) {
+        return retry
+      }
+    }
+    throw error
+  }
 }
 
 function isLockStale(updatedAt: Date) {
