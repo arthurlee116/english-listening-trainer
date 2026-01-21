@@ -32,7 +32,7 @@ This file is the single source of truth for deployment. If it conflicts with oth
 - Caddy terminates HTTPS (Let’s Encrypt) and routes by Host header.
 
 ### App runtime
-- Deployment method: Docker Compose build-on-server
+- Deployment method: GitHub Actions (Push to `main`) or manual Docker Compose build-on-server
 - Compose file: `/srv/leesaitool/english-listening-trainer/docker-compose.prod.yml`
 - Container listens on `0.0.0.0:3000` inside container
 - Host mapping: `127.0.0.1:3001 -> 3000` (so only Caddy can reach it)
@@ -107,15 +107,17 @@ Why `db push` (for speed): migration history may not be stable/complete for a cl
 
 ## 5) Routine deployment after code changes (fast path)
 
-Run from your local machine:
+### Option A: GitHub Actions (Automatic - Preferred)
+Simply push to `main` or merge a PR. The `deploy.yml` workflow will:
+1. Sync code on the server via SSH.
+2. Rebuild and restart the container.
+3. Perform a health check.
+
+### Option B: Manual sync (Run from your local machine)
 
 ```bash
-# 1) sync code to server (choose ONE)
-# Option A: git (preferred if server has repo origin set)
+# 1) sync code to server
 ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && git fetch --all && git reset --hard origin/main'
-
-# Option B: scp (quick hotfix for a file)
-# scp path/to/file ubuntu@43.159.200.246:/srv/leesaitool/english-listening-trainer/path/to/file
 
 # 2) rebuild + restart app
 ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && sudo docker compose -f docker-compose.prod.yml up -d --build app'
@@ -188,5 +190,35 @@ swapon --show
 ## 9) What NOT to do
 
 - Do not run `docker system prune -a` unless the human explicitly asks (it destroys caches and slows next deploy).
-- Do not expose proxy port `10808` publicly unless required (keep it internal).
+- Do not exposure proxy port `10808` publicly unless required (keep it internal).
 - Do not paste `.env.production` contents into chats/issues.
+
+## 10) CI/CD & Docker Registry
+
+The project uses GitHub Actions for automation:
+
+### Workflows
+- **Deploy to Production (`deploy.yml`)**: Triggered on push to `main`. Syncs code and restarts app on the server.
+- **Build and Push (`build-and-push.yml`)**: Manual workflow to build production-ready Docker images and push to GHCR (`ghcr.io`). Supports advanced caching.
+- **Prewarm Dependencies (`prewarm-deps.yml`)**: Weekly schedule or manual. Pre-builds `cache-base`, `cache-python`, and `cache-node` layers to speed up main builds.
+
+### Registry & Caching
+- **Registry**: `ghcr.io/arthurlee116/english-listening-trainer`
+- **Caching strategy**: Uses multi-layer registry cache (`type=registry`).
+  - `cache-base`: OS + System dependencies (CUDA/CUDNN).
+  - `cache-python`: Python runtime + pip packages.
+  - `cache-node`: Node.js runtime + npm packages + Prisma.
+  - `cache-builder`: Compilation artifacts.
+
+## 11) GitHub Secrets Configuration
+
+The following secrets must be configured in GitHub Actions for the workflows to function:
+
+### Deployment (`deploy.yml`)
+- `SSH_HOST`: IP or domain of the production server (e.g., `43.159.200.246`).
+- `SSH_USER`: SSH username (e.g., `ubuntu`).
+- `SSH_PRIVATE_KEY`: The private key used to access the server.
+- `SSH_PORT`: (Optional) SSH port, defaults to `22`.
+
+### Registry Registry (`build-and-push.yml`)
+- `GHCR_PAT`: Personal Access Token with `write:packages` permission.

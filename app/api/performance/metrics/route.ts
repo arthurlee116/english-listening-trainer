@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { performanceMonitor, getMemoryUsage, apiCache, audioCache, aiCache } from '@/lib/performance-optimizer'
+import { requireAdmin } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requireAdmin(request)
+    if (authResult.error || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || '需要管理员权限' },
+        { status: 401 }
+      )
+    }
+
     // 获取性能指标
     const performanceStats = performanceMonitor.getAllStats()
     

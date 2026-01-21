@@ -8,6 +8,7 @@ import { getPrismaClient } from '@/lib/database'
 import fs from 'fs'
 import path from 'path'
 import { getTogetherProxyStatus, runTogetherTtsHealthProbe } from '@/lib/together-tts-service'
+import { requireAdmin } from '@/lib/auth'
 
 const globalForHealth = globalThis as typeof globalThis & {
   __togetherTtsProbeLastAt?: number
@@ -22,6 +23,9 @@ export async function GET(_request: NextRequest) {
   const startTime = Date.now()
 
   try {
+    const authResult = await requireAdmin(_request)
+    const isAdmin = !authResult.error && !!authResult.user
+
     // 基本应用状态
     const appStatus = {
       status: 'healthy',
@@ -100,7 +104,14 @@ export async function GET(_request: NextRequest) {
     const httpStatus = isHealthy ? 200 : 503
     healthData.status = isHealthy ? 'healthy' : 'unhealthy'
 
-    return NextResponse.json(healthData, { 
+    const responseBody = isAdmin
+      ? healthData
+      : {
+          status: healthData.status,
+          timestamp: healthData.timestamp
+        }
+
+    return NextResponse.json(responseBody, { 
       status: httpStatus,
       headers: {
         'Content-Type': 'application/json',

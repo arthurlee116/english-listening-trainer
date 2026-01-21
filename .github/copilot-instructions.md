@@ -118,6 +118,14 @@ ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && sudo 
 curl -fsS https://leesaitool.com/api/health
 ```
 
+## CI/CD & Docker Registry
+
+The project uses GitHub Actions for manual image builds and pushing to GitHub Container Registry (GHCR):
+- Workflow: `.github/workflows/build-and-push.yml`
+- Registry: `ghcr.io/` (Image: `${github.repository}`)
+- Features: Registry-based multi-layer cache (`cache-base`, `cache-python`, `cache-node`, `cache-builder`), target `runtime` layer, platform `linux/amd64`.
+- Manual Build: Go to GitHub Actions -> "Build and Push Docker Image (Manual)".
+
 ## Testing Guidelines
 
 - Run `npm run test:run && npm run lint` before committing

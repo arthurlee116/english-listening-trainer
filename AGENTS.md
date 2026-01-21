@@ -41,6 +41,20 @@
 
 Read `DEPLOYMENT.md` before making any production changes. After changing code, follow the “Routine deployment after code changes (fast path)” section in `DEPLOYMENT.md`.
 
+## CI/CD & Docker Registry
+
+The project uses GitHub Actions for manual image builds and pushing to GitHub Container Registry (GHCR):
+- Workflow: `.github/workflows/build-and-push.yml`
+- Registry: `ghcr.io/`
+- Target: `runtime` layer of the `Dockerfile`
+- Platform: `linux/amd64`
+- Cache: Registry-based multi-layer cache (`cache-base`, `cache-python`, `cache-node`, `cache-builder`)
+
+To manually trigger a build:
+1. Go to GitHub Actions -> "Build and Push Docker Image (Manual)"
+2. Choose branch and build options (e.g., `rebuild-cache` for builder layer)
+3. Ensure `GHCR_PAT` secret is configured in the repository
+
 ## Search Tools Convention
 
 **MANDATORY**: Use `exa` tools for ALL web searches. Do NOT use built-in WebSearch or Grep.

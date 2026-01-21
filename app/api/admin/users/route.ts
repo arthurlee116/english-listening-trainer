@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrismaClient } from '@/lib/database'
+import { requireAdmin } from '@/lib/auth'
 
 const prisma = getPrismaClient()
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    const authResult = await requireAdmin(request)
+    if (authResult.error || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || '需要管理员权限' },
+        { status: 401 }
+      )
+    }
+
     // 获取所有用户及其练习会话计数
     const users = await prisma.user.findMany({
       select: {

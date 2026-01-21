@@ -1,3 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 允许通过环境变量自定义构建目录，防止多个实例冲突
@@ -5,9 +11,12 @@ const nextConfig = {
 
   // Docker 部署配置 - 启用 standalone 模式
   output: 'standalone',
-  
+
   experimental: {
     turbopackFileSystemCacheForDev: true,
+  },
+  turbopack: {
+    root: __dirname,
   },
   typescript: {
     // 构建时必须通过类型检查
@@ -21,7 +30,7 @@ const nextConfig = {
   outputFileTracingExcludes: {
     '*': ['data/app.db-shm', 'data/app.db-wal'],
   },
-  
+
   // 环境变量配置
   env: {
     DATABASE_TYPE: process.env.DATABASE_TYPE,
@@ -29,7 +38,7 @@ const nextConfig = {
     TTS_MODE: process.env.TTS_MODE,
     ENABLE_HEALTH_CHECK: process.env.ENABLE_HEALTH_CHECK,
   },
-  
+
   // 增加API路由超时限制和音频文件CORS配置
   async headers() {
     return [

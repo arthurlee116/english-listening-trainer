@@ -214,3 +214,6 @@ documents/thesis-figures/
 
 # Generated assessment audio
 public/assessment-audio/
+
+# TCP Experiments
+tcp-labs/
