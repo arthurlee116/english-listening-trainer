@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { getPrismaClient, tableHasColumn } from '@/lib/database'
+import { ensureTableColumn, getPrismaClient } from '@/lib/database'
 import {
   importLegacySessions,
   validateLegacyPayload,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportSuc
       )
     }
 
-    const hasFocusAreasColumn = await tableHasColumn(prisma, 'practice_questions', 'focus_areas')
+    const hasFocusAreasColumn = await ensureTableColumn(prisma, 'practice_questions', 'focus_areas', 'TEXT')
     if (!hasFocusAreasColumn) {
       return buildErrorResponse(
         ImportErrorCode.DATABASE_ERROR,
