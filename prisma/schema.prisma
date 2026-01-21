@@ -188,3 +188,15 @@ model PreGeneratedTranscript {
   @@unique([topicId, duration])
   @@map("pre_generated_transcripts")
 }
+
+// ==========================================
+// 新闻刷新状态表 - 避免多实例重复刷新
+// ==========================================
+model NewsRefreshState {
+  id            String   @id
+  lastRefreshAt DateTime? @map("last_refresh_at")
+  isRefreshing  Boolean  @default(false) @map("is_refreshing")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("news_refresh_state")
+}

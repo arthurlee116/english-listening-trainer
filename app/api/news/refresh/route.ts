@@ -5,11 +5,16 @@ export async function POST() {
   try {
     const result = await refreshNews()
     
+    const [lastRefresh, nextRefresh] = await Promise.all([
+      getLastRefreshTime(),
+      getNextRefreshTime()
+    ])
+
     return NextResponse.json({
       success: true,
       ...result,
-      lastRefresh: getLastRefreshTime()?.toISOString(),
-      nextRefresh: getNextRefreshTime()?.toISOString()
+      lastRefresh: lastRefresh?.toISOString(),
+      nextRefresh: nextRefresh?.toISOString()
     })
   } catch (error) {
     console.error('Failed to refresh news:', error)

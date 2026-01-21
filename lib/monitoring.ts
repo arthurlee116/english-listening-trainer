@@ -1,10 +1,9 @@
 import { Logger, LogLevel, type LogEntry } from '@/lib/monitoring/logger'
-import { PerformanceMonitor, type PerformanceMetric } from '@/lib/monitoring/performance-monitor'
 import { HealthChecker, type HealthCheckResult } from '@/lib/monitoring/health-checker'
 import { addAiTelemetryListener, type ArkCallTelemetry } from '@/lib/ai/telemetry'
+import { getMemoryUsage, performanceMonitor } from '@/lib/performance-optimizer'
 
 const logger = Logger.getInstance()
-const performanceMonitor = PerformanceMonitor.getInstance()
 const healthChecker = HealthChecker.getInstance()
 
 let lastAiTelemetry: ArkCallTelemetry | null = null
@@ -15,25 +14,23 @@ addAiTelemetryListener((event) => {
 
   const lastAttempt = event.attempts[event.attempts.length - 1]
   if (lastAttempt) {
-    performanceMonitor.recordMetric('ai_request_attempt_duration', lastAttempt.durationMs, 'ms', {
-      label: event.label ?? 'unknown',
-      variant: lastAttempt.variant,
-      success: event.success ? 'true' : 'false'
-    })
+    performanceMonitor.recordMetric('ai_request_attempt_duration', lastAttempt.durationMs)
   }
 
-  performanceMonitor.recordMetric('ai_request_total_backoff', event.totalBackoffMs, 'ms', {
-    label: event.label ?? 'unknown'
-  })
+  performanceMonitor.recordMetric('ai_request_total_backoff', event.totalBackoffMs)
 })
 
 setInterval(() => {
-  performanceMonitor.recordMemoryUsage()
+  const usage = getMemoryUsage()
+  if (!usage) return
+  performanceMonitor.recordMetric('memory_rss_mb', usage.rss)
+  performanceMonitor.recordMetric('memory_heap_total_mb', usage.heapTotal)
+  performanceMonitor.recordMetric('memory_heap_used_mb', usage.heapUsed)
+  performanceMonitor.recordMetric('memory_external_mb', usage.external)
 }, 30000)
 
 process.on('uncaughtException', (error) => {
   logger.fatal('Uncaught Exception', error)
-  process.exit(1)
 })
 
 process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
@@ -43,7 +40,7 @@ process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) =>
 })
 
 export { logger, performanceMonitor, healthChecker, LogLevel }
-export type { LogEntry, PerformanceMetric, HealthCheckResult }
+export type { LogEntry, HealthCheckResult }
 export function getLastAiTelemetry(): ArkCallTelemetry | null {
   return lastAiTelemetry
 }

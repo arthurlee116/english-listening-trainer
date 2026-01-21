@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-import { Terminal, Laptop, Server, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Terminal, Laptop, Server } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // 定义握手步骤类型

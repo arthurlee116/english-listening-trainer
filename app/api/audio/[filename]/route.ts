@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stat, readFile } from 'fs/promises'
-import { existsSync } from 'fs'
+import { stat } from 'fs/promises'
+import { createReadStream, existsSync } from 'fs'
 import path from 'path'
+import { Readable } from 'stream'
 
 const AUDIO_HEADERS_BASE = {
   'Content-Type': 'audio/wav',
@@ -43,21 +44,22 @@ export async function GET(
         return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
       }
 
-      const buffer = await readFile(filePath)
-      const chunk = buffer.subarray(start, end + 1)
+      const stream = createReadStream(filePath, { start, end })
+      const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
 
-      return new NextResponse(new Blob([new Uint8Array(chunk)]), {
+      return new NextResponse(readableStream, {
         status: 206,
         headers: {
           ...AUDIO_HEADERS_BASE,
-          'Content-Length': String(chunk.length),
+          'Content-Length': String(end - start + 1),
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         },
       })
     }
 
-    const buffer = await readFile(filePath)
-    return new NextResponse(new Blob([new Uint8Array(buffer)]), {
+    const stream = createReadStream(filePath)
+    const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
+    return new NextResponse(readableStream, {
       status: 200,
       headers: {
         ...AUDIO_HEADERS_BASE,

@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { performanceMonitor, apiCache, requestDebouncer } from './performance-optimizer'
 
 // 响应时间监控中间件
@@ -98,10 +99,10 @@ export function withApiCache(
 // 请求防抖中间件
 export function withRequestDebouncing(
   handler: (req: NextRequest) => Promise<NextResponse>,
-  keyGenerator: (req: NextRequest) => string = (req) => `${req.method}:${req.url}`
+  keyGenerator: (req: NextRequest) => string | Promise<string> = (req) => `${req.method}:${req.url}`
 ) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const key = keyGenerator(req)
+    const key = await keyGenerator(req)
     
     return requestDebouncer.debounce(key, () => handler(req))
   }
@@ -139,7 +140,7 @@ export function createApiHandler(
     enableCache?: boolean
     enableDebouncing?: boolean
     cacheOptions?: Parameters<typeof withApiCache>[1]
-    debouncingKeyGenerator?: (req: NextRequest) => string
+    debouncingKeyGenerator?: (req: NextRequest) => string | Promise<string>
   }
 ) {
   const { 
@@ -176,7 +177,12 @@ export const createAIApiHandler = (handler: (req: NextRequest) => Promise<NextRe
   createApiHandler(handler, {
     label: `ai.${label}`,
     enableCache: false, // AI请求通常不应该缓存
-    enableDebouncing: true // 防止重复AI请求
+    enableDebouncing: true, // 防止重复AI请求
+    debouncingKeyGenerator: async (req) => {
+      const body = await req.clone().text()
+      const bodyHash = createHash('sha256').update(body).digest('hex')
+      return `${req.method}:${req.url}:${bodyHash}`
+    }
   })
 
 export const createTTSApiHandler = (handler: (req: NextRequest) => Promise<NextResponse>) =>

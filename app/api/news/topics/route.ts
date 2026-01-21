@@ -20,12 +20,18 @@ export async function GET(request: NextRequest) {
     byDifficulty[topic.difficulty].push(topic)
   }
 
+  const [lastRefresh, nextRefresh, refreshing] = await Promise.all([
+    getLastRefreshTime(),
+    getNextRefreshTime(),
+    isCurrentlyRefreshing()
+  ])
+
   return NextResponse.json({
     topics: byDifficulty,
     totalCount: topics.length,
     categories: CATEGORY_LABELS,
-    lastRefresh: getLastRefreshTime()?.toISOString() || null,
-    nextRefresh: getNextRefreshTime()?.toISOString() || null,
-    isRefreshing: isCurrentlyRefreshing()
+    lastRefresh: lastRefresh?.toISOString() || null,
+    nextRefresh: nextRefresh?.toISOString() || null,
+    isRefreshing: refreshing
   })
 }

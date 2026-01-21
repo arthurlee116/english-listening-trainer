@@ -24,9 +24,8 @@ describe('rss-fetcher proxy configuration', () => {
         constructor(options: unknown) {
           ;(globalThis as any).__rssParserOptions = options
         }
-        // eslint-disable-next-line @typescript-eslint/require-await
-        async parseURL() {
-          return { items: [] }
+        parseURL() {
+          return Promise.resolve({ items: [] })
         }
       }
     }))
@@ -48,9 +47,8 @@ describe('rss-fetcher proxy configuration', () => {
         constructor(options: unknown) {
           ;(globalThis as any).__rssParserOptions = options
         }
-        // eslint-disable-next-line @typescript-eslint/require-await
-        async parseURL() {
-          return { items: [] }
+        parseURL() {
+          return Promise.resolve({ items: [] })
         }
       }
     }))
@@ -74,9 +72,8 @@ describe('rss-fetcher proxy configuration', () => {
         constructor(options: unknown) {
           ;(globalThis as any).__rssParserOptions = options
         }
-        // eslint-disable-next-line @typescript-eslint/require-await
-        async parseURL() {
-          return { items: [] }
+        parseURL() {
+          return Promise.resolve({ items: [] })
         }
       }
     }))
@@ -93,9 +90,8 @@ describe('rss-fetcher proxy configuration', () => {
     vi.doMock('rss-parser', () => ({
       default: class ParserMock {
         constructor(_options: unknown) {}
-        // eslint-disable-next-line @typescript-eslint/require-await
-        async parseURL() {
-          return { items: [] }
+        parseURL() {
+          return Promise.resolve({ items: [] })
         }
       }
     }))
