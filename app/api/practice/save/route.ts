@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { ensureTableColumn, getPrismaClient } from '@/lib/database'
 import type { FocusArea } from '@/lib/types'
-import type { Prisma } from '@prisma/client'
+import type { Prisma } from '@/generated/prisma/client.js'
 
 const prisma = getPrismaClient()
 

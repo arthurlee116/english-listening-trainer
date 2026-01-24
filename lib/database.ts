@@ -5,8 +5,8 @@
 
 import fs from 'fs'
 import path from 'path'
-
-import { PrismaClient } from '@prisma/client'
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { PrismaClient } from '@/generated/prisma/client'
 
 function normalizeSqliteUrl(rawUrl: string | undefined): string | undefined {
   if (!rawUrl || !rawUrl.startsWith('file:')) return rawUrl
@@ -45,7 +45,14 @@ const globalForPrisma = globalThis as GlobalWithPrisma
 
 // 初始化 Prisma 客户端
 function initPrisma(): PrismaClient {
+  // 从 DATABASE_URL 获取 SQLite 文件路径
+  const dbUrl = process.env.DATABASE_URL || 'file:./data/app.db'
+  ensureSqliteDirectory(dbUrl)
+
+  const adapter = new PrismaBetterSqlite3({ url: dbUrl })
+  
   const client = new PrismaClient({
+    adapter,
     log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
     errorFormat: 'pretty',
   })
