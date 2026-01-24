@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { getPrismaClient, ensureTableColumn } from '@/lib/database'
+import { ensureTableColumn, getPrismaClient } from '@/lib/database'
 import {
   importLegacySessions,
   validateLegacyPayload,

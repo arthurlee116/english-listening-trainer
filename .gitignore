@@ -141,6 +141,7 @@ temp/
 *.tmp
 *.swp
 *.swo
+.worktrees/
 
 # Development temporary files
 docs/
