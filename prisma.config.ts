@@ -1,8 +1,10 @@
 import { config } from 'dotenv'
-import { defineConfig, env } from 'prisma/config'
+import { defineConfig } from 'prisma/config'
 
 // 加载 .env.local 文件
 config({ path: '.env.local' })
+
+const databaseUrl = process.env.DATABASE_URL || 'file:/app/prisma/data/app.db'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -10,6 +12,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    url: databaseUrl,
   },
 })
