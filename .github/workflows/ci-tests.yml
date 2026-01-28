@@ -18,8 +18,6 @@ env:
   TOGETHER_PROXY_URL: ${{ secrets.TOGETHER_PROXY_URL }}
   TOGETHER_TTS_MODEL: hexgrad/Kokoro-82M
   JWT_SECRET: ${{ secrets.JWT_SECRET }}
-  HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
-  HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
   RSS_PROXY_URL: ${{ secrets.RSS_PROXY_URL }}
   RSS_USE_SYSTEM_PROXY: ${{ secrets.RSS_USE_SYSTEM_PROXY }}
   ADMIN_DEMO_DATA: ${{ secrets.ADMIN_DEMO_DATA }}
