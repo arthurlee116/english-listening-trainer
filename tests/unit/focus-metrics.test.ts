@@ -42,6 +42,23 @@ describe('focus-metrics', () => {
     warnSpy.mockRestore()
   })
 
+  it('ignores sessions without exercise data', () => {
+    const sessions: PracticeSession[] = [
+      {
+        id: 's1',
+        accuracy: 75,
+        createdAt: new Date().toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: null
+      }
+    ]
+
+    const stats = computeFocusStats([], sessions)
+    expect(stats['main-idea'].attempts).toBe(0)
+  })
+
   it('tracks attempts, incorrect answers, and trend', () => {
     const attemptTime = new Date('2024-01-02T00:00:00.000Z').toISOString()
     const sessions: PracticeSession[] = [
@@ -105,6 +122,135 @@ describe('focus-metrics', () => {
     expect(stats['main-idea'].accuracy).toBeCloseTo(66.7)
     expect(['improving', 'stable']).toContain(stats['main-idea'].trend)
     expect(stats['main-idea'].lastAttempt).toBe(attemptTime)
+  })
+
+  it('classifies improving and declining trends', () => {
+    const sessions: PracticeSession[] = [
+      {
+        id: 's1',
+        accuracy: 90,
+        createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({ focusAreas: ['detail-comprehension'] })
+      },
+      {
+        id: 's2',
+        accuracy: 70,
+        createdAt: new Date('2024-01-02T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({ focusAreas: ['detail-comprehension'] })
+      }
+    ]
+
+    const stats = computeFocusStats([], sessions)
+
+    expect(stats['detail-comprehension'].trend).toBe('declining')
+  })
+
+  it('classifies improving trend when accuracy rises significantly', () => {
+    const sessions: PracticeSession[] = [
+      {
+        id: 's1',
+        accuracy: 60,
+        createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({ focusAreas: ['main-idea'] })
+      },
+      {
+        id: 's2',
+        accuracy: 80,
+        createdAt: new Date('2024-01-02T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({ focusAreas: ['main-idea'] })
+      }
+    ]
+
+    const stats = computeFocusStats([], sessions)
+
+    expect(stats['main-idea'].trend).toBe('improving')
+  })
+
+  it('keeps trend stable for small accuracy changes or single entry', () => {
+    const sessions: PracticeSession[] = [
+      {
+        id: 's1',
+        accuracy: 80,
+        createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({ focusAreas: ['main-idea'] })
+      },
+      {
+        id: 's2',
+        accuracy: 82,
+        createdAt: new Date('2024-01-02T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({ focusAreas: ['main-idea'] })
+      }
+    ]
+
+    const stats = computeFocusStats([], sessions)
+
+    expect(stats['main-idea'].trend).toBe('stable')
+  })
+
+  it('uses question focus areas when focusAreas are missing', () => {
+    const sessions: PracticeSession[] = [
+      {
+        id: 's1',
+        accuracy: 88,
+        createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'tech',
+        exerciseData: JSON.stringify({
+          questions: [{ focus_areas: ['inference'] }]
+        })
+      }
+    ]
+
+    const stats = computeFocusStats([], sessions)
+    expect(stats['inference'].attempts).toBe(1)
+  })
+
+  it('skips recommendations for low-attempt areas', () => {
+    const stats = getDefaultStats()
+    stats['main-idea'] = { attempts: 2, incorrect: 2, accuracy: 0, trend: 'declining' }
+    stats['detail-comprehension'] = { attempts: 3, incorrect: 2, accuracy: 33.3, trend: 'declining' }
+
+    const recommendations = selectRecommendedFocusAreas(stats, 3)
+    expect(recommendations).toEqual(['detail-comprehension'])
+  })
+
+  it('adds recency boost when last attempt exists', () => {
+    const stats = getDefaultStats()
+    stats['main-idea'] = {
+      attempts: 5,
+      incorrect: 2,
+      accuracy: 60,
+      trend: 'stable',
+      lastAttempt: new Date().toISOString()
+    }
+    stats['detail-comprehension'] = {
+      attempts: 5,
+      incorrect: 2,
+      accuracy: 60,
+      trend: 'stable'
+    }
+
+    const recommendations = selectRecommendedFocusAreas(stats, 2)
+    expect(recommendations[0]).toBe('main-idea')
   })
 
   it('selects focus areas with the highest error rates', () => {

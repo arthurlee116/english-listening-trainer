@@ -25,6 +25,17 @@ export const metadata: Metadata = {
   title: 'English Listening Trainer 英语听力训练器',
   description: 'Make learning fun with bite-sized AI listening practice | 轻松练听力，让 AI 帮你进步更有趣',
   generator: 'Arthur',
+  manifest: '/manifest.webmanifest',
+  themeColor: '#d46a4d',
+  icons: {
+    icon: '/pwa-192.png',
+    apple: '/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'English Listening Trainer',
+    statusBarStyle: 'default',
+  },
 }
 
 const RootLayout = ({

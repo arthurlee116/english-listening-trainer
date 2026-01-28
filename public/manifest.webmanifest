@@ -1,0 +1,21 @@
+{
+  "name": "English Listening Trainer",
+  "short_name": "ELT",
+  "description": "English Listening Trainer / 英语听力训练器",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5efe8",
+  "theme_color": "#d46a4d",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

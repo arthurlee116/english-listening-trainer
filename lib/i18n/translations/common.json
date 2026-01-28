@@ -40,6 +40,10 @@
       "en": "Close",
       "zh": "关闭"
     },
+    "expand": {
+      "en": "Expand",
+      "zh": "展开"
+    },
     "back": {
       "en": "Back",
       "zh": "返回"
@@ -55,6 +59,10 @@
     "previous": {
       "en": "Previous",
       "zh": "上一个"
+    },
+    "collapse": {
+      "en": "Collapse",
+      "zh": "收起"
     },
     "retry": {
       "en": "Retry",

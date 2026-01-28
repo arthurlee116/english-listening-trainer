@@ -31,6 +31,7 @@ export type ExerciseStep =
   | 'wrong-answers'
   | 'assessment'
   | 'assessment-result'
+  | 'profile'
 
 interface ExerciseState {
   currentStep: ExerciseStep

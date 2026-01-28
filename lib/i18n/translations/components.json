@@ -909,6 +909,16 @@
       "zh": "关于"
     }
   },
+  "profileScreen": {
+    "title": {
+      "en": "Profile",
+      "zh": "个人中心"
+    },
+    "subtitle": {
+      "en": "Manage your account and preferences",
+      "zh": "管理账号与偏好设置"
+    }
+  },
   "assessmentInterface": {
     "title": {
       "en": "Personalized Assessment",

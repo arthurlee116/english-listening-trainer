@@ -1,0 +1,11 @@
+## 1. Implementation
+- [ ] 1.1 Add mobile bottom tab bar component and wire it to navigation state
+- [ ] 1.2 Add mobile drawer for secondary actions (language, admin, profile)
+- [ ] 1.3 Add personal/profile screen with logout action
+- [ ] 1.4 Hide header on mobile and ensure main content respects safe areas and tab bar spacing
+- [ ] 1.5 Rework setup step layout on mobile (configuration first, floating collapsible card)
+- [ ] 1.6 Update admin page mobile styling and ensure tables support horizontal scroll
+- [ ] 1.7 Add lite PWA assets (manifest, icons, meta tags) without service worker
+- [ ] 1.8 Update translations and navigation config for new mobile elements
+- [ ] 1.9 QA pass on iPhone-sized viewport for all main flows + admin
+- [ ] 1.10 Run `npm run lint` and `npm run test:run` if available

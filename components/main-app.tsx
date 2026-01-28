@@ -1,12 +1,12 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useCallback, useState, useRef } from "react"
+import { useCallback, useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles, History, MessageSquare, User, LogOut, Book } from "lucide-react"
-import { MobileSidebarWrapper } from "@/components/navigation/mobile-sidebar-wrapper"
+import { MobileNavigation } from "@/components/navigation/mobile-navigation"
 import { AppLayoutWithSidebar } from "@/components/app-layout-with-sidebar"
 import { RecommendedTopics, type RecommendedTopic } from "@/components/home/recommended-topics"
 import { PracticeConfiguration } from "@/components/home/practice-configuration"
@@ -17,6 +17,10 @@ import type { NavigationAction } from "@/lib/types"
 import { useThemeClasses, combineThemeClasses } from "@/hooks/use-theme-classes"
 import { useExerciseWorkflow, type ExerciseStep } from "@/hooks/use-exercise-workflow"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { ProfileScreen } from "@/components/profile-screen"
+import { DIFFICULTY_LEVELS } from "@/lib/constants/practice-config"
+import { LANGUAGE_OPTIONS } from "@/lib/language-config"
 
 const AuthDialog = dynamic(
   () => import("@/components/auth-dialog").then((mod) => mod.AuthDialog),
@@ -78,6 +82,21 @@ export const MainApp = ({ authState }: MainAppProps) => {
   const { textClass, iconClass, borderClass } = useThemeClasses()
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false)
   const topicInputRef = useRef<HTMLInputElement>(null)
+  const isMobile = useIsMobile()
+  const [isMobileConfigCollapsed, setIsMobileConfigCollapsed] = useState(true)
+
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return
+    const stored = window.localStorage.getItem("elt.mobile.config.collapsed")
+    if (stored !== null) {
+      setIsMobileConfigCollapsed(stored === "true")
+    }
+  }, [isMobile])
+
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return
+    window.localStorage.setItem("elt.mobile.config.collapsed", String(isMobileConfigCollapsed))
+  }, [isMobile, isMobileConfigCollapsed])
 
   // 使用统一的workflow hook
   const {
@@ -140,6 +159,11 @@ export const MainApp = ({ authState }: MainAppProps) => {
     },
     [setStep, handleLogout]
   )
+
+  const difficultyLabelKey =
+    DIFFICULTY_LEVELS.find((level) => level.value === state.difficulty)?.labelKey ?? ""
+  const languageLabel =
+    LANGUAGE_OPTIONS.find((option) => option.value === state.language)?.label ?? "-"
 
   // 处理推荐话题选择
   const handleSelectRecommendedTopic = useCallback(async (topic: RecommendedTopic, durationMinutes: number) => {
@@ -221,11 +245,12 @@ export const MainApp = ({ authState }: MainAppProps) => {
 
   return (
     <>
-      {/* Mobile Sidebar Wrapper */}
-      <MobileSidebarWrapper
+      <MobileNavigation
         currentStep={state.currentStep}
         onNavigate={handleNavigate}
-        assessmentResult={state.assessmentResult}
+        isAuthenticated={isAuthenticated}
+        isAdmin={user?.isAdmin ?? false}
+        userLabel={user?.name || user?.email}
       />
 
       {/* Desktop Layout with Sidebar */}
@@ -236,7 +261,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
       >
         {/* Header */}
         <header className={combineThemeClasses(
-          "sticky top-0 z-50 bg-background/90 backdrop-blur-xl border-b shadow-[0_14px_36px_-28px_rgba(33,21,10,0.7)]",
+          "hidden md:block sticky top-0 z-50 bg-background/90 backdrop-blur-xl border-b shadow-[0_14px_36px_-28px_rgba(33,21,10,0.7)]",
           borderClass('default')
         )} role="banner">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -320,7 +345,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
         )}
 
         {/* Main Content */}
-        <main className="page-reveal max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+        <main className="page-reveal max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1rem)] md:pt-8 pb-[calc(env(safe-area-inset-bottom)+6rem)] md:pb-8 lg:py-10">
           {/* History Panel */}
           {state.currentStep === "history" && (
             <HistoryPanel
@@ -366,10 +391,76 @@ export const MainApp = ({ authState }: MainAppProps) => {
               {/* Setup Step */}
               {state.currentStep === "setup" && (
                 <div className="relative">
-                  {/* 两列布局容器 */}
-                  <div className="grid grid-cols-2 gap-8 items-start">
-                    {/* Left Column: Recommended Topics - 正常文档流 */}
-                    <div className="min-w-0 space-y-4">
+                  {/* 两列布局容器（桌面） / 移动端堆叠布局 */}
+                  {isMobile ? (
+                    <div className="space-y-4">
+                      <div className="mobile-config-float">
+                        <div className="glass-effect rounded-2xl border border-border/70 p-4 shadow-[0_18px_45px_-30px_rgba(33,21,10,0.6)]">
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between gap-3"
+                            onClick={() => setIsMobileConfigCollapsed((prev) => !prev)}
+                          >
+                            <div className="text-left">
+                              <div className="text-sm font-semibold text-foreground">
+                                <BilingualText translationKey="labels.createExercise" />
+                              </div>
+                              <div className="text-xs text-foreground-muted">
+                                {difficultyLabelKey ? <BilingualText translationKey={difficultyLabelKey} /> : "-"} · {languageLabel} · {Math.floor(state.duration / 60)}m
+                              </div>
+                            </div>
+                            <span className="text-xs text-primary">
+                              {isMobileConfigCollapsed ? <BilingualText translationKey="buttons.expand" /> : <BilingualText translationKey="buttons.collapse" />}
+                            </span>
+                          </button>
+                        </div>
+                        {!isMobileConfigCollapsed && (
+                          <div className="mt-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                            {(() => {
+                              const durationMinutes = Math.floor(state.duration / 60)
+                              const hasPreGeneratedNewsTranscript =
+                                Boolean(state.newsTopicId) &&
+                                state.newsTranscriptDurationMinutes === durationMinutes
+                              const shouldShowSearchEnhancement =
+                                !state.newsTopicId ||
+                                (!hasPreGeneratedNewsTranscript &&
+                                  state.newsTranscriptMissingDurationMinutes === durationMinutes)
+
+                              return (
+                                <PracticeConfiguration
+                                  practiceSetup={{
+                                    difficulty: state.difficulty,
+                                    duration: state.duration,
+                                    language: state.language,
+                                    topic: state.topic,
+                                    suggestedTopics: state.suggestedTopics,
+                                    isSetupComplete: isSetupComplete,
+                                    onDifficultyChange: setDifficulty,
+                                    onDurationChange: setDuration,
+                                    onLanguageChange: setLanguage,
+                                    onTopicChange: setTopic,
+                                    topicInputRef: topicInputRef,
+                                  }}
+                                  operations={{
+                                    loading: state.loading,
+                                    loadingMessage: state.loadingMessage,
+                                    onGenerateTopics: handleGenerateTopics,
+                                    onRefreshTopics: handleRefreshTopics,
+                                    onGenerateExercise: handleGenerateTranscript,
+                                    shouldShowSearchEnhancement,
+                                  }}
+                                  achievements={{
+                                    isGoalPanelOpen: isGoalPanelOpen,
+                                    onToggleGoalPanel: () => setIsGoalPanelOpen(!isGoalPanelOpen),
+                                    isAuthenticated: isAuthenticated
+                                  }}
+                                />
+                              )
+                            })()}
+                          </div>
+                        )}
+                      </div>
+
                       <RecommendedTopics
                         difficulty={state.difficulty}
                         selectedDuration={Math.floor(state.duration / 60)}
@@ -378,52 +469,65 @@ export const MainApp = ({ authState }: MainAppProps) => {
                         onRefresh={() => { }}
                       />
                     </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-8 items-start">
+                      {/* Left Column: Recommended Topics - 正常文档流 */}
+                      <div className="min-w-0 space-y-4">
+                        <RecommendedTopics
+                          difficulty={state.difficulty}
+                          selectedDuration={Math.floor(state.duration / 60)}
+                          onDurationChange={(minutes) => setDuration(minutes * 60)}
+                          onSelectTopic={handleSelectRecommendedTopic}
+                          onRefresh={() => { }}
+                        />
+                      </div>
 
-                    {/* Right Column: Practice Configuration - 始终 sticky */}
-                    <div className="min-w-0 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
-                      {(() => {
-                        const durationMinutes = Math.floor(state.duration / 60)
-                        const hasPreGeneratedNewsTranscript =
-                          Boolean(state.newsTopicId) &&
-                          state.newsTranscriptDurationMinutes === durationMinutes
-                        const shouldShowSearchEnhancement =
-                          !state.newsTopicId ||
-                          (!hasPreGeneratedNewsTranscript &&
-                            state.newsTranscriptMissingDurationMinutes === durationMinutes)
+                      {/* Right Column: Practice Configuration - 始终 sticky */}
+                      <div className="min-w-0 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
+                        {(() => {
+                          const durationMinutes = Math.floor(state.duration / 60)
+                          const hasPreGeneratedNewsTranscript =
+                            Boolean(state.newsTopicId) &&
+                            state.newsTranscriptDurationMinutes === durationMinutes
+                          const shouldShowSearchEnhancement =
+                            !state.newsTopicId ||
+                            (!hasPreGeneratedNewsTranscript &&
+                              state.newsTranscriptMissingDurationMinutes === durationMinutes)
 
-                        return (
-                      <PracticeConfiguration
-                        practiceSetup={{
-                          difficulty: state.difficulty,
-                          duration: state.duration,
-                          language: state.language,
-                          topic: state.topic,
-                          suggestedTopics: state.suggestedTopics,
-                          isSetupComplete: isSetupComplete,
-                          onDifficultyChange: setDifficulty,
-                          onDurationChange: setDuration,
-                          onLanguageChange: setLanguage,
-                          onTopicChange: setTopic,
-                          topicInputRef: topicInputRef,
-                        }}
-                        operations={{
-                          loading: state.loading,
-                          loadingMessage: state.loadingMessage,
-                          onGenerateTopics: handleGenerateTopics,
-                          onRefreshTopics: handleRefreshTopics,
-                          onGenerateExercise: handleGenerateTranscript,
-                          shouldShowSearchEnhancement,
-                        }}
-                        achievements={{
-                          isGoalPanelOpen: isGoalPanelOpen,
-                          onToggleGoalPanel: () => setIsGoalPanelOpen(!isGoalPanelOpen),
-                          isAuthenticated: isAuthenticated
-                        }}
-                      />
-                        )
-                      })()}
+                          return (
+                            <PracticeConfiguration
+                              practiceSetup={{
+                                difficulty: state.difficulty,
+                                duration: state.duration,
+                                language: state.language,
+                                topic: state.topic,
+                                suggestedTopics: state.suggestedTopics,
+                                isSetupComplete: isSetupComplete,
+                                onDifficultyChange: setDifficulty,
+                                onDurationChange: setDuration,
+                                onLanguageChange: setLanguage,
+                                onTopicChange: setTopic,
+                                topicInputRef: topicInputRef,
+                              }}
+                              operations={{
+                                loading: state.loading,
+                                loadingMessage: state.loadingMessage,
+                                onGenerateTopics: handleGenerateTopics,
+                                onRefreshTopics: handleRefreshTopics,
+                                onGenerateExercise: handleGenerateTranscript,
+                                shouldShowSearchEnhancement,
+                              }}
+                              achievements={{
+                                isGoalPanelOpen: isGoalPanelOpen,
+                                onToggleGoalPanel: () => setIsGoalPanelOpen(!isGoalPanelOpen),
+                                isAuthenticated: isAuthenticated
+                              }}
+                            />
+                          )
+                        })()}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -471,6 +575,15 @@ export const MainApp = ({ authState }: MainAppProps) => {
                 </div>
               )}
             </>
+          )}
+
+          {state.currentStep === "profile" && (
+            <ProfileScreen
+              userLabel={user?.name || user?.email}
+              isAdmin={user?.isAdmin ?? false}
+              onLogout={handleLogout}
+              onOpenAdmin={() => handleNavigate({ type: "external", href: "/admin", openInNewTab: true })}
+            />
           )}
         </main>
       </AppLayoutWithSidebar>

@@ -173,6 +173,54 @@
     animation: page-rise 450ms ease-out both;
   }
 
+  .mobile-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 0.65rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--background) / 0),
+      hsl(var(--background) / 0.95) 40%,
+      hsl(var(--background) / 0.98)
+    );
+    backdrop-filter: blur(18px);
+    border-top: 1px solid hsl(var(--border) / 0.6);
+    box-shadow: 0 -18px 40px -32px rgba(33, 21, 10, 0.6);
+  }
+
+  .mobile-fab {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    left: calc(env(safe-area-inset-left, 0px) + 0.75rem);
+    z-index: 50;
+  }
+
+  .mobile-fab-button {
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.95);
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: 0 16px 30px -24px rgba(33, 21, 10, 0.6);
+    backdrop-filter: blur(12px);
+  }
+
+  .mobile-drawer {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--background) / 0.98),
+      hsl(var(--background-subtle) / 0.9)
+    );
+    border-right: 1px solid hsl(var(--border) / 0.7);
+  }
+
+  .mobile-config-float {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    z-index: 30;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }

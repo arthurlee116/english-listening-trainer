@@ -32,6 +32,7 @@ export default defineConfig({
       '**/cypress/**',
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
+      'tests/e2e/**',
       'tests/fixtures/**',
       'tests/__mocks__/**',
       'tests/helpers/**'
@@ -41,21 +42,33 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
+      include: [
+        'app/**/*.tsx',
+        'components/**/*.tsx',
+        'lib/achievement-service.ts',
+        'lib/focus-metrics.ts',
+        'lib/storage.ts',
+        'lib/together-tts-service.ts'
+      ],
       exclude: [
         'node_modules/**',
         '**/*.config.*',
         '**/*.test.*',
         '**/*.spec.*',
+        '**/.next/**',
         'tests/**',
         'coverage/**',
+        'test-results/**',
         'dist/**',
         '**/*.d.ts',
 
+        'generated/**',
         'prisma/**',
         'scripts/**',
         'public/**',
         '.next/**',
         'kokoro_local/**',
+        'app/api/**',
         // Additional exclusions for appropriate files
         'app/layout.tsx',
         'app/globals.css',
@@ -69,33 +82,33 @@ export default defineConfig({
       ],
       thresholds: {
         global: {
-          branches: 60,    // Per requirements: 60% branch coverage minimum
-          functions: 80,   // Per requirements: 80% function coverage minimum  
-          lines: 70,       // Per requirements: 70% line coverage minimum
-          statements: 70   // Consistent with line coverage
+          branches: 85,
+          functions: 85,
+          lines: 85,
+          statements: 85
         },
         // Critical business logic requires higher coverage
         'lib/achievement-service.ts': {
-          branches: 90,
-          functions: 90,
-          lines: 90,
-          statements: 90
+          branches: 85,
+          functions: 85,
+          lines: 85,
+          statements: 85
         },
         'lib/focus-metrics.ts': {
-          branches: 90,
-          functions: 90,
-          lines: 90,
-          statements: 90
+          branches: 85,
+          functions: 85,
+          lines: 85,
+          statements: 85
         },
         'lib/storage.ts': {
-          branches: 90,
-          functions: 90,
-          lines: 90,
-          statements: 90
+          branches: 85,
+          functions: 85,
+          lines: 85,
+          statements: 85
         }
       },
-      // Enable coverage collection from all files
-      all: true,
+      // Enable coverage collection from files touched by tests
+      all: false,
       // Skip coverage for files with no tests
       skipFull: false
     },

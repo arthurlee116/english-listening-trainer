@@ -52,7 +52,7 @@ function StatsGrid({ stats: _stats }: { stats: SystemStats }) {
         <Card key={card.label} className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">{card.label}</p>
+              <p className="text-sm text-foreground-muted md:text-gray-500">{card.label}</p>
               <p className={`text-3xl font-bold ${card.color}`}>{card.value}</p>
             </div>
             {card.icon}
@@ -139,7 +139,7 @@ function EffectReportPanel({ report }: { report: EffectReport }) {
               </Badge>
             )}
           </div>
-          <p className="text-sm text-gray-600">{report.meta.note}</p>
+          <p className="text-sm text-foreground-muted md:text-gray-600">{report.meta.note}</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -160,7 +160,7 @@ function EffectReportPanel({ report }: { report: EffectReport }) {
           <Card key={card.label} className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">{card.label}</p>
+                <p className="text-sm text-foreground-muted md:text-gray-500">{card.label}</p>
                 <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
               </div>
               {card.icon}
@@ -197,12 +197,12 @@ function EffectReportPanel({ report }: { report: EffectReport }) {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <span className={row.accuracyAfter >= row.accuracyBefore ? "text-green-700" : "text-gray-700"}>
+                    <span className={row.accuracyAfter >= row.accuracyBefore ? "text-green-700" : "text-foreground-muted md:text-gray-700"}>
                       {formatPercent(row.accuracyBefore)} → {formatPercent(row.accuracyAfter)}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className={row.errorRateAfter <= row.errorRateBefore ? "text-green-700" : "text-gray-700"}>
+                    <span className={row.errorRateAfter <= row.errorRateBefore ? "text-green-700" : "text-foreground-muted md:text-gray-700"}>
                       {formatPercent(row.errorRateBefore)} → {formatPercent(row.errorRateAfter)}
                     </span>
                   </TableCell>
@@ -221,7 +221,7 @@ function EffectReportPanel({ report }: { report: EffectReport }) {
           </Table>
 
           {report.rows.length === 0 && (
-            <div className="text-center py-8 text-gray-500">暂无数据</div>
+            <div className="text-center py-8 text-foreground-muted md:text-gray-500">暂无数据</div>
           )}
         </div>
       </Card>
@@ -273,7 +273,7 @@ function UsersTable({ users, loading }: { users: AdminUser[]; loading: boolean }
         </Table>
 
         {users.length === 0 && !loading && (
-          <div className="text-center py-8 text-gray-500">暂无用户数据</div>
+          <div className="text-center py-8 text-foreground-muted md:text-gray-500">暂无用户数据</div>
         )}
       </div>
     </Card>
@@ -304,7 +304,7 @@ function SessionsTable({ sessions }: { sessions: PracticeSession[] }) {
                 <TableCell>
                   <div>
                     <div className="font-medium">{session.user.name || session.user.email}</div>
-                    {session.user.name && <div className="text-sm text-gray-500">{session.user.email}</div>}
+                    {session.user.name && <div className="text-sm text-foreground-muted md:text-gray-500">{session.user.email}</div>}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -320,12 +320,12 @@ function SessionsTable({ sessions }: { sessions: PracticeSession[] }) {
                       {formatAccuracy(session.accuracy)}
                     </Badge>
                   ) : (
-                    <span className="text-gray-400">N/A</span>
+                    <span className="text-foreground-muted md:text-gray-400">N/A</span>
                   )}
                 </TableCell>
-                <TableCell>{session.score !== null ? <span className="font-medium">{session.score}</span> : <span className="text-gray-400">N/A</span>}</TableCell>
+                <TableCell>{session.score !== null ? <span className="font-medium">{session.score}</span> : <span className="text-foreground-muted md:text-gray-400">N/A</span>}</TableCell>
                 <TableCell>
-                  {session.duration !== null ? <span>{Math.round(session.duration / 60)}分钟</span> : <span className="text-gray-400">N/A</span>}
+                  {session.duration !== null ? <span>{Math.round(session.duration / 60)}分钟</span> : <span className="text-foreground-muted md:text-gray-400">N/A</span>}
                 </TableCell>
                 <TableCell>{formatDate(session.createdAt)}</TableCell>
               </TableRow>
@@ -333,7 +333,7 @@ function SessionsTable({ sessions }: { sessions: PracticeSession[] }) {
           </TableBody>
         </Table>
 
-        {sessions.length === 0 && <div className="text-center py-8 text-gray-500">暂无练习记录</div>}
+        {sessions.length === 0 && <div className="text-center py-8 text-foreground-muted md:text-gray-500">暂无练习记录</div>}
       </div>
     </Card>
   )
@@ -351,10 +351,10 @@ export default function AdminPage() {
 
   if (authState.loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Card className="w-full max-w-md p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-background md:bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <Card className="w-full max-w-md p-8 text-center glass-effect md:shadow-lg">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">正在验证管理员权限...</p>
+          <p className="text-foreground-muted">正在验证管理员权限...</p>
         </Card>
       </div>
     )
@@ -362,12 +362,12 @@ export default function AdminPage() {
 
   if (!authState.isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Card className="w-full max-w-md p-8">
+      <div className="min-h-screen flex items-center justify-center bg-background md:bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <Card className="w-full max-w-md p-8 glass-effect md:shadow-lg">
           <div className="text-center mb-6">
             <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900">权限不足</h1>
-            <p className="text-gray-600 mt-2">需要管理员权限才能访问此页面</p>
+            <h1 className="text-2xl font-bold text-foreground">权限不足</h1>
+            <p className="text-foreground-muted mt-2">需要管理员权限才能访问此页面</p>
           </div>
 
           <Button onClick={() => (window.location.href = "/")} className="w-full">
@@ -380,15 +380,15 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background md:bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
               <Shield className="w-8 h-8 text-blue-600" />
               用户管理系统
             </h1>
-            <p className="text-gray-600 mt-1">欢迎，{authState.currentUser?.name || authState.currentUser?.email}</p>
+            <p className="text-foreground-muted mt-1">欢迎，{authState.currentUser?.name || authState.currentUser?.email}</p>
           </div>
           <Button variant="outline" onClick={authState.handleLogout}>
             退出登录
@@ -428,7 +428,7 @@ export default function AdminPage() {
             {dataState.effectReport ? (
               <EffectReportPanel report={dataState.effectReport} />
             ) : (
-              <Card className="p-6 text-center text-gray-500">正在加载效果统计...</Card>
+              <Card className="p-6 text-center text-foreground-muted md:text-gray-500">正在加载效果统计...</Card>
             )}
           </TabsContent>
         </Tabs>
