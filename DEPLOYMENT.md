@@ -67,6 +67,22 @@ Do NOT set it to `https://api.cerebras.ai/v1` because the SDK calls `/v1/...` in
 Root cause: Prisma on Debian slim needs OpenSSL runtime.
 Fix: install `openssl` in the Docker image runtime layer (already done in `Dockerfile`).
 
+### Pitfall B2: Prisma 7 schema url error during build
+Symptoms:
+- `npx prisma generate` fails in Docker build with `P1012`
+- Error says `datasource.url is no longer supported in schema files`
+
+Root cause:
+- Prisma CLI v7 removed `datasource.url` from `schema.prisma`.
+- Connection URL must be supplied via `prisma.config.ts`.
+
+Fix (applied 2026-01-28):
+- Keep `schema.prisma` without `url`.
+- Ensure `prisma.config.ts` is copied into the image for both build and runtime.
+  - `Dockerfile`: copy `prisma.config.ts` into `/app` before `npx prisma generate`
+  - `Dockerfile` runtime: copy `prisma.config.ts` into the final image
+- Keep `DATABASE_URL=file:/app/prisma/data/app.db` set in `docker-compose.prod.yml`.
+
 ### Pitfall C: SQLite data disappears after redeploy
 Root cause: DB stored inside container filesystem.
 Fix: mount host dir `./prisma/data` into `/app/prisma/data` and use absolute `DATABASE_URL=file:/app/prisma/data/app.db`.
@@ -80,6 +96,26 @@ Preferred checks:
 ### Pitfall E: Recommended topics were grey/can’t click
 Root cause: UI disabled click when no pre-generated transcript existed for selected duration.
 Fix: `components/home/recommended-topics.tsx` now allows click and shows a “Generate/需生成” hint.
+
+### Recent incident (2026-01-28): Deploy health check 502
+Symptoms:
+- GitHub Actions deploy failed on health check.
+- `curl -fsS https://listen.leesaitool.com/api/health` returned 502.
+- App container exited with `Error: The datasource.url property is required in your Prisma config file when using prisma db push.`
+
+Root cause:
+- Prisma config file was not available in the container at runtime or build time.
+- A temporary attempt to add `url = env("DATABASE_URL")` to `schema.prisma` broke Prisma 7 (P1012).
+
+Resolution:
+- Copy `prisma.config.ts` into the Docker image (build + runtime).
+- Keep `schema.prisma` without `datasource.url`.
+- Keep `DATABASE_URL=file:/app/prisma/data/app.db` in `docker-compose.prod.yml`.
+- Health check uses `https://listen.leesaitool.com/api/health`.
+
+Notes:
+- If health check fails again, inspect container logs with:
+  `sudo docker logs --tail=200 english-listening-trainer-app-1`
 
 ## 3) How production works (wiring)
 
