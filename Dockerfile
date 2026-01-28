@@ -13,6 +13,7 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-c
 COPY package.json package-lock.json ./
 RUN npm ci
 
+COPY prisma.config.ts ./
 COPY prisma ./prisma
 RUN npx prisma generate
 
@@ -36,6 +37,7 @@ COPY --from=build --chown=nodeapp:nodeapp /app/node_modules ./node_modules
 COPY --from=build --chown=nodeapp:nodeapp /app/.next ./.next
 COPY --from=build --chown=nodeapp:nodeapp /app/public ./public
 COPY --from=build --chown=nodeapp:nodeapp /app/prisma ./prisma
+COPY --from=build --chown=nodeapp:nodeapp /app/prisma.config.ts ./prisma.config.ts
 
 USER nodeapp
 EXPOSE 3000
