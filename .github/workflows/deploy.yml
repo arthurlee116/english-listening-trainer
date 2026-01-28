@@ -1,10 +1,8 @@
 name: Deploy to Production
 
 on:
-  workflow_run:
-    workflows: ["CI Tests"]
+  push:
     branches: [main]
-    types: [completed]
 
 concurrency:
   group: deploy-production
@@ -39,6 +37,17 @@ jobs:
             port=22
           fi
           ssh-keyscan -p "$port" -H "$host" >> ~/.ssh/known_hosts
+
+      - name: Preflight disk cleanup
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          port="${SSH_PORT:-22}"
+          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
+            'set -e; df -h /; sudo docker builder prune -af || true; df -h /'
 
       - name: Sync code on server
         env:
