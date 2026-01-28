@@ -3,8 +3,9 @@ import { topicsSchema, type TopicsStructuredResponse } from '@/lib/ai/schemas'
 
 const hasCerebrasKey = Boolean(process.env.CEREBRAS_API_KEY)
 const hasTogetherKey = Boolean(process.env.TOGETHER_API_KEY)
+const runRealServices = process.env.RUN_REAL_SERVICES === 'true'
 
-const describeIf = hasCerebrasKey && hasTogetherKey ? describe : describe.skip
+const describeIf = runRealServices && hasCerebrasKey && hasTogetherKey ? describe : describe.skip
 
 describeIf('real external services', () => {
   it('generates topics via Cerebras', async () => {

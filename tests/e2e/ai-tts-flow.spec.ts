@@ -2,9 +2,13 @@ import { test, expect } from '@playwright/test'
 
 const hasCerebrasKey = Boolean(process.env.CEREBRAS_API_KEY)
 const hasTogetherKey = Boolean(process.env.TOGETHER_API_KEY)
+const runRealServices = process.env.RUN_REAL_SERVICES === 'true'
 
 test.describe('ai + tts flow', () => {
-  test.skip(!hasCerebrasKey || !hasTogetherKey, 'Missing external service credentials')
+  test.skip(
+    !runRealServices || !hasCerebrasKey || !hasTogetherKey,
+    'External services disabled or missing credentials'
+  )
 
   test('generates topics and speech audio', async ({ request }) => {
     const topicsResponse = await request.post('/api/ai/topics', {
