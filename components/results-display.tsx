@@ -5,27 +5,24 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp, Zap, Star } from "lucide-react"
+import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp } from "lucide-react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import type { Exercise } from "@/lib/types"
 import { isStorageAvailable, getPracticeNote, savePracticeNote } from "@/lib/storage"
-import { useSyncedProgressMetrics } from "@/hooks/use-synced-progress-metrics"
 import { useToast } from "@/hooks/use-toast"
 
 interface ResultsDisplayProps {
   exercise: Exercise
   onRestart: () => void
   onExport: () => void
-  isAuthenticated?: boolean
   // 以下属性已废弃,仅为兼容历史代码保留
   focusAreaStats?: never
   onRetryWithAdjustedTags?: never
 }
 
-export const ResultsDisplay = ({ exercise, onRestart, onExport, isAuthenticated = false }: ResultsDisplayProps) => {
+export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplayProps) => {
   const [showDetails, setShowDetails] = useState(true)
   const [showTranscript, setShowTranscript] = useState(false)
-  const { metrics: progressMetrics } = useSyncedProgressMetrics({ isAuthenticated })
   const { t } = useBilingualText()
   const { toast } = useToast()
   const MAX_NOTE_LENGTH = 2000
@@ -38,8 +35,6 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, isAuthenticated 
   const totalQuestions = exercise.results.length
   const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
   
-  // Progress metrics loaded via useSyncedProgressMetrics
-
   // Load existing note for this exercise
   useEffect(() => {
     try {
@@ -148,54 +143,6 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport, isAuthenticated 
           </p>
         </div>
       </Card>
-
-      {/* Progress Impact */}
-      {progressMetrics && (
-        <Card className="glass-effect p-4">
-          <h3 className="text-md font-semibold mb-3 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-sky-400" />
-            {t('components.resultsDisplay.progressImpact')}
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <div>
-                <div className="font-medium">
-                  {t('components.achievementPanel.currentStreak')}: {progressMetrics.currentStreakDays} 
-                  {t('common.labels.days')}
-                </div>
-                <div className="text-xs text-gray-600">
-                  {t('components.resultsDisplay.streakUpdate')}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-emerald-400" />
-              <div>
-                <div className="font-medium">
-                  {t('components.achievementPanel.averageAccuracy')}: {progressMetrics.averageAccuracy.toFixed(1)}%
-                </div>
-                <div className="text-xs text-gray-600">
-                  {t('components.resultsDisplay.accuracyUpdate')}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-indigo-400" />
-              <div>
-                <div className="font-medium">
-                  {t('components.achievementPanel.totalSessions')}: {progressMetrics.totalSessions}
-                </div>
-                <div className="text-xs text-gray-600">
-                  {t('components.resultsDisplay.sessionUpdate')}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Specialized Practice Statistics - REMOVED
          专项练习统计已移除,但保留类型定义以兼容历史数据展示

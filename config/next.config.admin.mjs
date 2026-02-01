@@ -21,6 +21,8 @@ const nextConfig = {
   // 优化构建，只包含必要的页面
   experimental: {
     outputFileTracingRoot: process.cwd(),
+    turbopackFileSystemCacheForDev: true,
+    turbopackFileSystemCacheForBuild: true,
   },
 }
 

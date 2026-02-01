@@ -8,17 +8,12 @@ import { i18nPerformanceMonitor } from '@/lib/i18n/performance';
 import commonTranslationsData from '@/lib/i18n/translations/common.json';
 import componentsTranslationsData from '@/lib/i18n/translations/components.json';
 import pagesTranslationsData from '@/lib/i18n/translations/pages.json';
-import achievementsTranslationsData from '@/lib/i18n/translations/achievements.json';
 
 // Translation resources are bundled via static imports to ensure immediate availability
 const commonTranslations: Record<string, unknown> = commonTranslationsData as Record<string, unknown>;
 const componentsTranslations: Record<string, unknown> = componentsTranslationsData as Record<string, unknown>;
 const pagesTranslations: Record<string, unknown> = pagesTranslationsData as Record<string, unknown>;
 const translationsLoaded = true;
-
-const achievementsTranslations: Record<string, unknown> = achievementsTranslationsData as Record<string, unknown>;
-const achievementsSection: Record<string, unknown> =
-  (achievementsTranslations['achievements'] as Record<string, unknown>) || {};
 
 const isTranslationKey = (value: unknown): value is TranslationKey => {
   if (!value || typeof value !== 'object') {
@@ -165,25 +160,12 @@ export function useBilingualText(): UseBilingualTextReturn {
       } else if (key.startsWith('pages.')) {
         translationObj = pagesTranslations;
         actualKey = key.substring(6); // Remove 'pages.' prefix
-      } else if (key.startsWith('achievements.')) {
-        const remainder = key.substring(13);
-        if (remainder.startsWith('notifications.') || remainder.startsWith('dashboard.')) {
-          translationObj = achievementsTranslations;
-          actualKey = remainder;
-        } else {
-          translationObj = achievementsSection;
-          actualKey = remainder;
-        }
       } else {
         // Try to find in common first, then components, then pages
         const candidate =
           getNestedValue(commonTranslations, key) ||
           getNestedValue(componentsTranslations, key) ||
-          getNestedValue(pagesTranslations, key) ||
-          getNestedValue(achievementsTranslations, key) ||
-          (key.startsWith('achievements.')
-            ? getNestedValue(achievementsSection, key.substring(13))
-            : undefined);
+          getNestedValue(pagesTranslations, key);
 
         if (isTranslationKey(candidate)) {
           const result = formatBilingual(candidate.en, candidate.zh, options);

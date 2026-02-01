@@ -81,7 +81,6 @@ export const MainApp = ({ authState }: MainAppProps) => {
   const { t } = useBilingualText()
   const { shouldShowNotification } = useLegacyMigration()
   const { textClass, iconClass, borderClass } = useThemeClasses()
-  const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false)
   const topicInputRef = useRef<HTMLInputElement>(null)
   const isMobile = useIsMobile()
   const [isMobileConfigCollapsed, setIsMobileConfigCollapsed] = useState(true)
@@ -356,7 +355,6 @@ export const MainApp = ({ authState }: MainAppProps) => {
             <HistoryPanel
               onBack={() => setStep("setup")}
               onRestore={handleRestoreExercise}
-              isAuthenticated={authState.isAuthenticated}
             />
           )}
 
@@ -455,11 +453,6 @@ export const MainApp = ({ authState }: MainAppProps) => {
                                     onGenerateExercise: handleGenerateTranscript,
                                     shouldShowSearchEnhancement,
                                   }}
-                                  achievements={{
-                                    isGoalPanelOpen: isGoalPanelOpen,
-                                    onToggleGoalPanel: () => setIsGoalPanelOpen(!isGoalPanelOpen),
-                                    isAuthenticated: isAuthenticated
-                                  }}
                                 />
                               )
                             })()}
@@ -523,11 +516,6 @@ export const MainApp = ({ authState }: MainAppProps) => {
                                 onGenerateExercise: handleGenerateTranscript,
                                 shouldShowSearchEnhancement,
                               }}
-                              achievements={{
-                                isGoalPanelOpen: isGoalPanelOpen,
-                                onToggleGoalPanel: () => setIsGoalPanelOpen(!isGoalPanelOpen),
-                                isAuthenticated: isAuthenticated
-                              }}
                             />
                           )
                         })()}
@@ -581,7 +569,6 @@ export const MainApp = ({ authState }: MainAppProps) => {
                     exercise={state.currentExercise}
                     onRestart={handleRestart}
                     onExport={handleExport}
-                    isAuthenticated={authState.isAuthenticated}
                   />
                 </div>
               )}

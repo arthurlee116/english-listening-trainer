@@ -32,6 +32,8 @@ export default defineConfig({
       '**/cypress/**',
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
+      '**/.next/standalone/**',
+      '**/standalone/**',
       'tests/e2e/**',
       'tests/fixtures/**',
       'tests/__mocks__/**',
@@ -45,7 +47,6 @@ export default defineConfig({
       include: [
         'app/**/*.tsx',
         'components/**/*.tsx',
-        'lib/achievement-service.ts',
         'lib/focus-metrics.ts',
         'lib/storage.ts',
         'lib/together-tts-service.ts'
@@ -88,12 +89,6 @@ export default defineConfig({
           statements: 85
         },
         // Critical business logic requires higher coverage
-        'lib/achievement-service.ts': {
-          branches: 85,
-          functions: 85,
-          lines: 85,
-          statements: 85
-        },
         'lib/focus-metrics.ts': {
           branches: 85,
           functions: 85,

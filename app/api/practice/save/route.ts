@@ -25,8 +25,7 @@ export async function POST(request: NextRequest) {
       topic, 
       accuracy, 
       score, 
-      duration, 
-      achievementMetadata,
+      duration,
       // 专项练习相关字段
       focusAreas,
       focusCoverage,
@@ -83,7 +82,6 @@ export async function POST(request: NextRequest) {
     // 合并专项练习数据 (保留以兼容历史数据)
     const enhancedExerciseData = {
       ...parsedExerciseData,
-      achievementMetadata: achievementMetadata || null,
       // 专项练习字段 (已废弃,但保留以兼容历史数据)
       ...(specializedMode && {
         focusAreas: focusAreas || [],

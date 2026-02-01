@@ -14,6 +14,7 @@ const nextConfig = {
 
   experimental: {
     turbopackFileSystemCacheForDev: true,
+    turbopackFileSystemCacheForBuild: true,
   },
   turbopack: {
     root: __dirname,

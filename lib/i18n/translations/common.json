@@ -156,14 +156,6 @@
       "en": "Test My Level",
       "zh": "自测英文水平"
     },
-    "achievements": {
-      "en": "Achievements",
-      "zh": "成就"
-    },
-    "goalsAndAchievements": {
-      "en": "Goals & Achievements",
-      "zh": "目标与成就"
-    },
     "refreshTopics": {
       "en": "Get More Topics",
       "zh": "换一批"
@@ -294,38 +286,6 @@
       "en": "Main Navigation",
       "zh": "主导航"
     },
-    "totalSessions": {
-      "en": "Total Sessions",
-      "zh": "总练习次数"
-    },
-    "averageAccuracy": {
-      "en": "Average Accuracy",
-      "zh": "平均准确率"
-    },
-    "streakDays": {
-      "en": "Streak Days",
-      "zh": "连续天数"
-    },
-    "currentStreak": {
-      "en": "Current Streak",
-      "zh": "当前连续"
-    },
-    "longestStreak": {
-      "en": "Longest Streak",
-      "zh": "最长连续"
-    },
-    "totalListeningTime": {
-      "en": "Total Listening Time",
-      "zh": "累计听力时长"
-    },
-    "dailyGoal": {
-      "en": "Daily Goal",
-      "zh": "每日目标"
-    },
-    "weeklyGoal": {
-      "en": "Weekly Goal",
-      "zh": "每周目标"
-    },
     "minutes": {
       "en": "minutes",
       "zh": "分钟"
@@ -338,26 +298,6 @@
       "en": "days",
       "zh": "天"
     },
-    "goalProgress": {
-      "en": "Goal Progress",
-      "zh": "目标进度"
-    },
-    "statisticsOverview": {
-      "en": "Statistics Overview",
-      "zh": "统计概览"
-    },
-    "achievementsBadges": {
-      "en": "Achievement Badges",
-      "zh": "成就徽章"
-    },
-    "weeklyTrend": {
-      "en": "Weekly Trend",
-      "zh": "周趋势"
-    },
-    "goalSettings": {
-      "en": "Goal Settings",
-      "zh": "目标设置"
-    }
   },
   "messages": {
     "success": {

@@ -8,9 +8,8 @@ import { useToast } from "@/hooks/use-toast"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
 import { generateAudio } from "@/lib/tts-service"
-import { saveToHistory, getHistory } from "@/lib/storage"
+import { saveToHistory } from "@/lib/storage"
 import { exportToTxt } from "@/lib/export"
-import { handlePracticeCompleted, initializeAchievements, migrateFromHistory } from "@/lib/achievement-service"
 import { loadPersonalization, savePersonalization, adjustDifficultyLevel } from "@/lib/personalization"
 import { loadSpecializedModeSettings } from "@/lib/specialized-mode"
 import { loadDifficultyMode, saveManualDifficulty } from "@/lib/difficulty-mode"
@@ -18,8 +17,7 @@ import type {
   Exercise,
   Question,
   DifficultyLevel,
-  ListeningLanguage,
-  AchievementNotification
+  ListeningLanguage
 } from "@/lib/types"
 
 export type ExerciseStep =
@@ -54,7 +52,6 @@ interface ExerciseState {
   loadingMessage: string
   canRegenerate: boolean
   assessmentResult: AssessmentResultType | null
-  newAchievements: AchievementNotification[]
   error: string | null
 }
 
@@ -99,7 +96,6 @@ type ExerciseAction =
   | { type: 'SET_LOADING'; payload: { loading: boolean; message?: string } }
   | { type: 'SET_CAN_REGENERATE'; payload: boolean }
   | { type: 'SET_ASSESSMENT_RESULT'; payload: AssessmentResultType | null }
-  | { type: 'SET_NEW_ACHIEVEMENTS'; payload: AchievementNotification[] }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'RESET' }
 
@@ -136,7 +132,6 @@ function createInitialState(): ExerciseState {
           recommendation: ''
         }
       : null,
-    newAchievements: [],
     error: null
   }
 }
@@ -235,8 +230,6 @@ function exerciseReducer(state: ExerciseState, action: ExerciseAction): Exercise
       return { ...state, canRegenerate: action.payload }
     case 'SET_ASSESSMENT_RESULT':
       return { ...state, assessmentResult: action.payload }
-    case 'SET_NEW_ACHIEVEMENTS':
-      return { ...state, newAchievements: action.payload }
     case 'SET_ERROR':
       return { ...state, error: action.payload, loading: false }
     case 'RESET':
@@ -257,35 +250,6 @@ export function useExerciseWorkflow() {
   const { t } = useBilingualText()
   const exerciseStartTimeRef = useRef<number | null>(null)
   const apiRequestCache = useMemo(() => new Map<string, Promise<unknown>>(), [])
-
-  // Initialize achievement system
-  useEffect(() => {
-    try {
-      initializeAchievements()
-      const history = getHistory()
-      if (history.length > 0) {
-        migrateFromHistory(history)
-      }
-    } catch (error) {
-      console.error("Failed to initialize achievement system:", error)
-    }
-  }, [])
-
-  // Display new achievement notifications
-  useEffect(() => {
-    state.newAchievements.forEach((notification) => {
-      toast({
-        title: t("achievements.notifications.achievementEarned.title"),
-        description: t("achievements.notifications.achievementEarned.description", {
-          values: { title: t(notification.achievement.titleKey) },
-        }),
-        duration: 5000,
-      })
-    })
-    if (state.newAchievements.length > 0) {
-      dispatch({ type: 'SET_NEW_ACHIEVEMENTS', payload: [] })
-    }
-  }, [state.newAchievements, toast, t])
 
   // Cached API call wrapper
   const cachedApiCall = useCallback(async (
@@ -706,37 +670,6 @@ export function useExerciseWorkflow() {
 
       dispatch({ type: 'SET_CURRENT_EXERCISE', payload: exercise })
       saveToHistory(exercise)
-
-      // Achievement processing
-      try {
-        const achievementResult = handlePracticeCompleted(exercise)
-
-        if (achievementResult.newAchievements.length > 0) {
-          dispatch({ type: 'SET_NEW_ACHIEVEMENTS', payload: achievementResult.newAchievements })
-        }
-
-        if (achievementResult.goalProgress.daily.isCompleted) {
-          toast({
-            title: t("achievements.notifications.goalCompleted.title"),
-            description: t("achievements.notifications.goalCompleted.dailyGoal", {
-              values: { target: achievementResult.goalProgress.daily.target },
-            }),
-            duration: 5000,
-          })
-        }
-
-        if (achievementResult.goalProgress.weekly.isCompleted) {
-          toast({
-            title: t("achievements.notifications.goalCompleted.title"),
-            description: t("achievements.notifications.goalCompleted.weeklyGoal", {
-              values: { target: achievementResult.goalProgress.weekly.target },
-            }),
-            duration: 5000,
-          })
-        }
-      } catch (error) {
-        console.error('Failed to process achievements:', error)
-      }
 
       // Save to database
       try {

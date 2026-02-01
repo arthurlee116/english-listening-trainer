@@ -2,7 +2,6 @@ import { type RefObject, useEffect, useMemo, useState } from "react"
 
 import { Loader2, Sparkles, Newspaper } from "lucide-react"
 
-import { AchievementPanel } from "@/components/achievement-panel"
 
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { Button } from "@/components/ui/button"
@@ -60,22 +59,14 @@ interface PracticeOperationsProps {
   shouldShowSearchEnhancement: boolean
 }
 
-interface AchievementsProps {
-  isGoalPanelOpen: boolean
-  onToggleGoalPanel: () => void
-  isAuthenticated: boolean
-}
-
 interface PracticeConfigurationProps {
   practiceSetup: PracticeSetupProps
   operations: PracticeOperationsProps
-  achievements: AchievementsProps
 }
 
 export function PracticeConfiguration({
   practiceSetup,
   operations,
-  achievements,
 }: PracticeConfigurationProps) {
   const { t } = useBilingualText()
   const { difficulty, onDifficultyChange } = practiceSetup
@@ -428,11 +419,6 @@ export function PracticeConfiguration({
         </div>
       </Card>
 
-      <AchievementPanel
-        isOpen={achievements.isGoalPanelOpen}
-        onToggle={achievements.onToggleGoalPanel}
-        userAuthenticated={achievements.isAuthenticated}
-      />
     </div>
   )
 }

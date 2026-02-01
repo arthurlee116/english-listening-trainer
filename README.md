@@ -35,7 +35,7 @@ English Listening Trainer 是一款革命性的AI驱动英语听力训练平台�
 - **自适应难度调节**：系统根据您的表现智能调整内容难度，确保学习始终在舒适区内
 - **AI深度错误剖析**：不仅仅指出错误，更提供上下文相关的解释和改进建议
 - **离线优先设计**：本地TTS生成，无需网络即可享受高质量音频
-- **可视化进度追踪**：直观的图表和成就徽章，让学习成果一目了然
+- **可视化进度追踪**：直观的图表让学习成果一目了然
 - **创新音频技术**：结合GPU加速的Kokoro引擎，实现实时流式音频播放
 
 ### 技术架构亮点
@@ -113,8 +113,6 @@ Traditional listening practice often lacks:
   - Real-time grading with confidence scoring
   - Detailed AI analysis of incorrect answers with related examples
   - Focus area mastery tracking across 10 skill dimensions
-  - Achievement badges and personalized learning recommendations
-  - User performance trends and weekly statistics
 
 - **🔐 Secure Authentication & User Management**
   - JWT-based session management with optional "Remember Me"
@@ -503,7 +501,6 @@ describe('calculateStreakDays', () => {
    - Receive instant grading and detailed feedback
 
 5. **Review progress:**
-   - Check achievement badges
    - View focus area mastery metrics
    - See recommended learning areas
 
@@ -869,7 +866,6 @@ Sessions are automatically saved after grading. View history:
 6. **Session Saving** (via `lib/database.ts`)
    - Persist to Prisma ORM
    - Update user progress metrics
-   - Trigger achievement checks
 
 7. **Analytics** (via `lib/focus-metrics.ts`)
    - Compute focus area statistics

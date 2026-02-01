@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, TrendingUp } from "lucide-react"
+import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2 } from "lucide-react"
 import { clearHistory, deletePracticeNote, getHistory, getPracticeNote, isStorageAvailable, mergePracticeHistory, savePracticeNote } from "@/lib/storage"
 import type { Exercise, FocusArea, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 import type { ExerciseHistoryEntry } from "@/lib/storage"
-import { useSyncedProgressMetrics } from "@/hooks/use-synced-progress-metrics"
 import { FOCUS_AREA_LABELS } from "@/lib/types"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
@@ -20,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 interface HistoryPanelProps {
   onBack: () => void
   onRestore: (exercise: Exercise) => void
-  isAuthenticated?: boolean
 }
 
 const PAGE_SIZE = 10
@@ -47,7 +45,7 @@ interface PracticeHistoryResponse {
   }
 }
 
-export const HistoryPanel = ({ onBack, onRestore, isAuthenticated = false }: HistoryPanelProps) => {
+export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const { t } = useBilingualText()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
@@ -55,7 +53,6 @@ export const HistoryPanel = ({ onBack, onRestore, isAuthenticated = false }: His
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
   const [languageFilter, setLanguageFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
-  const { metrics: progressMetrics } = useSyncedProgressMetrics({ isAuthenticated })
   const [noteFilter, setNoteFilter] = useState<string>("all")
   const [focusAreaFilter, setFocusAreaFilter] = useState<string>("all")
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -148,8 +145,6 @@ export const HistoryPanel = ({ onBack, onRestore, isAuthenticated = false }: His
       isActive = false
     }
   }, [page, toast, t])
-
-  // Progress metrics loaded via useSyncedProgressMetrics
 
   const getResultsArray = (exercise: Exercise | null | undefined): Exercise["results"] => {
     if (exercise && Array.isArray(exercise.results)) {
@@ -313,43 +308,6 @@ export const HistoryPanel = ({ onBack, onRestore, isAuthenticated = false }: His
         </Card>
       ) : (
         <>          
-          {/* Statistics Summary */}
-          {progressMetrics && (
-            <Card className="glass-effect p-4 mb-4">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-600" />
-                <BilingualText translationKey="components.achievementPanel.statisticsOverview" />
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4">
-                <div>
-                  <div className="text-lg font-bold text-blue-600">{progressMetrics.totalSessions}</div>
-                  <div className="text-xs text-gray-600">
-                    <BilingualText translationKey="components.achievementPanel.totalSessions" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-green-600">{progressMetrics.averageAccuracy.toFixed(1)}%</div>
-                  <div className="text-xs text-gray-600">
-                    <BilingualText translationKey="components.achievementPanel.averageAccuracy" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-orange-600">{progressMetrics.currentStreakDays}</div>
-                  <div className="text-xs text-gray-600">
-                    <BilingualText translationKey="components.achievementPanel.currentStreak" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-purple-600">{progressMetrics.totalListeningMinutes}</div>
-                  <div className="text-xs text-gray-600">
-                    <BilingualText translationKey="components.achievementPanel.totalListeningTime" />
-                  </div>
-                </div>
-              </div>
-
-            </Card>
-          )}
-          
           {/* Filters */}
           <Card className="glass-effect p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
