@@ -27,10 +27,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates adduser \
   && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 10001 nodeapp
+RUN adduser --disabled-password --gecos "" --uid 10001 nodeapp
 
 COPY --from=build --chown=nodeapp:nodeapp /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=nodeapp:nodeapp /app/node_modules ./node_modules
