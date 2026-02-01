@@ -126,8 +126,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const dir = path.join(process.cwd(), 'public', 'assessment-audio')
     const targetPath = path.join(dir, info.filename)
 
-    const url = 'nextUrl' in request ? request.nextUrl : new URL(request.url)
-    const wantsDownload = url.searchParams.get('download')
+    const wantsDownload = (request.nextUrl ?? new URL(request.url)).searchParams.get('download')
     if (wantsDownload) {
       await ensureAssessmentAudio(targetPath, info.transcript)
       return serveAssessmentAudioFile(request, targetPath)
