@@ -18,4 +18,4 @@ services:
       - ./public/audio:/app/public/audio
       - ./data:/app/data
       - ./logs:/app/logs
-    command: ["sh","-lc","npx prisma db push --accept-data-loss && npm run start"]
+    command: ["sh","-lc","(npx prisma db push --accept-data-loss || true) && npm run start"]
