@@ -261,6 +261,36 @@
       "zh": "调整设置"
     }
   },
+  "visitorBanner": {
+    "rankTitle": {
+      "en": "You are the No. {rank} registered user",
+      "zh": "您是第 {rank} 位注册用户"
+    },
+    "subtitle": {
+      "en": "Thank you for your support. Feel free to leave feedback anytime.",
+      "zh": "感谢您的支持，欢迎留言反馈"
+    },
+    "emailLabel": {
+      "en": "Email",
+      "zh": "邮箱"
+    },
+    "wechatLabel": {
+      "en": "WeChat",
+      "zh": "微信"
+    },
+    "minimize": {
+      "en": "Minimize",
+      "zh": "收起"
+    },
+    "expand": {
+      "en": "Expand",
+      "zh": "展开"
+    },
+    "loading": {
+      "en": "Loading your rank...",
+      "zh": "正在获取您的排名..."
+    }
+  },
   "achievementPanel": {
     "title": {
       "en": "Goals & Achievements",

@@ -19,6 +19,7 @@ import { useExerciseWorkflow, type ExerciseStep } from "@/hooks/use-exercise-wor
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ProfileScreen } from "@/components/profile-screen"
+import { VisitorBanner } from "@/components/home/visitor-banner"
 import { DIFFICULTY_LEVELS } from "@/lib/constants/practice-config"
 import { LANGUAGE_OPTIONS } from "@/lib/language-config"
 
@@ -336,6 +337,10 @@ export const MainApp = ({ authState }: MainAppProps) => {
             </div>
           </div>
         </header>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <VisitorBanner />
+        </div>
 
         {/* Migration Notification */}
         {shouldShowNotification() && (
