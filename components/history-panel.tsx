@@ -10,17 +10,17 @@ import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, TrendingUp } from "lu
 import { clearHistory, deletePracticeNote, getHistory, getPracticeNote, isStorageAvailable, mergePracticeHistory, savePracticeNote } from "@/lib/storage"
 import type { Exercise, FocusArea, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 import type { ExerciseHistoryEntry } from "@/lib/storage"
+import { useSyncedProgressMetrics } from "@/hooks/use-synced-progress-metrics"
 import { FOCUS_AREA_LABELS } from "@/lib/types"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
-import { getProgressMetrics } from "@/lib/storage"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import type { UserProgressMetrics } from "@/lib/types"
 
 interface HistoryPanelProps {
   onBack: () => void
   onRestore: (exercise: Exercise) => void
+  isAuthenticated?: boolean
 }
 
 const PAGE_SIZE = 10
@@ -47,7 +47,7 @@ interface PracticeHistoryResponse {
   }
 }
 
-export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
+export const HistoryPanel = ({ onBack, onRestore, isAuthenticated = false }: HistoryPanelProps) => {
   const { t } = useBilingualText()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
@@ -55,7 +55,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
   const [languageFilter, setLanguageFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
-  const [progressMetrics, setProgressMetrics] = useState<UserProgressMetrics | null>(null)
+  const { metrics: progressMetrics } = useSyncedProgressMetrics({ isAuthenticated })
   const [noteFilter, setNoteFilter] = useState<string>("all")
   const [focusAreaFilter, setFocusAreaFilter] = useState<string>("all")
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -149,15 +149,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
     }
   }, [page, toast, t])
 
-  useEffect(() => {
-    // Load progress metrics for statistics display
-    try {
-      const metrics = getProgressMetrics()
-      setProgressMetrics(metrics)
-    } catch {
-      setProgressMetrics(null)
-    }
-  }, [])
+  // Progress metrics loaded via useSyncedProgressMetrics
 
   const getResultsArray = (exercise: Exercise | null | undefined): Exercise["results"] => {
     if (exercise && Array.isArray(exercise.results)) {

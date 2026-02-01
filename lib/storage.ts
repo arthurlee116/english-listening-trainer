@@ -56,6 +56,19 @@ export function mergePracticeHistory({
   localHistory,
   pageSize = MAX_HISTORY_ITEMS
 }: MergePracticeHistoryOptions): ExerciseHistoryEntry[] {
+  const merged = mergeHistoryEntries({ serverHistory, localHistory })
+  return merged.slice(0, pageSize)
+}
+
+interface MergeHistoryEntriesOptions {
+  serverHistory: ExerciseHistoryEntry[]
+  localHistory: ExerciseHistoryEntry[]
+}
+
+export function mergeHistoryEntries({
+  serverHistory,
+  localHistory
+}: MergeHistoryEntriesOptions): ExerciseHistoryEntry[] {
   const merged: ExerciseHistoryEntry[] = []
   const seen = new Set<string>()
 
@@ -82,7 +95,7 @@ export function mergePracticeHistory({
     return bTime - aTime
   })
 
-  return merged.slice(0, pageSize)
+  return merged
 }
 
 // =============== Achievement System Storage ===============

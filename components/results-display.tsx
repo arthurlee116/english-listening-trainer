@@ -7,23 +7,25 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Trophy, RotateCcw, Download, ChevronDown, ChevronUp, Zap, Star } from "lucide-react"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
-import type { Exercise, UserProgressMetrics } from "@/lib/types"
-import { getProgressMetrics, isStorageAvailable, getPracticeNote, savePracticeNote } from "@/lib/storage"
+import type { Exercise } from "@/lib/types"
+import { isStorageAvailable, getPracticeNote, savePracticeNote } from "@/lib/storage"
+import { useSyncedProgressMetrics } from "@/hooks/use-synced-progress-metrics"
 import { useToast } from "@/hooks/use-toast"
 
 interface ResultsDisplayProps {
   exercise: Exercise
   onRestart: () => void
   onExport: () => void
+  isAuthenticated?: boolean
   // 以下属性已废弃,仅为兼容历史代码保留
   focusAreaStats?: never
   onRetryWithAdjustedTags?: never
 }
 
-export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplayProps) => {
+export const ResultsDisplay = ({ exercise, onRestart, onExport, isAuthenticated = false }: ResultsDisplayProps) => {
   const [showDetails, setShowDetails] = useState(true)
   const [showTranscript, setShowTranscript] = useState(false)
-  const [progressMetrics, setProgressMetrics] = useState<UserProgressMetrics | null>(null)
+  const { metrics: progressMetrics } = useSyncedProgressMetrics({ isAuthenticated })
   const { t } = useBilingualText()
   const { toast } = useToast()
   const MAX_NOTE_LENGTH = 2000
@@ -36,17 +38,7 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
   const totalQuestions = exercise.results.length
   const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
   
-  // Load progress metrics to show improvements
-  useEffect(() => {
-    try {
-      const metrics = getProgressMetrics()
-      setProgressMetrics(metrics)
-    } catch (error) {
-      console.error("Failed to load progress metrics:", error)
-      // Set to null on error to avoid rendering issues
-      setProgressMetrics(null)
-    }
-  }, [])
+  // Progress metrics loaded via useSyncedProgressMetrics
 
   // Load existing note for this exercise
   useEffect(() => {

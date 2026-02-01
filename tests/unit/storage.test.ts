@@ -7,6 +7,7 @@ import {
   getGoalSettings,
   getHistory,
   mergePracticeHistory,
+  mergeHistoryEntries,
   getPracticeNote,
   getProgressMetrics,
   isStorageAvailable,
@@ -183,6 +184,55 @@ describe('storage utilities', () => {
 
     expect(merged).toHaveLength(1)
     expect(merged[0].id).toBe('server-1')
+  })
+
+  it('merges all history entries without trimming', () => {
+    const serverHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'server-1',
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'server topic',
+        transcript: 'server 1',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-03T10:00:00.000Z',
+        sessionId: 'session-1'
+      }
+    ]
+
+    const localHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'local-1',
+        difficulty: 'A2',
+        language: 'en-US',
+        topic: 'local topic',
+        transcript: 'local 1',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-04T10:00:00.000Z'
+      },
+      {
+        id: 'local-2',
+        difficulty: 'A1',
+        language: 'en-US',
+        topic: 'local topic 2',
+        transcript: 'local 2',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-01T10:00:00.000Z'
+      }
+    ]
+
+    const merged = mergeHistoryEntries({ serverHistory, localHistory })
+
+    expect(merged).toHaveLength(3)
+    expect(merged[0].id).toBe('local-1')
+    expect(merged[1].id).toBe('server-1')
+    expect(merged[2].id).toBe('local-2')
   })
 
   it('recovers progress metrics with validation when stored data is invalid', () => {

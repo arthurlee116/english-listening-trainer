@@ -425,6 +425,12 @@ export function migrateFromHistory(exercises: Exercise[]): UserProgressMetrics {
   return calculatedMetrics
 }
 
+export function syncProgressFromHistory(exercises: Exercise[]): UserProgressMetrics {
+  const metrics = migrateFromHistory(exercises)
+  checkNewAchievements(metrics)
+  return metrics
+}
+
 /**
  * 处理练习完成事件 - 更新指标并检查成就
  * 包含性能监控和错误处理

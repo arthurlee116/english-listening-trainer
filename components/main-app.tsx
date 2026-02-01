@@ -356,6 +356,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
             <HistoryPanel
               onBack={() => setStep("setup")}
               onRestore={handleRestoreExercise}
+              isAuthenticated={authState.isAuthenticated}
             />
           )}
 
@@ -576,7 +577,12 @@ export const MainApp = ({ authState }: MainAppProps) => {
               {/* Results Step */}
               {state.currentStep === "results" && state.currentExercise && (
                 <div className="max-w-4xl mx-auto">
-                  <ResultsDisplay exercise={state.currentExercise} onRestart={handleRestart} onExport={handleExport} />
+                  <ResultsDisplay
+                    exercise={state.currentExercise}
+                    onRestart={handleRestart}
+                    onExport={handleExport}
+                    isAuthenticated={authState.isAuthenticated}
+                  />
                 </div>
               )}
             </>

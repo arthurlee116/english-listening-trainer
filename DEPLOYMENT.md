@@ -193,7 +193,7 @@ Assessment audio sanity:
 
 AI sanity (Cerebras):
 ```bash
-curl -fsS -X POST https://leesaitool.com/api/ai/topics \
+curl -fsS -X POST https://listen.leesaitool.com/api/ai/topics \
   -H 'content-type: application/json' \
   -d '{"difficulty":"easy","wordCount":120,"language":"en-US"}'
 ```

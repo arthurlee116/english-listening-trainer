@@ -26,7 +26,6 @@ import type {
   GoalProgress
 } from "@/lib/types"
 import { 
-  getProgressMetrics, 
   getGoalSettings, 
   saveGoalSettings,
   isStorageAvailable
@@ -36,6 +35,7 @@ import {
   getEarnedAchievements,
   getAvailableAchievements
 } from "@/lib/achievement-service"
+import { useSyncedProgressMetrics } from "@/hooks/use-synced-progress-metrics"
 
 interface AchievementPanelProps {
   isOpen: boolean
@@ -51,6 +51,11 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
   const [goalSettings, setGoalSettings] = useState<UserGoalSettings | null>(null)
   const [earnedAchievements, setEarnedAchievements] = useState<AchievementBadge[]>([])
   const [availableAchievements, setAvailableAchievements] = useState<AchievementBadge[]>([])
+  const {
+    metrics: syncedMetrics,
+    isLoading: metricsLoading,
+    error: metricsError
+  } = useSyncedProgressMetrics({ enabled: userAuthenticated, isAuthenticated: userAuthenticated })
   
   // State for UI
   const [showSettings, setShowSettings] = useState(false)
@@ -73,14 +78,12 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
         }
 
         // 使用 Promise.all 并行加载数据，提高性能
-        const [metrics, goals, earned, available] = await Promise.all([
-          Promise.resolve(getProgressMetrics()),
+        const [goals, earned, available] = await Promise.all([
           Promise.resolve(getGoalSettings()),
           Promise.resolve(getEarnedAchievements()),
           Promise.resolve(getAvailableAchievements())
         ])
 
-        setProgressMetrics(metrics)
         setGoalSettings(goals)
         setTempGoals(goals)
         setEarnedAchievements(earned)
@@ -96,6 +99,22 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
     
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (syncedMetrics) {
+      setProgressMetrics(syncedMetrics)
+      setEarnedAchievements(getEarnedAchievements())
+      setAvailableAchievements(getAvailableAchievements())
+    }
+  }, [syncedMetrics])
+
+  useEffect(() => {
+    if (metricsError) {
+      setError(t('components.achievementPanel.loadError') || 'Failed to load data')
+      return
+    }
+    setError(null)
+  }, [metricsError, t])
 
   // Calculate goal progress
   const goalProgress: GoalProgress | null = useMemo(() => {
@@ -159,7 +178,7 @@ export const AchievementPanel = ({ isOpen, onToggle, userAuthenticated }: Achiev
   }
 
   // Render loading state
-  if (isLoading) {
+  if (isLoading || metricsLoading) {
     return (
       <Card className="glass-effect p-6">
         <div className="text-center">

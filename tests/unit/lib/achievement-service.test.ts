@@ -23,6 +23,7 @@ import {
   checkNewAchievements,
   calculateGoalProgress,
   migrateFromHistory,
+  syncProgressFromHistory,
   handlePracticeCompleted,
   getEarnedAchievements,
   getAvailableAchievements,
@@ -295,6 +296,46 @@ describe('achievement-service', () => {
     const result = migrateFromHistory(exercises)
 
     expect(result.totalSessions).toBe(1)
+    expect(mockSaveProgressMetrics).toHaveBeenCalled()
+    expect(mockSaveAchievements).toHaveBeenCalled()
+  })
+
+  it('syncs progress from history and updates achievements', () => {
+    mockConvertExerciseToSessionData.mockReturnValue({
+      sessionId: 'session-1',
+      difficulty: 'B1',
+      language: 'en-US',
+      topic: 'topic',
+      accuracy: 80,
+      duration: 120,
+      questionsCount: 5,
+      correctAnswersCount: 4,
+      completedAt: new Date().toISOString(),
+    })
+    mockGetAchievements.mockReturnValue([
+      {
+        id: 'first-session',
+        titleKey: 't',
+        descriptionKey: 'd',
+        conditions: { type: 'sessions', threshold: 1 }
+      }
+    ])
+
+    const metrics = syncProgressFromHistory([
+      {
+        id: 'ex-1',
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'topic',
+        transcript: 'text',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: new Date().toISOString()
+      }
+    ])
+
+    expect(metrics.totalSessions).toBe(1)
     expect(mockSaveProgressMetrics).toHaveBeenCalled()
     expect(mockSaveAchievements).toHaveBeenCalled()
   })

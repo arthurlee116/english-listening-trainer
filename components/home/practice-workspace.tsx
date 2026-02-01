@@ -28,6 +28,7 @@ interface PracticeWorkspaceProps {
   currentExercise: Exercise | null
   onRestart: () => void
   onExport: () => void
+  isAuthenticated?: boolean
 }
 
 export function PracticeWorkspace({
@@ -53,6 +54,7 @@ export function PracticeWorkspace({
   currentExercise,
   onRestart,
   onExport,
+  isAuthenticated = false,
 }: PracticeWorkspaceProps) {
   if (step === "listening") {
     return (
@@ -97,7 +99,12 @@ export function PracticeWorkspace({
   if (step === "results" && currentExercise) {
     return (
       <div className="max-w-4xl mx-auto">
-        <ResultsDisplay exercise={currentExercise} onRestart={onRestart} onExport={onExport} />
+        <ResultsDisplay
+          exercise={currentExercise}
+          onRestart={onRestart}
+          onExport={onExport}
+          isAuthenticated={isAuthenticated}
+        />
       </div>
     )
   }

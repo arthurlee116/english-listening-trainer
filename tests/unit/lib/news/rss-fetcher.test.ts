@@ -112,7 +112,7 @@ describe('rss-fetcher proxy configuration', () => {
         }),
         expect.objectContaining({
           name: 'CNBC (Top News)',
-          url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',
+          url: 'https://rsshub.app/cnbc/rss/100003114',
           category: 'general'
         }),
         expect.objectContaining({
@@ -142,7 +142,7 @@ describe('rss-fetcher proxy configuration', () => {
         }),
         expect.objectContaining({
           name: 'CNBC (Business)',
-          url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html',
+          url: 'https://rsshub.app/cnbc/rss/10001147',
           category: 'business'
         })
       ])
