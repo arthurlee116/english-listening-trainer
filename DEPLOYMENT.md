@@ -141,7 +141,7 @@ Why `db push` (for speed): migration history may not be stable/complete for a cl
 6) Create `.env.production` from `.env.production.example` (fill secrets locally; do not commit)
 7) `docker compose -f docker-compose.prod.yml up -d --build`
 
-## 5) Routine deployment after code changes (fast path)
+# 5) Routine deployment after code changes (fast path)
 
 ### Option A: GitHub Actions (Automatic - Preferred)
 Simply push to `main` or merge a PR. The `deploy.yml` workflow will:
@@ -159,7 +159,7 @@ ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && git f
 ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && sudo docker compose -f docker-compose.prod.yml up -d --build app'
 
 # 3) health check
-curl -fsS https://leesaitool.com/api/health
+curl -fsS https://listen.leesaitool.com/api/health
 ```
 
 If you changed Prisma schema:
@@ -176,7 +176,7 @@ Text model reminder:
 ## 6) Verification checklist (must pass)
 
 From anywhere:
-- `GET https://leesaitool.com/api/health` returns `status=healthy`
+- `GET https://listen.leesaitool.com/api/health` returns `status=healthy`
 
 AI sanity (Cerebras):
 ```bash

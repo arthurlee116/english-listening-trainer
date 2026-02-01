@@ -58,7 +58,7 @@ export function AppLayoutWithSidebar({
         <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[hsl(var(--secondary)/0.5)] blur-3xl" />
       </div>
       {/* Desktop Sidebar */}
-      <div className="relative z-10 hidden md:flex">
+      <div className="relative z-[60] hidden md:flex">
         <Sidebar
           collapsed={collapsed}
           currentStep={currentStep}
