@@ -222,9 +222,16 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
               <h3 className="font-medium text-blue-800 mb-2">
                 {loadingMessage || t("components.audioPlayer.loadingAudio")}
               </h3>
-              <p className="text-blue-600 text-sm">
-                <BilingualText translationKey="components.audioPlayer.loadingMessage" />
-              </p>
+              {(!loadingMessage || loadingMessage.toLowerCase().includes("audio")) && (
+                <p className="text-blue-600 text-sm">
+                  <BilingualText translationKey="components.audioPlayer.loadingMessage" />
+                </p>
+              )}
+              {loadingMessage && loadingMessage.toLowerCase().includes("question") && (
+                <p className="text-blue-600 text-sm">
+                  <BilingualText translationKey="components.audioPlayer.loadingQuestions" />
+                </p>
+              )}
             </div>
           ) : audioUrl ? (
             <>

@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Search, Calendar, Trophy, Eye, Trash2, TrendingUp } from "lucide-react"
-import { getHistory, clearHistory, getPracticeNote, savePracticeNote, deletePracticeNote, isStorageAvailable } from "@/lib/storage"
-import type { Exercise, FocusArea } from "@/lib/types"
+import { clearHistory, deletePracticeNote, getHistory, getPracticeNote, isStorageAvailable, mergePracticeHistory, savePracticeNote } from "@/lib/storage"
+import type { Exercise, FocusArea, DifficultyLevel, ListeningLanguage } from "@/lib/types"
+import type { ExerciseHistoryEntry } from "@/lib/storage"
 import { FOCUS_AREA_LABELS } from "@/lib/types"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
@@ -20,6 +21,30 @@ import type { UserProgressMetrics } from "@/lib/types"
 interface HistoryPanelProps {
   onBack: () => void
   onRestore: (exercise: Exercise) => void
+}
+
+const PAGE_SIZE = 10
+
+interface PracticeHistorySession {
+  id: string
+  difficulty: DifficultyLevel
+  language: ListeningLanguage
+  topic: string
+  accuracy?: number | null
+  score?: number | null
+  duration?: number | null
+  createdAt: string
+  exerciseData: Exercise | null
+}
+
+interface PracticeHistoryResponse {
+  sessions: PracticeHistorySession[]
+  pagination: {
+    currentPage: number
+    totalPages: number
+    totalCount: number
+    hasMore: boolean
+  }
 }
 
 export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
@@ -36,19 +61,95 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
   const [noteDraft, setNoteDraft] = useState("")
   const [noteEditingExercise, setNoteEditingExercise] = useState<Exercise | null>(null)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [totalPages, setTotalPages] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  useEffect(() => {
-    try {
-      const history = getHistory()
-      const safeHistory = Array.isArray(history) ? history : []
-      setExercises(safeHistory)
-      setFilteredExercises(safeHistory)
-    } catch {
-      setExercises([])
-      setFilteredExercises([])
+  const mapSessionToExercise = (session: PracticeHistorySession): ExerciseHistoryEntry => {
+    if (session.exerciseData && typeof session.exerciseData === 'object') {
+      return {
+        ...session.exerciseData,
+        createdAt: session.exerciseData.createdAt || session.createdAt,
+        totalDurationSec: session.exerciseData.totalDurationSec ?? session.duration ?? undefined,
+        sessionId: session.id
+      }
     }
-    
+
+    return {
+      id: session.id,
+      difficulty: session.difficulty,
+      language: session.language,
+      topic: session.topic || 'Untitled',
+      transcript: '',
+      questions: [],
+      answers: {},
+      results: [],
+      createdAt: session.createdAt,
+      totalDurationSec: session.duration ?? undefined,
+      sessionId: session.id
+    }
+  }
+
+  useEffect(() => {
+    let isActive = true
+
+    const loadHistory = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+
+      let localHistory: ExerciseHistoryEntry[] = []
+      try {
+        const history = getHistory()
+        localHistory = Array.isArray(history) ? history : []
+      } catch {
+        localHistory = []
+      }
+
+      try {
+        const response = await fetch(`/api/practice/history?page=${page}&limit=${PAGE_SIZE}`, {
+          credentials: 'include'
+        })
+
+        if (!response.ok) {
+          throw new Error(`History request failed with status ${response.status}`)
+        }
+
+        const data = (await response.json()) as PracticeHistoryResponse
+        const serverHistory = Array.isArray(data.sessions) ? data.sessions.map(mapSessionToExercise) : []
+        const merged = mergePracticeHistory({ serverHistory, localHistory, pageSize: PAGE_SIZE })
+
+        if (!isActive) return
+        setExercises(merged)
+        setHasMore(Boolean(data.pagination?.hasMore))
+        setTotalPages(Math.max(data.pagination?.totalPages ?? 1, 1))
+      } catch (error) {
+        if (!isActive) return
+        const message = error instanceof Error ? error.message : String(error)
+        setLoadError(message)
+        setExercises(localHistory)
+        setHasMore(false)
+        setTotalPages(1)
+        toast({
+          title: t("common.messages.error"),
+          description: t("components.historyPanel.loadFailed")
+        })
+      } finally {
+        if (isActive) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadHistory()
+    return () => {
+      isActive = false
+    }
+  }, [page, toast, t])
+
+  useEffect(() => {
     // Load progress metrics for statistics display
     try {
       const metrics = getProgressMetrics()
@@ -190,6 +291,21 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
           )}
         </div>
       </Card>
+
+      {(isLoading || loadError) && (
+        <Card className="glass-effect p-4">
+          <div className="text-sm text-gray-600">
+            {isLoading
+              ? t("common.messages.loading")
+              : t("components.historyPanel.loadFailed")}
+            {loadError && (
+              <span className="ml-2">
+                {t("components.historyPanel.showingLocal")}
+              </span>
+            )}
+          </div>
+        </Card>
+      )}
 
       {exercises.length === 0 ? (
         <Card className="glass-effect p-12 text-center">
@@ -424,6 +540,30 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                 </Card>
               )
             })}
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={isLoading || page <= 1}
+            >
+              <BilingualText translationKey="common.buttons.previous" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              {t("components.historyPanel.pageLabel", {
+                values: { page, total: totalPages }
+              })}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => current + 1)}
+              disabled={isLoading || !hasMore}
+            >
+              <BilingualText translationKey="common.buttons.next" />
+            </Button>
           </div>
           {/* Note Dialog */}
           <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>

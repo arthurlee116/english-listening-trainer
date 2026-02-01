@@ -6,6 +6,7 @@ import {
   getAchievements,
   getGoalSettings,
   getHistory,
+  mergePracticeHistory,
   getPracticeNote,
   getProgressMetrics,
   isStorageAvailable,
@@ -18,6 +19,7 @@ import {
   deletePracticeNote
 } from '../../lib/storage'
 import type { AchievementBadge, Exercise, UserProgressMetrics } from '../../lib/types'
+import type { ExerciseHistoryEntry } from '../../lib/storage'
 
 describe('storage utilities', () => {
   beforeEach(() => {
@@ -74,6 +76,113 @@ describe('storage utilities', () => {
     getItemSpy.mockRestore()
     setItemSpy.mockRestore()
     removeItemSpy.mockRestore()
+  })
+
+  it('merges server and local history by session id and sorts newest first', () => {
+    const serverHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'server-1',
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'server topic 1',
+        transcript: 'server 1',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-03T10:00:00.000Z',
+        sessionId: 'session-1'
+      },
+      {
+        id: 'server-2',
+        difficulty: 'B2',
+        language: 'en-US',
+        topic: 'server topic 2',
+        transcript: 'server 2',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-02T10:00:00.000Z',
+        sessionId: 'session-2'
+      }
+    ]
+
+    const localHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'local-1',
+        difficulty: 'A2',
+        language: 'en-US',
+        topic: 'local topic 1',
+        transcript: 'local 1',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-04T10:00:00.000Z'
+      },
+      {
+        id: 'local-2',
+        difficulty: 'A1',
+        language: 'en-US',
+        topic: 'local topic 2',
+        transcript: 'local 2',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-01T10:00:00.000Z'
+      }
+    ]
+
+    const merged = mergePracticeHistory({
+      serverHistory,
+      localHistory,
+      pageSize: 10
+    })
+
+    expect(merged).toHaveLength(4)
+    expect(merged[0].id).toBe('local-1')
+    expect(merged[1].id).toBe('server-1')
+    expect(merged[2].id).toBe('server-2')
+    expect(merged[3].id).toBe('local-2')
+  })
+
+  it('prefers server entries when session ids collide', () => {
+    const serverHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'server-1',
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'server topic 1',
+        transcript: 'server 1',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-03T10:00:00.000Z',
+        sessionId: 'session-1'
+      }
+    ]
+
+    const localHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'local-1',
+        difficulty: 'A2',
+        language: 'en-US',
+        topic: 'local topic 1',
+        transcript: 'local 1',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-04T10:00:00.000Z',
+        sessionId: 'session-1'
+      }
+    ]
+
+    const merged = mergePracticeHistory({
+      serverHistory,
+      localHistory,
+      pageSize: 10
+    })
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe('server-1')
   })
 
   it('recovers progress metrics with validation when stored data is invalid', () => {

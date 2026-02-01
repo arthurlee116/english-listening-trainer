@@ -7,6 +7,14 @@ const ACHIEVEMENTS_STORAGE_KEY = "english-listening-achievements"
 const NOTES_STORAGE_KEY = "english-listening-notes"
 const MAX_HISTORY_ITEMS = 10
 
+export type ExerciseHistoryEntry = Exercise & { sessionId?: string }
+
+interface MergePracticeHistoryOptions {
+  serverHistory: ExerciseHistoryEntry[]
+  localHistory: ExerciseHistoryEntry[]
+  pageSize?: number
+}
+
 // =============== Exercise History Storage ===============
 
 export function saveToHistory(exercise: Exercise): void {
@@ -41,6 +49,40 @@ export function clearHistory(): void {
   } catch (error) {
     console.error("Failed to clear history:", error)
   }
+}
+
+export function mergePracticeHistory({
+  serverHistory,
+  localHistory,
+  pageSize = MAX_HISTORY_ITEMS
+}: MergePracticeHistoryOptions): ExerciseHistoryEntry[] {
+  const merged: ExerciseHistoryEntry[] = []
+  const seen = new Set<string>()
+
+  const normalizeKey = (entry: ExerciseHistoryEntry): string => {
+    if (entry.sessionId) {
+      return `session:${entry.sessionId}`
+    }
+    return `local:${entry.id}`
+  }
+
+  const addEntry = (entry: ExerciseHistoryEntry) => {
+    const key = normalizeKey(entry)
+    if (seen.has(key)) return
+    seen.add(key)
+    merged.push(entry)
+  }
+
+  serverHistory.forEach(addEntry)
+  localHistory.forEach(addEntry)
+
+  merged.sort((a, b) => {
+    const aTime = Number.isNaN(Date.parse(a.createdAt)) ? 0 : Date.parse(a.createdAt)
+    const bTime = Number.isNaN(Date.parse(b.createdAt)) ? 0 : Date.parse(b.createdAt)
+    return bTime - aTime
+  })
+
+  return merged.slice(0, pageSize)
 }
 
 // =============== Achievement System Storage ===============

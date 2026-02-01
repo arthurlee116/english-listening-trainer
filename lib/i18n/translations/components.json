@@ -42,6 +42,10 @@
       "en": "Please wait, generating audio content using Together Kokoro model",
       "zh": "请稍候，正在使用Together Kokoro模型生成音频内容"
     },
+    "loadingQuestions": {
+      "en": "Please wait, AI is generating comprehension questions for you",
+      "zh": "请稍候，AI 正在为您生成理解题目"
+    },
     "error": {
       "en": "Error",
       "zh": "错误"
@@ -1275,6 +1279,18 @@
     "noRecordsDescription": {
       "en": "Records will appear here after completing exercises",
       "zh": "完成练习后，记录将显示在这里"
+    },
+    "loadFailed": {
+      "en": "Failed to load server history.",
+      "zh": "服务器历史记录加载失败。"
+    },
+    "showingLocal": {
+      "en": "Showing local records only.",
+      "zh": "当前仅显示本地记录。"
+    },
+    "pageLabel": {
+      "en": "Page {page} of {total}",
+      "zh": "第 {page} 页，共 {total} 页"
     },
     "searchTopics": {
       "en": "Search topics...",
