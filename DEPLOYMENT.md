@@ -271,3 +271,6 @@ The following secrets must be configured in GitHub Actions for the workflows to 
 
 ### Registry Registry (`build-and-push.yml`)
 - `GHCR_PAT`: Personal Access Token with `write:packages` permission.
+
+### Connection
+- if you want to ssh to my server, to avoid security risks, run "ssh elt-prod"
