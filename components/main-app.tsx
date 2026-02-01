@@ -421,7 +421,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
                           </button>
                         </div>
                         {!isMobileConfigCollapsed && (
-                          <div className="mt-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                          <div className="mt-3">
                             {(() => {
                               const durationMinutes = Math.floor(state.duration / 60)
                               const hasPreGeneratedNewsTranscript =
@@ -489,7 +489,7 @@ export const MainApp = ({ authState }: MainAppProps) => {
                       </div>
 
                       {/* Right Column: Practice Configuration - 始终 sticky */}
-                      <div className="min-w-0 sticky top-24 self-start max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
+                      <div className="min-w-0 self-start">
                         {(() => {
                           const durationMinutes = Math.floor(state.duration / 60)
                           const hasPreGeneratedNewsTranscript =
