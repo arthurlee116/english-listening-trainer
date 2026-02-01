@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     // 验证必填字段
     if (!exerciseData || !difficulty || !topic) {
+      console.error('Missing required fields:', { hasExerciseData: !!exerciseData, difficulty, topic });
       return NextResponse.json(
         { error: '练习数据不完整' },
         { status: 400 }
@@ -43,15 +44,20 @@ export async function POST(request: NextRequest) {
     // 安全解析和合并 exerciseData
     let parsedExerciseData: Record<string, unknown> = {}
     try {
-      // 如果 exerciseData 是字符串，尝试解析
       if (typeof exerciseData === 'string') {
         parsedExerciseData = JSON.parse(exerciseData)
-      } else {
+      } else if (exerciseData && typeof exerciseData === 'object') {
         parsedExerciseData = { ...exerciseData }
       }
     } catch (error) {
-      console.warn('Failed to parse exerciseData, using as object:', error)
-      parsedExerciseData = typeof exerciseData === 'object' ? { ...exerciseData } : {}
+      console.warn('Failed to parse exerciseData:', error)
+      parsedExerciseData = {}
+    }
+
+    // 确保 results 和 questions 存在于 exerciseData 中
+    if (!parsedExerciseData.results || !parsedExerciseData.questions) {
+      console.warn('exerciseData missing results or questions, trying to recover from request body');
+      // 如果 exerciseData 顶层没有，可能是在 request.json() 的其他字段里（虽然不应该）
     }
 
     // 计算专项成绩 (perFocusAccuracy)

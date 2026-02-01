@@ -1237,6 +1237,10 @@
     "noNote": {
       "en": "No note",
       "zh": "无笔记"
+    },
+    "scoreRecorded": {
+      "en": "Score recorded",
+      "zh": "已记录成绩"
     }
   },
   "specializedPractice": {

@@ -70,10 +70,10 @@ export function mergeHistoryEntries({
   const seen = new Set<string>()
 
   const normalizeKey = (entry: ExerciseHistoryEntry): string => {
-    if (entry.sessionId) {
-      return `session:${entry.sessionId}`
-    }
-    return `local:${entry.id}`
+    // 使用主题和创建时间（容差10秒）作为匹配键，以识别本地与服务器同步后的同一条记录
+    // 这样 serverHistory (先处理) 会占位，后续重复的 localHistory 会被去重
+    const time = Math.floor(new Date(entry.createdAt).getTime() / 10000) // 10秒容差
+    return `match:${entry.topic}-${time}`
   }
 
   const addEntry = (entry: ExerciseHistoryEntry) => {

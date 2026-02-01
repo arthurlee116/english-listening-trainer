@@ -28,7 +28,6 @@ interface PracticeWorkspaceProps {
   currentExercise: Exercise | null
   onRestart: () => void
   onExport: () => void
-  isAuthenticated?: boolean
 }
 
 export function PracticeWorkspace({
@@ -54,7 +53,6 @@ export function PracticeWorkspace({
   currentExercise,
   onRestart,
   onExport,
-  isAuthenticated = false,
 }: PracticeWorkspaceProps) {
   if (step === "listening") {
     return (

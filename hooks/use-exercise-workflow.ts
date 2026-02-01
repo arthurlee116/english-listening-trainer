@@ -3,7 +3,7 @@
  * 集中管理所有练习相关的状态与业务逻辑
  */
 
-import { useCallback, useReducer, useMemo, useRef, useEffect } from "react"
+import { useCallback, useReducer, useMemo, useRef } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { generateTopics, generateTranscript, generateQuestions, gradeAnswers } from "@/lib/ai-service"
