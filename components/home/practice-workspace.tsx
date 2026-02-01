@@ -103,7 +103,6 @@ export function PracticeWorkspace({
           exercise={currentExercise}
           onRestart={onRestart}
           onExport={onExport}
-          isAuthenticated={isAuthenticated}
         />
       </div>
     )
