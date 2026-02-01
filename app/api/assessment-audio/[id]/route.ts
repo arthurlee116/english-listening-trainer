@@ -1,11 +1,116 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { existsSync } from 'fs'
-import { copyFile, mkdir, rename, unlink } from 'fs/promises'
+import { createReadStream, existsSync } from 'fs'
+import { copyFile, mkdir, rename, stat, unlink } from 'fs/promises'
 import path from 'path'
 import { getAssessmentAudioInfo } from '@/lib/difficulty-service'
 import { generateTogetherTtsAudio } from '@/lib/together-tts-service'
+import { Readable } from 'stream'
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const AUDIO_HEADERS_BASE = {
+  'Content-Type': 'audio/wav',
+  'Accept-Ranges': 'bytes',
+  'Cache-Control': 'public, max-age=31536000, immutable',
+  'Access-Control-Allow-Origin': '*',
+} as const
+
+async function ensureAssessmentAudio(targetPath: string, transcript: string) {
+  const dir = path.dirname(targetPath)
+  if (existsSync(targetPath)) {
+    return { cached: true }
+  }
+
+  await mkdir(dir, { recursive: true })
+
+  const generated = await generateTogetherTtsAudio({
+    text: transcript,
+    voice: 'af_alloy',
+    timeoutMs: 60_000,
+  })
+  const generatedPath = generated.filePath
+
+  try {
+    // Move the freshly generated file into the stable assessment-audio path.
+    await rename(generatedPath, targetPath)
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException
+    if (err?.code === 'EXDEV') {
+      try {
+        await copyFile(generatedPath, targetPath)
+        await unlink(generatedPath)
+      } catch (copyError) {
+        if (existsSync(targetPath)) {
+          try {
+            await unlink(generatedPath)
+          } catch {
+            // ignore
+          }
+          return { cached: true }
+        }
+        throw copyError
+      }
+    } else {
+      // If another request won the race, clean up our temp file.
+      if (existsSync(targetPath)) {
+        try {
+          await unlink(generatedPath)
+        } catch {
+          // ignore
+        }
+        return { cached: true }
+      }
+      throw error
+    }
+  }
+
+  return { cached: false }
+}
+
+async function serveAssessmentAudioFile(request: NextRequest, targetPath: string) {
+  if (!existsSync(targetPath)) {
+    return NextResponse.json({ error: 'Audio file not found' }, { status: 404 })
+  }
+
+  const { size: fileSize } = await stat(targetPath)
+  const range = request.headers.get('range')
+
+  if (range) {
+    const match = range.match(/bytes=(\d*)-(\d*)/)
+    if (!match) {
+      return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+    }
+
+    const start = match[1] ? parseInt(match[1], 10) : 0
+    const end = match[2] ? parseInt(match[2], 10) : fileSize - 1
+
+    if (start >= fileSize || end >= fileSize || start > end) {
+      return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
+    }
+
+    const stream = createReadStream(targetPath, { start, end })
+    const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
+
+    return new NextResponse(readableStream, {
+      status: 206,
+      headers: {
+        ...AUDIO_HEADERS_BASE,
+        'Content-Length': String(end - start + 1),
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      },
+    })
+  }
+
+  const stream = createReadStream(targetPath)
+  const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
+  return new NextResponse(readableStream, {
+    status: 200,
+    headers: {
+      ...AUDIO_HEADERS_BASE,
+      'Content-Length': String(fileSize),
+    },
+  })
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const audioId = Number(id)
@@ -20,56 +125,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const dir = path.join(process.cwd(), 'public', 'assessment-audio')
     const targetPath = path.join(dir, info.filename)
-    const publicUrl = `/assessment-audio/${info.filename}`
 
-    if (existsSync(targetPath)) {
-      return NextResponse.json({ url: publicUrl, cached: true })
+    const url = 'nextUrl' in request ? request.nextUrl : new URL(request.url)
+    const wantsDownload = url.searchParams.get('download')
+    if (wantsDownload) {
+      await ensureAssessmentAudio(targetPath, info.transcript)
+      return serveAssessmentAudioFile(request, targetPath)
     }
 
-    await mkdir(dir, { recursive: true })
-
-    const generated = await generateTogetherTtsAudio({
-      text: info.transcript,
-      voice: 'af_alloy',
-      timeoutMs: 60_000,
+    const result = await ensureAssessmentAudio(targetPath, info.transcript)
+    return NextResponse.json({
+      url: `/api/assessment-audio/${audioId}?download=1`,
+      cached: result.cached,
     })
-    const generatedPath = generated.filePath
-
-    try {
-      // Move the freshly generated file into the stable assessment-audio path.
-      await rename(generatedPath, targetPath)
-    } catch (error) {
-      const err = error as NodeJS.ErrnoException
-      if (err?.code === 'EXDEV') {
-        try {
-          await copyFile(generatedPath, targetPath)
-          await unlink(generatedPath)
-        } catch (copyError) {
-          if (existsSync(targetPath)) {
-            try {
-              await unlink(generatedPath)
-            } catch {
-              // ignore
-            }
-            return NextResponse.json({ url: publicUrl, cached: true })
-          }
-          throw copyError
-        }
-      } else {
-        // If another request won the race, clean up our temp file.
-        if (existsSync(targetPath)) {
-          try {
-            await unlink(generatedPath)
-          } catch {
-            // ignore
-          }
-          return NextResponse.json({ url: publicUrl, cached: true })
-        }
-        throw error
-      }
-    }
-
-    return NextResponse.json({ url: publicUrl, cached: false })
   } catch (error) {
     console.error('Failed to prepare assessment audio:', error)
     return NextResponse.json({ error: 'Failed to prepare assessment audio' }, { status: 500 })

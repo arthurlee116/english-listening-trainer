@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { Readable } from 'stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -9,6 +10,8 @@ const {
   mockRename,
   mockUnlink,
   mockCopyFile,
+  mockCreateReadStream,
+  mockStat,
 } = vi.hoisted(() => ({
   mockGetAssessmentAudioInfo: vi.fn(),
   mockGenerateTogetherTtsAudio: vi.fn(),
@@ -17,6 +20,8 @@ const {
   mockRename: vi.fn(),
   mockUnlink: vi.fn(),
   mockCopyFile: vi.fn(),
+  mockCreateReadStream: vi.fn(),
+  mockStat: vi.fn(),
 }))
 
 vi.mock('@/lib/difficulty-service', () => ({
@@ -28,8 +33,9 @@ vi.mock('@/lib/together-tts-service', () => ({
 }))
 
 vi.mock('fs', () => ({
-  default: { existsSync: mockExistsSync },
+  default: { existsSync: mockExistsSync, createReadStream: mockCreateReadStream },
   existsSync: mockExistsSync,
+  createReadStream: mockCreateReadStream,
 }))
 
 vi.mock('fs/promises', () => ({
@@ -38,11 +44,13 @@ vi.mock('fs/promises', () => ({
     rename: mockRename,
     unlink: mockUnlink,
     copyFile: mockCopyFile,
+    stat: mockStat,
   },
   mkdir: mockMkdir,
   rename: mockRename,
   unlink: mockUnlink,
   copyFile: mockCopyFile,
+  stat: mockStat,
 }))
 
 import { GET as assessmentAudioHandler } from '@/app/api/assessment-audio/[id]/route'
@@ -56,6 +64,8 @@ describe('assessment audio api', () => {
     mockRename.mockReset()
     mockUnlink.mockReset()
     mockCopyFile.mockReset()
+    mockCreateReadStream.mockReset()
+    mockStat.mockReset()
   })
 
   it('falls back to copy when rename fails with EXDEV', async () => {
@@ -84,9 +94,28 @@ describe('assessment audio api', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data).toEqual({ url: '/assessment-audio/test-1-level6.wav', cached: false })
+    expect(data).toEqual({ url: '/api/assessment-audio/1?download=1', cached: false })
     expect(mockRename).toHaveBeenCalledTimes(1)
     expect(mockCopyFile).toHaveBeenCalledTimes(1)
     expect(mockUnlink).toHaveBeenCalledTimes(1)
+  })
+
+  it('serves audio when download is requested', async () => {
+    mockGetAssessmentAudioInfo.mockReturnValue({
+      id: 1,
+      filename: 'test-1-level6.wav',
+      transcript: 'Hello world',
+    })
+    mockExistsSync.mockReturnValue(true)
+    mockStat.mockResolvedValue({ size: 4 })
+    mockCreateReadStream.mockReturnValue(Readable.from(Buffer.from('data')))
+
+    const response = await assessmentAudioHandler(new Request('http://localhost/api/assessment-audio/1?download=1') as NextRequest, {
+      params: Promise.resolve({ id: '1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe('audio/wav')
+    expect(response.headers.get('Content-Length')).toBe('4')
   })
 })
