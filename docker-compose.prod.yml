@@ -17,6 +17,7 @@ services:
     volumes:
       - ./prisma/data:/app/prisma/data
       - ./public/audio:/app/public/audio
+      - ./public/assessment-audio:/app/public/assessment-audio
       - ./data:/app/data
       - ./logs:/app/logs
     command: ["sh","-lc","(npx prisma db push --accept-data-loss || true) && npm run start"]

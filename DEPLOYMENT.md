@@ -139,7 +139,14 @@ Why `db push` (for speed): migration history may not be stable/complete for a cl
 4) Put site blocks into `/etc/caddy/Caddyfile`, reload Caddy
 5) Clone repo into `/srv/leesaitool/english-listening-trainer`
 6) Create `.env.production` from `.env.production.example` (fill secrets locally; do not commit)
-7) `docker compose -f docker-compose.prod.yml up -d --build`
+7) Create persistent dirs:
+   - `mkdir -p public/audio public/assessment-audio data logs prisma/data`
+8) `docker compose -f docker-compose.prod.yml up -d --build`
+9) Pre-generate assessment audio once (persists via volume):
+   - `BASE_URL=http://127.0.0.1:3001 ./scripts/generate-assessment-audio.sh`
+
+If you need assessment audio baked into the image:
+- Generate `public/assessment-audio/*` before building the image so `COPY . .` includes it.
 
 # 5) Routine deployment after code changes (fast path)
 
@@ -162,6 +169,9 @@ ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && sudo 
 curl -fsS https://listen.leesaitool.com/api/health
 ```
 
+If assessment audio is missing (fresh host or cleared volume):
+- `ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && BASE_URL=http://127.0.0.1:3001 ./scripts/generate-assessment-audio.sh'`
+
 If you changed Prisma schema:
 - Expect `prisma db push` to run at container start.
 - Verify DB file is still mounted and writable.
@@ -177,6 +187,9 @@ Text model reminder:
 
 From anywhere:
 - `GET https://listen.leesaitool.com/api/health` returns `status=healthy`
+
+Assessment audio sanity:
+- `curl -fsS https://listen.leesaitool.com/api/assessment-audio/1`
 
 AI sanity (Cerebras):
 ```bash

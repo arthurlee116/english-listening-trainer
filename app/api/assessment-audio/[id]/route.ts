@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { existsSync } from 'fs'
-import { mkdir, rename, unlink } from 'fs/promises'
+import { copyFile, mkdir, rename, unlink } from 'fs/promises'
 import path from 'path'
 import { getAssessmentAudioInfo } from '@/lib/difficulty-service'
 import { generateTogetherTtsAudio } from '@/lib/together-tts-service'
@@ -39,16 +39,34 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       // Move the freshly generated file into the stable assessment-audio path.
       await rename(generatedPath, targetPath)
     } catch (error) {
-      // If another request won the race, clean up our temp file.
-      if (existsSync(targetPath)) {
+      const err = error as NodeJS.ErrnoException
+      if (err?.code === 'EXDEV') {
         try {
+          await copyFile(generatedPath, targetPath)
           await unlink(generatedPath)
-        } catch {
-          // ignore
+        } catch (copyError) {
+          if (existsSync(targetPath)) {
+            try {
+              await unlink(generatedPath)
+            } catch {
+              // ignore
+            }
+            return NextResponse.json({ url: publicUrl, cached: true })
+          }
+          throw copyError
         }
-        return NextResponse.json({ url: publicUrl, cached: true })
+      } else {
+        // If another request won the race, clean up our temp file.
+        if (existsSync(targetPath)) {
+          try {
+            await unlink(generatedPath)
+          } catch {
+            // ignore
+          }
+          return NextResponse.json({ url: publicUrl, cached: true })
+        }
+        throw error
       }
-      throw error
     }
 
     return NextResponse.json({ url: publicUrl, cached: false })
