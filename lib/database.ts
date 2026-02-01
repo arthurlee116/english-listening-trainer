@@ -57,11 +57,21 @@ function initPrisma(): PrismaClient {
     errorFormat: 'pretty',
   })
 
-  // 预热数据库连接并启用更高并发的 WAL 模式
+  // 预热数据库连接并设置 SQLite 日志模式
   void client.$connect()
     .then(async () => {
       try {
-        await client.$queryRawUnsafe('PRAGMA journal_mode=WAL;')
+        const journalMode = (process.env.SQLITE_JOURNAL_MODE || 'WAL').toUpperCase()
+        const allowedModes = new Set([
+          'WAL',
+          'DELETE',
+          'TRUNCATE',
+          'PERSIST',
+          'MEMORY',
+          'OFF',
+        ])
+        const safeMode = allowedModes.has(journalMode) ? journalMode : 'WAL'
+        await client.$queryRawUnsafe(`PRAGMA journal_mode=${safeMode};`)
         await client.$queryRawUnsafe('PRAGMA busy_timeout = 5000;')
       } catch (pragmaError) {
         console.warn('Failed to apply SQLite pragmas:', pragmaError)
