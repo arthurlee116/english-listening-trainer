@@ -30,7 +30,13 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
 
   const fallbackUrl = useMemo(() => {
     if (!audioUrl) return ''
-    return audioUrl.startsWith('/api/audio/') ? audioUrl.replace('/api/audio/', '/audio/') : ''
+    if (audioUrl.startsWith('/api/audio/')) {
+      return audioUrl.replace('/api/audio/', '/audio/')
+    }
+    if (audioUrl.startsWith('/audio/')) {
+      return audioUrl.replace('/audio/', '/api/audio/')
+    }
+    return ''
   }, [audioUrl])
 
   useEffect(() => {
@@ -278,7 +284,7 @@ const QuestionInterfaceComponent = ({
         <Card className="glass-effect p-6">
           <h3 className="text-lg font-medium mb-4 text-center">{t('components.questionInterface.audioPlayer')}</h3>
           
-          <audio ref={audioRef} src={activeUrl} preload="metadata" />
+          <audio ref={audioRef} src={activeUrl} preload="auto" playsInline />
 
           {/* Progress Bar */}
           <div className="mb-4">

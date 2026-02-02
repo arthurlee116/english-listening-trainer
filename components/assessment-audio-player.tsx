@@ -111,7 +111,7 @@ export default function AssessmentAudioPlayer({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <audio ref={audioRef} src={src ?? undefined} preload="metadata" />
+      <audio ref={audioRef} src={src ?? undefined} preload="auto" playsInline />
       
       <div className="flex items-center justify-center">
         <Button

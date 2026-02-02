@@ -119,7 +119,9 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
       initialDuration,
       fallbackUrl: audioUrl.startsWith("/api/audio/")
         ? audioUrl.replace("/api/audio/", "/audio/")
-        : undefined,
+        : audioUrl.startsWith("/audio/")
+          ? audioUrl.replace("/audio/", "/api/audio/")
+          : undefined,
       toastMessages,
     })
 
@@ -239,7 +241,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
             </div>
           ) : resolvedAudioUrl ? (
             <>
-              <audio ref={audioRef} src={resolvedAudioUrl} preload="metadata" />
+      <audio ref={audioRef} src={resolvedAudioUrl} preload="auto" playsInline />
 
               {/* Progress Bar */}
               <div className="mb-6">
