@@ -193,6 +193,10 @@ export function useAudioPlayer({
       audio
         .play()
         .catch((error) => {
+          // AbortError is expected when audio element is removed from DOM (e.g., navigating away)
+          if (error instanceof Error && error.name === 'AbortError') {
+            return
+          }
           console.error('Failed to play audio:', error)
           setIsPlaying(false)
         })
@@ -205,6 +209,10 @@ export function useAudioPlayer({
     audio
       .play()
       .catch((error) => {
+        // AbortError is expected when audio element is removed from DOM (e.g., navigating away)
+        if (error instanceof Error && error.name === 'AbortError') {
+          return
+        }
         console.error('Failed to play audio:', error)
         setIsPlaying(false)
       })
@@ -482,6 +490,14 @@ export function useAudioPlayer({
     audio.addEventListener('canplay', handleCanPlay)
 
     return () => {
+      // Pause audio before cleanup to prevent AbortError when component unmounts
+      try {
+        if (!audio.paused) {
+          audio.pause()
+        }
+      } catch {
+        // Ignore errors during cleanup
+      }
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('durationchange', refreshDuration)
