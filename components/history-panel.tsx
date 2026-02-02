@@ -45,10 +45,15 @@ interface PracticeHistoryResponse {
   }
 }
 
+type ExerciseHistoryWithStats = ExerciseHistoryEntry & {
+  accuracy?: number | null
+  score?: number | null
+}
+
 export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const { t } = useBilingualText()
-  const [exercises, setExercises] = useState<Exercise[]>([])
-  const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([])
+  const [exercises, setExercises] = useState<ExerciseHistoryWithStats[]>([])
+  const [filteredExercises, setFilteredExercises] = useState<ExerciseHistoryWithStats[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
   const [languageFilter, setLanguageFilter] = useState<string>("all")
@@ -57,7 +62,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const [focusAreaFilter, setFocusAreaFilter] = useState<string>("all")
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
   const [noteDraft, setNoteDraft] = useState("")
-  const [noteEditingExercise, setNoteEditingExercise] = useState<Exercise | null>(null)
+  const [noteEditingExercise, setNoteEditingExercise] = useState<ExerciseHistoryWithStats | null>(null)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
@@ -65,9 +70,9 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
   const [loadError, setLoadError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const mapSessionToExercise = (session: PracticeHistorySession): ExerciseHistoryEntry => {
+  const mapSessionToExercise = (session: PracticeHistorySession): ExerciseHistoryWithStats => {
     // 基础练习数据，如果 session.exerciseData 存在则以此为准
-    let exercise: ExerciseHistoryEntry;
+    let exercise: ExerciseHistoryWithStats;
 
     if (session.exerciseData && typeof session.exerciseData === 'object') {
       exercise = {
@@ -95,10 +100,10 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
 
     // 关键：将数据库中的统计字段挂载到对象上，用于结果计算的回退
     if (session.accuracy !== undefined && session.accuracy !== null) {
-      (exercise as any).accuracy = session.accuracy;
+      exercise.accuracy = session.accuracy
     }
     if (session.score !== undefined && session.score !== null) {
-      (exercise as any).score = session.score;
+      exercise.score = session.score
     }
 
     return exercise;
@@ -160,17 +165,17 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
     }
   }, [page, toast, t])
 
-  const getResultsArray = (exercise: Exercise | null | undefined): Exercise["results"] => {
+  const getResultsArray = (exercise: ExerciseHistoryWithStats | null | undefined): Exercise["results"] => {
     if (exercise && Array.isArray(exercise.results)) {
       return exercise.results
     }
     return []
   }
 
-  const getAccuracyPercent = (exercise: Exercise): number => {
+  const getAccuracyPercent = (exercise: ExerciseHistoryWithStats): number => {
     // 优先从 exercise 对象中获取预存的准确率（通常来自服务器 session 表）
-    if ((exercise as any).accuracy !== undefined && (exercise as any).accuracy !== null) {
-      return Math.round((exercise as any).accuracy * 100)
+    if (exercise.accuracy !== undefined && exercise.accuracy !== null) {
+      return Math.round(exercise.accuracy * 100)
     }
 
     const results = getResultsArray(exercise)
@@ -425,7 +430,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               const date = new Date(exercise.createdAt)
 
               // 是否属于降级显示（即缺失详细结果，仅有统计数据）
-              const isDegraded = results.length === 0 && (exercise as any).accuracy !== undefined
+              const isDegraded = results.length === 0 && exercise.accuracy !== undefined
 
               return (
                 <Card key={exercise.id} className="glass-effect p-6 hover:shadow-lg transition-shadow">
