@@ -11,6 +11,7 @@ import { detectAudioFormat, getWavAudioMetadata } from './audio-utils'
 const DEFAULT_BASE_URL = 'https://api.together.xyz/v1'
 const DEFAULT_MODEL = 'hexgrad/Kokoro-82M'
 const DEFAULT_VOICE_FALLBACK = 'af_alloy'
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 
 type TogetherAudioSpeechRequest = {
   model: string
@@ -104,6 +105,14 @@ function assertWavBytes(buffer: Buffer): void {
   }
 }
 
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof TogetherTtsError && error.status) {
+    return RETRYABLE_STATUS_CODES.has(error.status)
+  }
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  return message.includes('timeout') || message.includes('network') || message.includes('socket')
+}
+
 async function fetchTogetherWavBytes(payload: TogetherAudioSpeechRequest, timeoutMs: number): Promise<{
   buffer: Buffer
   contentType: string | null
@@ -191,6 +200,30 @@ async function fetchTogetherWavBytes(payload: TogetherAudioSpeechRequest, timeou
   }
 }
 
+async function fetchTogetherWavBytesWithRetry(
+  payload: TogetherAudioSpeechRequest,
+  timeoutMs: number
+): Promise<{ buffer: Buffer; contentType: string | null; requestId?: string }> {
+  let lastError: unknown = null
+  const maxRetries = 2
+  const baseDelayMs = 800
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await fetchTogetherWavBytes(payload, timeoutMs)
+    } catch (error) {
+      lastError = error
+      if (!isRetryableError(error) || attempt === maxRetries) {
+        throw error
+      }
+      const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 5000)
+      await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 200))
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError))
+}
+
 function resolveAudioDir(): string {
   return path.join(process.cwd(), 'public', 'audio')
 }
@@ -223,7 +256,7 @@ export async function generateTogetherTtsAudio(params: {
       response_format: 'wav',
       stream: false,
     }
-    const { buffer } = await fetchTogetherWavBytes(payload, timeoutMs)
+    const { buffer } = await fetchTogetherWavBytesWithRetry(payload, timeoutMs)
     assertWavBytes(buffer)
     return { buffer, voice }
   }

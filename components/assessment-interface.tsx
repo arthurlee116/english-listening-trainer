@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -70,6 +70,43 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
   const progress = ((currentIndex + 1) / ASSESSMENT_QUESTIONS.length) * 100
   const currentAudioUrl = audioUrls[currentQuestion.id]
 
+  const fetchAssessmentAudio = useCallback(async (questionId: number) => {
+    const maxRetries = 2
+    const baseDelayMs = 600
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      try {
+        const res = await fetch(`/api/assessment-audio/${questionId}`)
+        const payload = await res.json().catch(() => null)
+        if (!res.ok) {
+          const message = payload?.error || `音频准备失败: ${res.status}`
+          if ([408, 429, 500, 502, 503, 504].includes(res.status) && attempt < maxRetries) {
+            lastError = new Error(message)
+            const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 4000)
+            await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 200))
+            continue
+          }
+          throw new Error(message)
+        }
+        const url = payload?.url as string | undefined
+        if (!url) {
+          throw new Error('音频准备失败：未返回 URL')
+        }
+        return url
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('音频生成失败')
+        if (attempt < maxRetries) {
+          const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 4000)
+          await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 200))
+          continue
+        }
+      }
+    }
+
+    throw lastError ?? new Error('音频生成失败')
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 
@@ -82,15 +119,7 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
 
       setAudioLoading(true)
       try {
-        const res = await fetch(`/api/assessment-audio/${currentQuestion.id}`)
-        const payload = await res.json().catch(() => null)
-        if (!res.ok) {
-          throw new Error(payload?.error || `音频准备失败: ${res.status}`)
-        }
-        const url = payload?.url as string | undefined
-        if (!url) {
-          throw new Error('音频准备失败：未返回 URL')
-        }
+        const url = await fetchAssessmentAudio(currentQuestion.id)
         if (cancelled) return
         setAudioUrls((prev) => ({ ...prev, [currentQuestion.id]: url }))
       } catch (error) {
@@ -107,7 +136,7 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
     return () => {
       cancelled = true
     }
-  }, [audioUrls, currentQuestion.id])
+  }, [audioUrls, currentQuestion.id, fetchAssessmentAudio])
   
   const handleScoreSelect = (score: number) => {
     setAnswers(prev => ({
