@@ -9,6 +9,7 @@ const AUDIO_POSITION_STORAGE_PREFIX = 'audio-position:'
 export interface UseAudioPlayerOptions {
   audioUrl?: string
   initialDuration?: number
+  fallbackUrl?: string
   /**
    * Optional override for the localStorage key that keeps track of playback progress.
    * When not provided, the hook derives a key from the audio URL.
@@ -49,6 +50,7 @@ export interface UseAudioPlayerReturn {
   sliderMax: number
   internalError: boolean
   hasAudio: boolean
+  resolvedAudioUrl: string
   formatTime: (time: number) => string
 }
 
@@ -60,6 +62,7 @@ const DEFAULT_TOAST_MESSAGES = {
 export function useAudioPlayer({
   audioUrl,
   initialDuration,
+  fallbackUrl,
   playbackPositionKey,
   toastMessages,
 }: UseAudioPlayerOptions): UseAudioPlayerReturn {
@@ -70,6 +73,7 @@ export function useAudioPlayer({
   const [volume, setVolume] = useState(1)
   const [playbackRate, setPlaybackRate] = useState(DEFAULT_PLAYBACK_RATE)
   const [internalError, setInternalError] = useState(false)
+  const [activeUrl, setActiveUrl] = useState(audioUrl ?? '')
 
   const audioRef = useRef<HTMLAudioElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -78,6 +82,7 @@ export function useAudioPlayer({
   const isScrubbingRef = useRef(false)
   const wasPausedBeforeScrubRef = useRef(false)
   const playbackRateRef = useRef(DEFAULT_PLAYBACK_RATE)
+  const hasTriedFallbackRef = useRef(false)
 
   const effectiveToastMessages = toastMessages ?? DEFAULT_TOAST_MESSAGES
 
@@ -86,6 +91,12 @@ export function useAudioPlayer({
     if (!audioUrl) return null
     return `${AUDIO_POSITION_STORAGE_PREFIX}${encodeURIComponent(audioUrl)}`
   }, [audioUrl, playbackPositionKey])
+
+  useEffect(() => {
+    setActiveUrl(audioUrl ?? '')
+    hasTriedFallbackRef.current = false
+    setInternalError(false)
+  }, [audioUrl])
 
   const cleanup = useCallback(() => {
     if (rafRef.current) {
@@ -362,7 +373,7 @@ export function useAudioPlayer({
   useEffect(() => {
     const audio = audioRef.current
 
-    if (!audio || !audioUrl) {
+    if (!audio || !activeUrl) {
       setIsPlaying(false)
       setCurrentTime(0)
       setDuration(initialDuration ?? 0)
@@ -447,6 +458,25 @@ export function useAudioPlayer({
       applyPlaybackRate(audio, playbackRateRef.current)
     }
 
+    const handleError = () => {
+      if (fallbackUrl && !hasTriedFallbackRef.current && fallbackUrl !== activeUrl) {
+        hasTriedFallbackRef.current = true
+        setInternalError(false)
+        setActiveUrl(fallbackUrl)
+        try {
+          audio.pause()
+          audio.src = fallbackUrl
+          audio.load()
+        } catch (error) {
+          console.warn('Failed to switch to fallback audio URL:', error)
+          setInternalError(true)
+        }
+        return
+      }
+      setInternalError(true)
+      stopProgressLoop()
+    }
+
     audio.addEventListener('timeupdate', handleTimeUpdate)
     audio.addEventListener('loadedmetadata', handleLoadedMetadata)
     audio.addEventListener('durationchange', refreshDuration)
@@ -470,7 +500,8 @@ export function useAudioPlayer({
     }
   }, [
     applyPlaybackRate,
-    audioUrl,
+    activeUrl,
+    fallbackUrl,
     cleanup,
     initialDuration,
     persistPosition,
@@ -523,7 +554,8 @@ export function useAudioPlayer({
     },
     sliderMax,
     internalError,
-    hasAudio: Boolean(audioUrl) && !internalError,
+    hasAudio: Boolean(activeUrl) && !internalError,
+    resolvedAudioUrl: activeUrl,
     formatTime,
   }
 }

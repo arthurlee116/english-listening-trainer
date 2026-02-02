@@ -112,10 +112,14 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
       sliderMax,
       internalError,
       hasAudio,
+      resolvedAudioUrl,
       formatTime,
     } = useAudioPlayer({
       audioUrl,
       initialDuration,
+      fallbackUrl: audioUrl.startsWith("/api/audio/")
+        ? audioUrl.replace("/api/audio/", "/audio/")
+        : undefined,
       toastMessages,
     })
 
@@ -233,9 +237,9 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                 </p>
               )}
             </div>
-          ) : audioUrl ? (
+          ) : resolvedAudioUrl ? (
             <>
-              <audio ref={audioRef} src={audioUrl} preload="metadata" />
+              <audio ref={audioRef} src={resolvedAudioUrl} preload="metadata" />
 
               {/* Progress Bar */}
               <div className="mb-6">
@@ -246,7 +250,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                   onValueChange={handleSliderValueChange}
                   onValueCommit={handleSliderValueCommit}
                   className="w-full"
-                  disabled={!audioUrl}
+                  disabled={!resolvedAudioUrl}
                   min={0}
                   max={sliderMax}
                   step={0.1}
@@ -263,7 +267,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                   variant="outline"
                   size="icon"
                   onClick={() => skipBackward()}
-                  disabled={!audioUrl}
+                  disabled={!resolvedAudioUrl}
                   className="glass-effect bg-transparent rounded-full"
                   title={t("components.audioPlayer.skipBackward")}
                 >
@@ -273,7 +277,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                 <Button
                   size="lg"
                   onClick={togglePlayPause}
-                  disabled={!audioUrl}
+                  disabled={!resolvedAudioUrl}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-16 h-16 rounded-full"
                   aria-label={isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
                   title={isPlaying ? t("components.audioPlayer.pause") : t("components.audioPlayer.play")}
@@ -285,7 +289,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                   variant="outline"
                   size="icon"
                   onClick={() => skipForward()}
-                  disabled={!audioUrl}
+                  disabled={!resolvedAudioUrl}
                   className="glass-effect bg-transparent rounded-full"
                   title={t("components.audioPlayer.skipForward")}
                 >
@@ -304,7 +308,7 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                 <span className="text-sm text-gray-600">
                   <BilingualText translationKey="components.audioPlayer.playbackRateLabel" />
                 </span>
-                <Select value={String(playbackRate)} onValueChange={handlePlaybackRateChange} disabled={!audioUrl}>
+                <Select value={String(playbackRate)} onValueChange={handlePlaybackRateChange} disabled={!resolvedAudioUrl}>
                   <SelectTrigger aria-label={t("components.audioPlayer.playbackRateAriaLabel")} className="w-28">
                     <SelectValue placeholder={t("components.audioPlayer.playbackRatePlaceholder")}>
                       {selectedPlaybackRateLabel}

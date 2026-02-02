@@ -24,11 +24,23 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(initialDuration ?? 0)
   const [playbackRate, setPlaybackRate] = useState(DEFAULT_PLAYBACK_RATE)
+  const [activeUrl, setActiveUrl] = useState(audioUrl)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const hasTriedFallbackRef = useRef(false)
+
+  const fallbackUrl = useMemo(() => {
+    if (!audioUrl) return ''
+    return audioUrl.startsWith('/api/audio/') ? audioUrl.replace('/api/audio/', '/audio/') : ''
+  }, [audioUrl])
+
+  useEffect(() => {
+    setActiveUrl(audioUrl)
+    hasTriedFallbackRef.current = false
+  }, [audioUrl])
 
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !audioUrl) return
+    if (!audio || !activeUrl) return
 
     setCurrentTime(0)
     setDuration(initialDuration ?? 0)
@@ -42,12 +54,28 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
     const handlePlay = () => setIsPlaying(true)
     const handlePause = () => setIsPlaying(false)
     const handleEnded = () => setIsPlaying(false)
+    const handleError = () => {
+      if (!hasTriedFallbackRef.current && fallbackUrl && fallbackUrl !== activeUrl) {
+        hasTriedFallbackRef.current = true
+        setActiveUrl(fallbackUrl)
+        try {
+          audio.pause()
+          audio.src = fallbackUrl
+          audio.load()
+        } catch {
+          setIsPlaying(false)
+        }
+        return
+      }
+      setIsPlaying(false)
+    }
 
     audio.addEventListener("timeupdate", updateTime)
     audio.addEventListener("loadedmetadata", updateDuration)
     audio.addEventListener("play", handlePlay)
     audio.addEventListener("pause", handlePause)
     audio.addEventListener("ended", handleEnded)
+    audio.addEventListener("error", handleError)
     // 应用当前倍速
     try {
       audio.playbackRate = playbackRate
@@ -61,8 +89,9 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
       audio.removeEventListener("play", handlePlay)
       audio.removeEventListener("pause", handlePause)
       audio.removeEventListener("ended", handleEnded)
+      audio.removeEventListener("error", handleError)
     }
-  }, [audioUrl, initialDuration, playbackRate])
+  }, [activeUrl, fallbackUrl, initialDuration, playbackRate])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
@@ -149,7 +178,8 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
     handleSeek,
     skipBackward,
     skipForward,
-    formatTime
+    formatTime,
+    activeUrl
   }
 }
 
@@ -189,7 +219,8 @@ const QuestionInterfaceComponent = ({
     handleSeek,
     skipBackward,
     skipForward,
-    formatTime
+    formatTime,
+    activeUrl
   } = useSimpleAudioPlayer(audioUrl, initialDuration)
 
   // storage 事件同步倍速
@@ -247,7 +278,7 @@ const QuestionInterfaceComponent = ({
         <Card className="glass-effect p-6">
           <h3 className="text-lg font-medium mb-4 text-center">{t('components.questionInterface.audioPlayer')}</h3>
           
-          <audio ref={audioRef} src={audioUrl} preload="metadata" />
+          <audio ref={audioRef} src={activeUrl} preload="metadata" />
 
           {/* Progress Bar */}
           <div className="mb-4">

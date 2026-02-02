@@ -171,3 +171,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Failed to prepare assessment audio' }, { status: 500 })
   }
 }
+
+export async function HEAD(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params
+    const audioId = Number(id)
+    if (!Number.isFinite(audioId)) {
+      return new NextResponse(null, { status: 400 })
+    }
+
+    const info = getAssessmentAudioInfo(audioId)
+    if (!info) {
+      return new NextResponse(null, { status: 404 })
+    }
+
+    const targetPath = path.join(process.cwd(), 'public', 'assessment-audio', info.filename)
+    if (!existsSync(targetPath)) {
+      return new NextResponse(null, { status: 404 })
+    }
+
+    const { size: fileSize } = await stat(targetPath)
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        ...AUDIO_HEADERS_BASE,
+        'Content-Length': String(fileSize),
+      },
+    })
+  } catch (error) {
+    console.error('Failed to serve assessment audio HEAD:', error)
+    return new NextResponse(null, { status: 500 })
+  }
+}

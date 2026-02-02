@@ -25,6 +25,11 @@ export async function GET(
     const filePath = path.join(process.cwd(), 'public', 'audio', filename)
     
     if (!existsSync(filePath)) {
+      console.warn('Audio file not found:', {
+        filename,
+        range: request.headers.get('range'),
+        userAgent: request.headers.get('user-agent'),
+      })
       return NextResponse.json({ error: 'Audio file not found' }, { status: 404 })
     }
     
@@ -34,6 +39,11 @@ export async function GET(
     if (range) {
       const match = range.match(/bytes=(\d*)-(\d*)/)
       if (!match) {
+        console.warn('Invalid range header:', {
+          filename,
+          range,
+          userAgent: request.headers.get('user-agent'),
+        })
         return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
       }
 
@@ -44,6 +54,11 @@ export async function GET(
       let end: number
 
       if (!startText && !endText) {
+        console.warn('Empty range header:', {
+          filename,
+          range,
+          userAgent: request.headers.get('user-agent'),
+        })
         return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
       }
 
@@ -60,16 +75,40 @@ export async function GET(
       }
 
       if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0) {
+        console.warn('Invalid range values:', {
+          filename,
+          range,
+          start,
+          end,
+          fileSize,
+          userAgent: request.headers.get('user-agent'),
+        })
         return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
       }
 
       if (start >= fileSize) {
+        console.warn('Range start beyond file size:', {
+          filename,
+          range,
+          start,
+          end,
+          fileSize,
+          userAgent: request.headers.get('user-agent'),
+        })
         return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
       }
 
       end = Math.min(end, fileSize - 1)
 
       if (start > end) {
+        console.warn('Range start greater than end:', {
+          filename,
+          range,
+          start,
+          end,
+          fileSize,
+          userAgent: request.headers.get('user-agent'),
+        })
         return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
       }
 
@@ -110,4 +149,34 @@ export async function OPTIONS() {
       'Access-Control-Allow-Headers': 'Range, Content-Type',
     },
   })
+}
+
+export async function HEAD(
+  request: NextRequest,
+  { params }: { params: Promise<{ filename: string }> }
+) {
+  try {
+    const { filename } = await params
+
+    if (!filename.startsWith('tts_audio_') || !filename.endsWith('.wav')) {
+      return new NextResponse(null, { status: 400 })
+    }
+
+    const filePath = path.join(process.cwd(), 'public', 'audio', filename)
+    if (!existsSync(filePath)) {
+      return new NextResponse(null, { status: 404 })
+    }
+
+    const { size: fileSize } = await stat(filePath)
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        ...AUDIO_HEADERS_BASE,
+        'Content-Length': String(fileSize),
+      },
+    })
+  } catch (error) {
+    console.error('Error serving audio HEAD:', error)
+    return new NextResponse(null, { status: 500 })
+  }
 }
