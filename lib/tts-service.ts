@@ -1,8 +1,10 @@
 import type { ListeningLanguage } from './types'
+import { fetchWithTimeout, isFetchTimeoutError } from './fetch-utils'
 
 export interface TTSOptions {
   speed?: number
   language?: ListeningLanguage
+  timeoutMs?: number
 }
 
 export interface GeneratedAudio {
@@ -15,6 +17,7 @@ export interface GeneratedAudio {
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 const MAX_RETRIES = 2
 const BASE_DELAY_MS = 600
+const DEFAULT_TTS_TIMEOUT_MS = 70_000
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -29,9 +32,13 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
   const isRetryableError = (error: unknown) =>
     error instanceof TypeError || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true)
 
+  const timeoutMs = Number.isFinite(options.timeoutMs)
+    ? (options.timeoutMs as number)
+    : DEFAULT_TTS_TIMEOUT_MS
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     try {
-      const response = await fetch('/api/tts', {
+      const response = await fetchWithTimeout('/api/tts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,6 +48,7 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
           speed: options.speed || 1.0,
           language: options.language || 'en-US'
         }),
+        timeoutMs,
       })
 
       const data = await response.json().catch(() => null)
@@ -74,7 +82,14 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
         provider: data.provider,
       }
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
+      if (isFetchTimeoutError(error)) {
+        const timeoutError = new Error('请求超时，请稍后重试')
+        ;(timeoutError as Error & { retryable?: boolean }).retryable = true
+        lastError = timeoutError
+      } else {
+        lastError = error instanceof Error ? error : new Error(String(error))
+      }
+
       if (isRetryableError(error) && attempt < MAX_RETRIES) {
         const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), 5000)
         await sleep(delay + Math.random() * 200)

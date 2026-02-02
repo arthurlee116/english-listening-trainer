@@ -37,10 +37,39 @@ export async function GET(
         return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
       }
 
-      const start = match[1] ? parseInt(match[1], 10) : 0
-      const end = match[2] ? parseInt(match[2], 10) : fileSize - 1
-      
-      if (start >= fileSize || end >= fileSize || start > end) {
+      const startText = match[1]
+      const endText = match[2]
+
+      let start: number
+      let end: number
+
+      if (!startText && !endText) {
+        return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+      }
+
+      if (!startText && endText) {
+        const suffixLength = parseInt(endText, 10)
+        if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
+          return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+        }
+        start = Math.max(fileSize - suffixLength, 0)
+        end = fileSize - 1
+      } else {
+        start = parseInt(startText || '0', 10)
+        end = endText ? parseInt(endText, 10) : fileSize - 1
+      }
+
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0) {
+        return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+      }
+
+      if (start >= fileSize) {
+        return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
+      }
+
+      end = Math.min(end, fileSize - 1)
+
+      if (start > end) {
         return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
       }
 

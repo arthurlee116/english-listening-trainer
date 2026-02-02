@@ -1,5 +1,6 @@
 import type { DifficultyLevel, Exercise, ListeningLanguage } from '@/lib/types'
 import type { ExerciseHistoryEntry } from '@/lib/storage'
+import { fetchWithTimeout, isFetchTimeoutError } from '@/lib/fetch-utils'
 
 export interface PracticeHistorySession {
   id: string
@@ -25,6 +26,7 @@ export interface PracticeHistoryResponse {
 
 const DEFAULT_PAGE_LIMIT = 50
 const MAX_PAGE_COUNT = 200
+const DEFAULT_HISTORY_TIMEOUT_MS = 20_000
 
 export function mapSessionToExercise(session: PracticeHistorySession): ExerciseHistoryEntry {
   if (session.exerciseData && typeof session.exerciseData === 'object') {
@@ -52,9 +54,18 @@ export function mapSessionToExercise(session: PracticeHistorySession): ExerciseH
 }
 
 export async function fetchPracticeHistoryPage(page: number, limit: number): Promise<PracticeHistoryResponse> {
-  const response = await fetch(`/api/practice/history?page=${page}&limit=${limit}`, {
-    credentials: 'include'
-  })
+  let response: Response
+  try {
+    response = await fetchWithTimeout(`/api/practice/history?page=${page}&limit=${limit}`, {
+      credentials: 'include',
+      timeoutMs: DEFAULT_HISTORY_TIMEOUT_MS,
+    })
+  } catch (error) {
+    if (isFetchTimeoutError(error)) {
+      throw new Error('获取历史记录超时，请稍后重试')
+    }
+    throw error
+  }
 
   if (!response.ok) {
     throw new Error(`History request failed with status ${response.status}`)

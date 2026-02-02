@@ -233,6 +233,48 @@ function buildTtsFilename(prefix: 'tts_audio' | 'healthcheck'): string {
   return `${prefix}_${Date.now()}_${nonce}.wav`
 }
 
+async function writeAudioFileAtomic(filePath: string, buffer: Buffer): Promise<void> {
+  const fallbackWrite = async () => {
+    await fs.promises.writeFile(filePath, buffer)
+  }
+
+  if (typeof fs.promises.open !== 'function' || typeof fs.promises.rename !== 'function') {
+    await fallbackWrite()
+    return
+  }
+
+  const tmpPath = `${filePath}.tmp`
+  const handle = await fs.promises.open(tmpPath, 'w')
+  let wrote = false
+  try {
+    await handle.writeFile(buffer)
+    await handle.sync()
+    wrote = true
+  } catch (error) {
+    try {
+      await fs.promises.unlink(tmpPath)
+    } catch {
+      // ignore cleanup errors
+    }
+    throw error
+  } finally {
+    await handle.close()
+  }
+
+  if (wrote) {
+    try {
+      await fs.promises.rename(tmpPath, filePath)
+    } catch (error) {
+      try {
+        await fs.promises.unlink(tmpPath)
+      } catch {
+        // ignore cleanup errors
+      }
+      throw error
+    }
+  }
+}
+
 export async function generateTogetherTtsAudio(params: {
   text: string
   voice: string
@@ -286,7 +328,16 @@ export async function generateTogetherTtsAudio(params: {
 
   const filename = buildTtsFilename('tts_audio')
   const filePath = path.join(audioDir, filename)
-  await fs.promises.writeFile(filePath, audioBuffer)
+  try {
+    await writeAudioFileAtomic(filePath, audioBuffer)
+  } catch (error) {
+    try {
+      await fs.promises.unlink(filePath)
+    } catch {
+      // ignore cleanup errors
+    }
+    throw error
+  }
 
   const duration = getWavAudioMetadata(audioBuffer).duration
   return {
@@ -325,7 +376,7 @@ export async function runTogetherTtsHealthProbe(params?: { timeoutMs?: number })
 
     const { buffer } = await fetchTogetherWavBytes(payload, timeoutMs)
     assertWavBytes(buffer)
-    await fs.promises.writeFile(filePath, buffer)
+    await writeAudioFileAtomic(filePath, buffer)
     return { ok: true, latencyMs: Date.now() - startedAt }
   } catch (error) {
     return { ok: false, latencyMs: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) }

@@ -12,15 +12,27 @@ import type {
   QuestionGenerationResponse,
   FocusCoverage
 } from './types'
+import { fetchWithTimeout, isFetchTimeoutError } from './fetch-utils'
+
+const DEFAULT_AI_TIMEOUT_MS = 120_000
 
 async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  })
+  let response: Response
+  try {
+    response = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      timeoutMs: DEFAULT_AI_TIMEOUT_MS,
+    })
+  } catch (error) {
+    if (isFetchTimeoutError(error)) {
+      throw new Error('请求超时，请稍后重试')
+    }
+    throw error
+  }
 
   const data = await response.json()
 

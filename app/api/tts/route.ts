@@ -12,6 +12,29 @@ type CachedTtsAudio = {
   modelUsed: string
 }
 
+type TtsTask = Promise<Awaited<ReturnType<typeof generateTogetherTtsAudio>>>
+
+const globalForTts = globalThis as typeof globalThis & {
+  __ttsInflight?: Map<string, TtsTask>
+  __ttsLastCleanupAt?: number
+}
+
+function getInflightMap() {
+  if (!globalForTts.__ttsInflight) {
+    globalForTts.__ttsInflight = new Map()
+  }
+  return globalForTts.__ttsInflight
+}
+
+function shouldRunCleanup(now: number, minIntervalMs: number): boolean {
+  const lastAt = globalForTts.__ttsLastCleanupAt ?? 0
+  if (now - lastAt < minIntervalMs) {
+    return false
+  }
+  globalForTts.__ttsLastCleanupAt = now
+  return true
+}
+
 // 生成音频缓存键（不包含 speed：speed 仅用于前端 playbackRate）
 function generateCacheKey(text: string, language: string, voice: string, model: string): string {
   const content = `${text}:${language}:${voice}:${model}`
@@ -20,6 +43,7 @@ function generateCacheKey(text: string, language: string, voice: string, model: 
 
 export async function POST(request: NextRequest) {
   let text = ''
+  let inflightKey: string | null = null
   try {
     const body = await request.json()
     text = body.text
@@ -47,6 +71,7 @@ export async function POST(request: NextRequest) {
     // 生成缓存键并检查缓存
     const model = process.env.TOGETHER_TTS_MODEL || 'hexgrad/Kokoro-82M'
     const cacheKey = generateCacheKey(text, language, voice, model)
+    inflightKey = cacheKey
     const cachedAudio = audioCache.get(cacheKey) as unknown as CachedTtsAudio | undefined
     if (cachedAudio) {
       const apiAudioUrl = `/api/audio/${cachedAudio.filename}`
@@ -64,14 +89,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 使用并发限制器执行TTS生成
-    const audioResult = await ttsRequestLimiter.execute(async () => {
+    const inflight = getInflightMap()
+    const existing = inflight.get(cacheKey)
+
+    const timeoutMsRaw = Number.parseInt(process.env.TTS_TIMEOUT || '', 10)
+    const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 60_000
+
+    const task = existing ?? ttsRequestLimiter.execute(async () => {
       const generated = await generateTogetherTtsAudio({
         text,
         voice,
-        timeoutMs: 60_000,
+        timeoutMs,
       })
       return generated
     })
+
+    if (!existing) {
+      inflight.set(cacheKey, task)
+    }
+
+    const audioResult = await task
 
     // 缓存音频结果
     audioCache.set(
@@ -86,8 +123,10 @@ export async function POST(request: NextRequest) {
       30 * 60 * 1000
     )
 
-    // best-effort cleanup (24h) for public/audio
-    void cleanupOldAudioFiles(24 * 60 * 60 * 1000)
+    // best-effort cleanup (24h) for public/audio, throttled to reduce IO under load
+    if (shouldRunCleanup(Date.now(), 60 * 60 * 1000)) {
+      void cleanupOldAudioFiles(24 * 60 * 60 * 1000)
+    }
 
     const apiAudioUrl = `/api/audio/${audioResult.filename}`
 
@@ -143,6 +182,10 @@ export async function POST(request: NextRequest) {
       provider: 'together-kokoro',
       together: isTogetherTtsError(error) ? { status: error.status, requestId: error.requestId } : undefined
     }, { status: statusCode })
+  } finally {
+    if (inflightKey && globalForTts.__ttsInflight) {
+      globalForTts.__ttsInflight.delete(inflightKey)
+    }
   }
 }
 

@@ -249,7 +249,11 @@ export class ConcurrencyLimiter {
 
 // 创建限制器实例
 export const aiRequestLimiter = new ConcurrencyLimiter(3) // AI请求限制为3并发
-export const ttsRequestLimiter = new ConcurrencyLimiter(1, 4) // TTS请求限制为1并发，最多排队4个
+
+const ttsMaxConcurrent = Math.max(1, Number.parseInt(process.env.TTS_MAX_CONCURRENT || '', 10) || 1)
+const ttsQueueLimit = Math.max(1, Number.parseInt(process.env.TTS_QUEUE_LIMIT || '', 10) || 8)
+export const ttsRequestLimiter = new ConcurrencyLimiter(ttsMaxConcurrent, ttsQueueLimit)
+
 export const dbRequestLimiter = new ConcurrencyLimiter(10) // 数据库请求限制为10并发
 
 // 内存使用监控

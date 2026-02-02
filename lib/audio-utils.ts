@@ -217,7 +217,8 @@ export async function getAudioMetadataFromUrl(url: string): Promise<AudioMetadat
   }
 
   try {
-    const response = await fetch(url)
+    const { fetchWithTimeout } = await import('./fetch-utils')
+    const response = await fetchWithTimeout(url, { timeoutMs: 15_000 })
     if (!response.ok) {
       return null
     }

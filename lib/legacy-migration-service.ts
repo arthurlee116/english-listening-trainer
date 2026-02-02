@@ -1,6 +1,8 @@
 import type { Exercise } from './types'
+import { fetchWithTimeout, isFetchTimeoutError } from './fetch-utils'
 
 const STORAGE_KEY = "english-listening-history"
+const IMPORT_TIMEOUT_MS = 120_000
 
 // Legacy data type - extends Exercise interface
 type _LegacyExercise = Exercise
@@ -250,14 +252,29 @@ export async function uploadLegacyData(importData: ImportLegacyRequest): Promise
   console.log('DEBUG: Uploading legacy data. Request body size:', JSON.stringify(importData).length, 'bytes'); // Log request size
   
   try {
-    const response = await fetch('/api/practice/import-legacy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies for authentication
-      body: JSON.stringify(importData)
-    })
+    let response: Response
+    try {
+      response = await fetchWithTimeout('/api/practice/import-legacy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify(importData),
+        timeoutMs: IMPORT_TIMEOUT_MS,
+      })
+    } catch (error) {
+      if (isFetchTimeoutError(error)) {
+        throw createMigrationError(
+          'Upload timed out. Please try again.',
+          MigrationErrorType.NETWORK_ERROR,
+          true,
+          'TIMEOUT',
+          error
+        )
+      }
+      throw error
+    }
 
     console.log('DEBUG: API response status:', response.status, 'ok:', response.ok); // Log HTTP status
 

@@ -1,6 +1,8 @@
 import 'server-only'
+import { fetchWithTimeout, isFetchTimeoutError } from '../fetch-utils'
 
 const EXA_API_KEY = process.env.EXA_API_KEY
+const EXA_TIMEOUT_MS = 12_000
 
 interface ExaSearchResult {
   title: string
@@ -30,23 +32,32 @@ export async function searchNewsForTopic(topic: string, maxResults = 5): Promise
   }
 
   try {
-    const response = await fetch('https://api.exa.ai/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': EXA_API_KEY
-      },
-      body: JSON.stringify({
-        query: topic,
-        type: 'neural',
-        useAutoprompt: true,
-        numResults: maxResults,
-        contents: {
-          text: { maxCharacters: 500 }
+    let response: Response
+    try {
+      response = await fetchWithTimeout('https://api.exa.ai/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': EXA_API_KEY
         },
-        category: 'news'
+        body: JSON.stringify({
+          query: topic,
+          type: 'neural',
+          useAutoprompt: true,
+          numResults: maxResults,
+          contents: {
+            text: { maxCharacters: 500 }
+          },
+          category: 'news'
+        }),
+        timeoutMs: EXA_TIMEOUT_MS
       })
-    })
+    } catch (error) {
+      if (isFetchTimeoutError(error)) {
+        throw new Error('Exa API request timed out')
+      }
+      throw error
+    }
 
     if (!response.ok) {
       throw new Error(`Exa API error: ${response.status}`)
