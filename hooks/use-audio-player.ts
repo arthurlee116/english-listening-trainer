@@ -449,11 +449,6 @@ export function useAudioPlayer({
       stopProgressLoop()
     }
 
-    const handleError = () => {
-      setInternalError(true)
-      stopProgressLoop()
-    }
-
     const handleCanPlay = () => {
       applyPlaybackRate(audio, playbackRateRef.current)
     }
