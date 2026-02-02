@@ -26,6 +26,8 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
   }
 
   let lastError: Error | null = null
+  const isRetryableError = (error: unknown) =>
+    error instanceof TypeError || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true)
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     try {
@@ -45,13 +47,16 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
 
       if (!response.ok) {
         const errorMessage = data?.error || `API请求失败: ${response.status}`
-        if (RETRYABLE_STATUS_CODES.has(response.status) && attempt < MAX_RETRIES) {
+        const retryable = RETRYABLE_STATUS_CODES.has(response.status)
+        if (retryable && attempt < MAX_RETRIES) {
           lastError = new Error(errorMessage)
           const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), 5000)
           await sleep(delay + Math.random() * 200)
           continue
         }
-        throw new Error(errorMessage)
+        const error = new Error(errorMessage)
+        ;(error as Error & { retryable?: boolean }).retryable = retryable
+        throw error
       }
 
       if (!data?.success) {
@@ -70,11 +75,12 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
-      if (attempt < MAX_RETRIES) {
+      if (isRetryableError(error) && attempt < MAX_RETRIES) {
         const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), 5000)
         await sleep(delay + Math.random() * 200)
         continue
       }
+      break
     }
   }
 

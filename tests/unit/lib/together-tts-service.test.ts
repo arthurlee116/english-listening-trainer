@@ -167,6 +167,67 @@ describe('together-tts-service', () => {
     expect(result.voiceUsed).toBe('af_alloy')
   })
 
+  it('retries once on retryable Together errors before succeeding', async () => {
+    process.env.TOGETHER_API_KEY = 'test-key'
+
+    vi.doMock('https-proxy-agent', () => ({ HttpsProxyAgent: vi.fn().mockImplementation(() => ({})) }))
+    vi.doMock('fs', () => ({
+      default: { promises: { mkdir: vi.fn(), writeFile: vi.fn(), unlink: vi.fn() } }
+    }))
+    vi.doMock('crypto', () => ({ default: { randomBytes: vi.fn().mockReturnValue(Buffer.from('abcdefabcdef', 'hex')) } }))
+
+    const wav = makeWavBuffer()
+    const request = vi.fn()
+      .mockImplementationOnce((_options: any, cb: (res: any) => void) => {
+        const req = new EventEmitter() as any
+        req.setTimeout = vi.fn()
+        req.end = () => {
+          const res = new EventEmitter() as any
+          res.statusCode = 503
+          res.statusMessage = 'Service Unavailable'
+          res.headers = { 'content-type': 'text/plain' }
+          cb(res)
+          queueMicrotask(() => {
+            res.emit('data', Buffer.from('temporarily down', 'utf8'))
+            res.emit('end')
+          })
+        }
+        return req
+      })
+      .mockImplementationOnce((_options: any, cb: (res: any) => void) => {
+        const req = new EventEmitter() as any
+        req.setTimeout = vi.fn()
+        req.end = () => {
+          const res = new EventEmitter() as any
+          res.statusCode = 200
+          res.statusMessage = 'OK'
+          res.headers = { 'content-type': 'audio/wav' }
+          cb(res)
+          queueMicrotask(() => {
+            res.emit('data', wav)
+            res.emit('end')
+          })
+        }
+        return req
+      })
+    vi.doMock('https', () => ({ default: { request } }))
+
+    const originalSetTimeout = global.setTimeout
+    const setTimeoutSpy = vi
+      .spyOn(global, 'setTimeout')
+      .mockImplementation((handler, _timeout, ...args) => originalSetTimeout(handler as TimerHandler, 0, ...args))
+
+    try {
+      const { generateTogetherTtsAudio } = await import('@/lib/together-tts-service')
+      const result = await generateTogetherTtsAudio({ text: 'hello', voice: 'af_alloy', timeoutMs: 1000 })
+
+      expect(request).toHaveBeenCalledTimes(2)
+      expect(result.voiceUsed).toBe('af_alloy')
+    } finally {
+      setTimeoutSpy.mockRestore()
+    }
+  })
+
   it('health probe writes and immediately deletes a healthcheck file', async () => {
     process.env.TOGETHER_API_KEY = 'test-key'
 

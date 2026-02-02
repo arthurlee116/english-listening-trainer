@@ -74,6 +74,10 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
     const maxRetries = 2
     const baseDelayMs = 600
     let lastError: Error | null = null
+    const retryableStatusCodes = new Set([408, 429, 500, 502, 503, 504])
+
+    const isRetryableError = (error: unknown) =>
+      error instanceof TypeError || (error instanceof Error && (error as Error & { retryable?: boolean }).retryable === true)
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       try {
@@ -81,13 +85,16 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
         const payload = await res.json().catch(() => null)
         if (!res.ok) {
           const message = payload?.error || `音频准备失败: ${res.status}`
-          if ([408, 429, 500, 502, 503, 504].includes(res.status) && attempt < maxRetries) {
+          const retryable = retryableStatusCodes.has(res.status)
+          if (retryable && attempt < maxRetries) {
             lastError = new Error(message)
             const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 4000)
             await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 200))
             continue
           }
-          throw new Error(message)
+          const error = new Error(message)
+          ;(error as Error & { retryable?: boolean }).retryable = retryable
+          throw error
         }
         const url = payload?.url as string | undefined
         if (!url) {
@@ -96,11 +103,12 @@ export function AssessmentInterface({ onBack, onComplete }: AssessmentInterfaceP
         return url
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('音频生成失败')
-        if (attempt < maxRetries) {
+        if (isRetryableError(error) && attempt < maxRetries) {
           const delay = Math.min(baseDelayMs * Math.pow(2, attempt), 4000)
           await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 200))
           continue
         }
+        break
       }
     }
 
