@@ -406,6 +406,10 @@ const QuestionInterfaceComponent = ({
             </Select>
           </div>
 
+          <div className="text-xs text-gray-500 flex items-center justify-center">
+            <BilingualText translationKey="components.audioPlayer.playbackDelayHint" />
+          </div>
+
           {/* Volume control removed as per UX request */}
         </Card>
       )}
