@@ -144,6 +144,10 @@
       "en": "Select speed",
       "zh": "选择倍速"
     },
+    "playbackDelayHint": {
+      "en": "Playback may take 5–6 seconds to start. Please wait.",
+      "zh": "点击播放后可能会有 5-6 秒延迟，请耐心等待"
+    },
     "rate075": {
       "en": "0.75×",
       "zh": "0.75×"

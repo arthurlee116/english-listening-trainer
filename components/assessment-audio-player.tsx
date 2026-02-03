@@ -191,6 +191,12 @@ export default function AssessmentAudioPlayer({
         </Button>
       </div>
 
+      {src && (
+        <div className="text-xs text-gray-500 flex items-center justify-center">
+          <BilingualText translationKey="components.audioPlayer.playbackDelayHint" />
+        </div>
+      )}
+
       {(currentTime > 0 || duration > 0) && (
         <div className="space-y-2">
           <Progress value={progress} className="h-2" />

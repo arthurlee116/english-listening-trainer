@@ -325,6 +325,9 @@ const AudioPlayerComponent = forwardRef<AudioPlayerControls, AudioPlayerProps>(
                   </SelectContent>
                 </Select>
               </div>
+              <div className="text-xs text-gray-500 flex items-center gap-2 mb-2">
+                <BilingualText translationKey="components.audioPlayer.playbackDelayHint" />
+              </div>
             </>
           ) : (
             <div className="bg-white/70 border border-slate-200 rounded-lg p-8 text-center">
