@@ -211,9 +211,9 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
   }, [formData, validateForm, toast, onUserAuthenticated, privacyConsent])
 
   // 提交处理
-  const handleSubmit = useCallback((event?: React.FormEvent) => {
-    event?.preventDefault()
-    event?.stopPropagation()
+  const handleSubmit = useCallback<React.FormEventHandler<HTMLFormElement>>((event) => {
+    event.preventDefault()
+    event.stopPropagation()
     if (loading) return
     if (activeTab === "login") {
       handleLogin()

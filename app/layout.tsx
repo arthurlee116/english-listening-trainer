@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Fraunces, IBM_Plex_Sans } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -26,7 +26,6 @@ export const metadata: Metadata = {
   description: 'Make learning fun with bite-sized AI listening practice | 轻松练听力，让 AI 帮你进步更有趣',
   generator: 'Arthur',
   manifest: '/manifest.webmanifest',
-  themeColor: '#d46a4d',
   icons: {
     icon: '/pwa-192.png',
     apple: '/apple-touch-icon.png',
@@ -36,6 +35,10 @@ export const metadata: Metadata = {
     title: 'English Listening Trainer',
     statusBarStyle: 'default',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#d46a4d',
 }
 
 const RootLayout = ({
