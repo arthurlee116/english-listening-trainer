@@ -27,6 +27,55 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
   const [activeUrl, setActiveUrl] = useState(audioUrl)
   const audioRef = useRef<HTMLAudioElement>(null)
   const hasTriedFallbackRef = useRef(false)
+  const pendingResumeRef = useRef(false)
+
+  const MIN_BUFFER_SECONDS = 2.5
+  const BUFFER_WAIT_TIMEOUT_MS = 8000
+
+  const getBufferedAhead = (audio: HTMLAudioElement) => {
+    const { buffered, currentTime } = audio
+    for (let i = 0; i < buffered.length; i += 1) {
+      const start = buffered.start(i)
+      const end = buffered.end(i)
+      if (currentTime >= start && currentTime <= end) {
+        return end - currentTime
+      }
+    }
+    return 0
+  }
+
+  const ensureBufferedBeforeResume = (audio: HTMLAudioElement) => {
+    if (pendingResumeRef.current) return
+    const ahead = getBufferedAhead(audio)
+    if (ahead >= MIN_BUFFER_SECONDS) return
+
+    pendingResumeRef.current = true
+    const startedAt = Date.now()
+
+    const maybeResume = () => {
+      const bufferedAhead = getBufferedAhead(audio)
+      const timedOut = Date.now() - startedAt >= BUFFER_WAIT_TIMEOUT_MS
+      if (bufferedAhead >= MIN_BUFFER_SECONDS || timedOut) {
+        pendingResumeRef.current = false
+        audio.removeEventListener("progress", maybeResume)
+        audio.removeEventListener("canplay", maybeResume)
+        audio.removeEventListener("canplaythrough", maybeResume)
+        audio.play().catch(() => {
+          // ignore autoplay errors; user can retry
+        })
+      }
+    }
+
+    audio.addEventListener("progress", maybeResume)
+    audio.addEventListener("canplay", maybeResume)
+    audio.addEventListener("canplaythrough", maybeResume)
+    try {
+      audio.pause()
+      audio.load()
+    } catch {
+      // ignore
+    }
+  }
 
   const fallbackUrl = useMemo(() => {
     if (!audioUrl) return ''
@@ -42,6 +91,7 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
   useEffect(() => {
     setActiveUrl(audioUrl)
     hasTriedFallbackRef.current = false
+    pendingResumeRef.current = false
   }, [audioUrl])
 
   useEffect(() => {
@@ -110,8 +160,11 @@ function useSimpleAudioPlayer(audioUrl: string, initialDuration?: number) {
       if (playPromise && typeof playPromise.catch === 'function') {
         playPromise.catch(console.error)
       }
+      if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        ensureBufferedBeforeResume(audio)
+      }
     }
-  }, [isPlaying])
+  }, [ensureBufferedBeforeResume, isPlaying])
 
   const handleSeek = useCallback((value: number[]) => {
     const audio = audioRef.current

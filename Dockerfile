@@ -27,7 +27,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates adduser \
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates adduser ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 RUN adduser --disabled-password --gecos "" --uid 10001 nodeapp

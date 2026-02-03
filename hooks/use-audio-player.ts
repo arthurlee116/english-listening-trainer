@@ -59,6 +59,21 @@ const DEFAULT_TOAST_MESSAGES = {
   unsupportedRateDesc: 'Your browser does not support this playback speed.',
 }
 
+const MIN_BUFFER_SECONDS = 2.5
+const BUFFER_WAIT_TIMEOUT_MS = 8000
+
+function getBufferedAhead(audio: HTMLAudioElement): number {
+  const { buffered, currentTime } = audio
+  for (let i = 0; i < buffered.length; i += 1) {
+    const start = buffered.start(i)
+    const end = buffered.end(i)
+    if (currentTime >= start && currentTime <= end) {
+      return end - currentTime
+    }
+  }
+  return 0
+}
+
 export function useAudioPlayer({
   audioUrl,
   initialDuration,
@@ -83,6 +98,7 @@ export function useAudioPlayer({
   const wasPausedBeforeScrubRef = useRef(false)
   const playbackRateRef = useRef(DEFAULT_PLAYBACK_RATE)
   const hasTriedFallbackRef = useRef(false)
+  const pendingResumeRef = useRef(false)
 
   const effectiveToastMessages = toastMessages ?? DEFAULT_TOAST_MESSAGES
 
@@ -110,6 +126,7 @@ export function useAudioPlayer({
     pendingTimeRef.current = null
     isScrubbingRef.current = false
     wasPausedBeforeScrubRef.current = false
+    pendingResumeRef.current = false
   }, [])
 
   const startProgressLoop = useCallback(() => {
@@ -183,6 +200,44 @@ export function useAudioPlayer({
     [effectiveToastMessages.unsupportedRateDesc, effectiveToastMessages.unsupportedRateTitle, toast],
   )
 
+  const ensureBufferedBeforeResume = useCallback(
+    (audio: HTMLAudioElement) => {
+      if (pendingResumeRef.current) return
+      const ahead = getBufferedAhead(audio)
+      if (ahead >= MIN_BUFFER_SECONDS) {
+        return
+      }
+
+      pendingResumeRef.current = true
+      const startedAt = Date.now()
+
+      const maybeResume = () => {
+        const bufferedAhead = getBufferedAhead(audio)
+        const timedOut = Date.now() - startedAt >= BUFFER_WAIT_TIMEOUT_MS
+        if (bufferedAhead >= MIN_BUFFER_SECONDS || timedOut) {
+          pendingResumeRef.current = false
+          audio.removeEventListener('progress', maybeResume)
+          audio.removeEventListener('canplay', maybeResume)
+          audio.removeEventListener('canplaythrough', maybeResume)
+          audio.play().catch(() => {
+            // ignore autoplay errors; user can retry
+          })
+        }
+      }
+
+      audio.addEventListener('progress', maybeResume)
+      audio.addEventListener('canplay', maybeResume)
+      audio.addEventListener('canplaythrough', maybeResume)
+      try {
+        audio.pause()
+        audio.load()
+      } catch {
+        // ignore
+      }
+    },
+    [],
+  )
+
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -200,8 +255,11 @@ export function useAudioPlayer({
           console.error('Failed to play audio:', error)
           setIsPlaying(false)
         })
+      if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        ensureBufferedBeforeResume(audio)
+      }
     }
-  }, [])
+  }, [ensureBufferedBeforeResume])
 
   const play = useCallback(() => {
     const audio = audioRef.current
@@ -216,7 +274,10 @@ export function useAudioPlayer({
         console.error('Failed to play audio:', error)
         setIsPlaying(false)
       })
-  }, [])
+    if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      ensureBufferedBeforeResume(audio)
+    }
+  }, [ensureBufferedBeforeResume])
 
   const pause = useCallback(() => {
     const audio = audioRef.current

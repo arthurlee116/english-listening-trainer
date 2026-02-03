@@ -5,11 +5,15 @@ import path from 'path'
 import { Readable } from 'stream'
 
 const AUDIO_HEADERS_BASE = {
-  'Content-Type': 'audio/wav',
   'Accept-Ranges': 'bytes',
   'Cache-Control': 'public, max-age=31536000, immutable',
   'Access-Control-Allow-Origin': '*',
 } as const
+
+function resolveAudioContentType(filename: string): string {
+  if (filename.endsWith('.mp3')) return 'audio/mpeg'
+  return 'audio/wav'
+}
 
 export async function GET(
   request: NextRequest,
@@ -18,7 +22,7 @@ export async function GET(
   try {
     const { filename } = await params
 
-    if (!filename.startsWith('tts_audio_') || !filename.endsWith('.wav')) {
+    if (!filename.startsWith('tts_audio_') || (!filename.endsWith('.wav') && !filename.endsWith('.mp3'))) {
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
     }
     
@@ -35,6 +39,8 @@ export async function GET(
     
     const { size: fileSize } = await stat(filePath)
     const range = request.headers.get('range')
+
+    const contentType = resolveAudioContentType(filename)
 
     if (range) {
       const match = range.match(/bytes=(\d*)-(\d*)/)
@@ -119,6 +125,7 @@ export async function GET(
         status: 206,
         headers: {
           ...AUDIO_HEADERS_BASE,
+          'Content-Type': contentType,
           'Content-Length': String(end - start + 1),
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         },
@@ -131,6 +138,7 @@ export async function GET(
       status: 200,
       headers: {
         ...AUDIO_HEADERS_BASE,
+        'Content-Type': contentType,
         'Content-Length': String(fileSize),
       },
     })
@@ -158,7 +166,7 @@ export async function HEAD(
   try {
     const { filename } = await params
 
-    if (!filename.startsWith('tts_audio_') || !filename.endsWith('.wav')) {
+    if (!filename.startsWith('tts_audio_') || (!filename.endsWith('.wav') && !filename.endsWith('.mp3'))) {
       return new NextResponse(null, { status: 400 })
     }
 
@@ -172,6 +180,7 @@ export async function HEAD(
       status: 200,
       headers: {
         ...AUDIO_HEADERS_BASE,
+        'Content-Type': resolveAudioContentType(filename),
         'Content-Length': String(fileSize),
       },
     })

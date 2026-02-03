@@ -286,7 +286,11 @@ export async function cleanupOldAudioFiles(maxAge: number = 24 * 60 * 60 * 1000)
     const audioDir = path.join(process.cwd(), 'public', 'audio')
     const files = await fs.promises.readdir(audioDir)
     
-    const audioFiles = files.filter(file => file.startsWith('tts_audio_') && file.endsWith('.wav'))
+    const audioFiles = files.filter(
+      file =>
+        file.startsWith('tts_audio_') &&
+        (file.endsWith('.wav') || file.endsWith('.mp3'))
+    )
     const now = Date.now()
     
     let deletedCount = 0

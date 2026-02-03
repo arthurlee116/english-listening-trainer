@@ -25,6 +25,54 @@ export default function AssessmentAudioPlayer({
   const [hasPlayed, setHasPlayed] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null)
+  const pendingResumeRef = useRef(false)
+  const MIN_BUFFER_SECONDS = 2.5
+  const BUFFER_WAIT_TIMEOUT_MS = 8000
+
+  const getBufferedAhead = (audio: HTMLAudioElement) => {
+    const { buffered, currentTime } = audio
+    for (let i = 0; i < buffered.length; i += 1) {
+      const start = buffered.start(i)
+      const end = buffered.end(i)
+      if (currentTime >= start && currentTime <= end) {
+        return end - currentTime
+      }
+    }
+    return 0
+  }
+
+  const ensureBufferedBeforeResume = (audio: HTMLAudioElement) => {
+    if (pendingResumeRef.current) return
+    const ahead = getBufferedAhead(audio)
+    if (ahead >= MIN_BUFFER_SECONDS) return
+
+    pendingResumeRef.current = true
+    const startedAt = Date.now()
+
+    const maybeResume = () => {
+      const bufferedAhead = getBufferedAhead(audio)
+      const timedOut = Date.now() - startedAt >= BUFFER_WAIT_TIMEOUT_MS
+      if (bufferedAhead >= MIN_BUFFER_SECONDS || timedOut) {
+        pendingResumeRef.current = false
+        audio.removeEventListener('progress', maybeResume)
+        audio.removeEventListener('canplay', maybeResume)
+        audio.removeEventListener('canplaythrough', maybeResume)
+        audio.play().catch(() => {
+          // ignore autoplay errors; user can retry
+        })
+      }
+    }
+
+    audio.addEventListener('progress', maybeResume)
+    audio.addEventListener('canplay', maybeResume)
+    audio.addEventListener('canplaythrough', maybeResume)
+    try {
+      audio.pause()
+      audio.load()
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     const audio = audioRef.current
@@ -74,6 +122,7 @@ export default function AssessmentAudioPlayer({
     setCurrentTime(0)
     setDuration(0)
     setHasPlayed(false)
+    pendingResumeRef.current = false
 
     // 重置音频元素播放进度
     const audio = audioRef.current
@@ -97,7 +146,11 @@ export default function AssessmentAudioPlayer({
     if (isPlaying) {
       audioRef.current.pause()
     } else {
-      audioRef.current.play()
+      const audio = audioRef.current
+      audio.play()
+      if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        ensureBufferedBeforeResume(audio)
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import https from 'https'
 import fs from 'fs'
 import path from 'path'
 import { HttpsProxyAgent } from 'https-proxy-agent'
+import { spawn } from 'child_process'
 
 import { detectAudioFormat, getWavAudioMetadata } from './audio-utils'
 
@@ -228,9 +229,9 @@ function resolveAudioDir(): string {
   return path.join(process.cwd(), 'public', 'audio')
 }
 
-function buildTtsFilename(prefix: 'tts_audio' | 'healthcheck'): string {
+function buildTtsFilename(prefix: 'tts_audio' | 'healthcheck', ext: 'wav' | 'mp3' = 'wav'): string {
   const nonce = crypto.randomBytes(6).toString('hex')
-  return `${prefix}_${Date.now()}_${nonce}.wav`
+  return `${prefix}_${Date.now()}_${nonce}.${ext}`
 }
 
 async function writeAudioFileAtomic(filePath: string, buffer: Buffer): Promise<void> {
@@ -273,6 +274,40 @@ async function writeAudioFileAtomic(filePath: string, buffer: Buffer): Promise<v
       throw error
     }
   }
+}
+
+async function transcodeWavToMp3(wavPath: string, mp3Path: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const args = [
+      '-y',
+      '-i',
+      wavPath,
+      '-vn',
+      '-acodec',
+      'libmp3lame',
+      '-b:a',
+      '96k',
+      mp3Path,
+    ]
+    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+
+    proc.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+
+    proc.on('error', (error) => {
+      reject(error)
+    })
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+      reject(new Error(`ffmpeg exited with code ${code ?? 'unknown'}: ${stderr.slice(0, 300)}`))
+    })
+  })
 }
 
 export async function generateTogetherTtsAudio(params: {
@@ -326,13 +361,13 @@ export async function generateTogetherTtsAudio(params: {
   const audioDir = resolveAudioDir()
   await fs.promises.mkdir(audioDir, { recursive: true })
 
-  const filename = buildTtsFilename('tts_audio')
-  const filePath = path.join(audioDir, filename)
+  const wavFilename = buildTtsFilename('tts_audio', 'wav')
+  const wavPath = path.join(audioDir, wavFilename)
   try {
-    await writeAudioFileAtomic(filePath, audioBuffer)
+    await writeAudioFileAtomic(wavPath, audioBuffer)
   } catch (error) {
     try {
-      await fs.promises.unlink(filePath)
+      await fs.promises.unlink(wavPath)
     } catch {
       // ignore cleanup errors
     }
@@ -340,11 +375,28 @@ export async function generateTogetherTtsAudio(params: {
   }
 
   const duration = getWavAudioMetadata(audioBuffer).duration
+  let filename = wavFilename
+  let filePath = wavPath
+  let byteLength = audioBuffer.length
+
+  try {
+    const mp3Filename = buildTtsFilename('tts_audio', 'mp3')
+    const mp3Path = path.join(audioDir, mp3Filename)
+    await transcodeWavToMp3(wavPath, mp3Path)
+    const stats = await fs.promises.stat(mp3Path)
+    filename = mp3Filename
+    filePath = mp3Path
+    byteLength = stats.size
+    await fs.promises.unlink(wavPath)
+  } catch (error) {
+    console.warn('Failed to transcode WAV to MP3, falling back to WAV:', error)
+  }
+
   return {
     filename,
     filePath,
     duration,
-    byteLength: audioBuffer.length,
+    byteLength,
     voiceUsed,
     modelUsed: model,
   }
@@ -361,7 +413,7 @@ export async function runTogetherTtsHealthProbe(params?: { timeoutMs?: number })
   const audioDir = resolveAudioDir()
   await fs.promises.mkdir(audioDir, { recursive: true })
 
-  const filename = buildTtsFilename('healthcheck')
+  const filename = buildTtsFilename('healthcheck', 'wav')
   const filePath = path.join(audioDir, filename)
 
   try {
