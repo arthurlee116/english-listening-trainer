@@ -411,6 +411,9 @@ export function useExerciseWorkflow() {
     if (!state.difficulty || !state.topic) return
 
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating listening transcript...' } })
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('lastAction', 'generateTranscript')
+    }
 
     let transcriptSnapshot = state.transcript
     const mode = loadDifficultyMode()
@@ -532,6 +535,9 @@ export function useExerciseWorkflow() {
     if (!state.transcript) return
 
     dispatch({ type: 'SET_LOADING', payload: { loading: true, message: 'Generating audio...' } })
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('lastAction', 'generateAudio')
+    }
     dispatch({ type: 'SET_AUDIO_ERROR', payload: false })
     dispatch({ type: 'SET_AUDIO_DURATION', payload: null })
 
