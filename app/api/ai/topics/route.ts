@@ -66,7 +66,7 @@ async function handleTopics(request: NextRequest): Promise<NextResponse> {
         schemaName: 'topics_response',
         options: {
           temperature: 0.3,
-          maxTokens: 256
+          maxTokens: 512
         }
       })
 

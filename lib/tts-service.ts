@@ -71,13 +71,13 @@ export async function generateAudio(text: string, options: TTSOptions = {}): Pro
         throw new Error(data?.error || '音频生成失败')
       }
 
-      const resolvedUrl = data.staticUrl || data.audioUrl
+      const resolvedUrl = data.audioUrl || data.staticUrl
       if (!resolvedUrl) {
         throw new Error('音频生成失败：未返回音频URL')
       }
 
       return {
-        // Prefer static file URL for better compatibility (e.g., iOS Safari).
+        // Prefer API URL for consistent availability and range support.
         audioUrl: resolvedUrl,
         duration: typeof data.duration === 'number' ? data.duration : undefined,
         byteLength: typeof data.byteLength === 'number' ? data.byteLength : undefined,
