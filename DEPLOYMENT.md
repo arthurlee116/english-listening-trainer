@@ -198,6 +198,80 @@ curl -fsS -X POST https://listen.leesaitool.com/api/ai/topics \
   -d '{"difficulty":"easy","wordCount":120,"language":"en-US"}'
 ```
 
+### No-proxy end-to-end test (REQUIRED after manual deploy or GitHub Actions finish)
+
+Run the following **from your local machine in mainland China** with all proxy vars unset.
+This validates: topics → transcript → questions → TTS → audio download.
+
+```bash
+BASE_URL="https://listen.leesaitool.com"
+TMP_DIR="$(mktemp -d)"
+unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+
+echo "== AI Topics (no proxy) =="
+curl -sS -o "$TMP_DIR/topics.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
+  -H "content-type: application/json" \
+  -d '{"difficulty":"easy","wordCount":120,"language":"en-US"}' \
+  "$BASE_URL/api/ai/topics"
+cat "$TMP_DIR/topics.json"
+
+echo "== AI Transcript (no proxy) =="
+curl -sS -o "$TMP_DIR/transcript.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
+  -H "content-type: application/json" \
+  -d '{"topic":"A short walk in the city","difficulty":"easy","wordCount":180,"language":"en-US"}' \
+  "$BASE_URL/api/ai/transcript"
+cat "$TMP_DIR/transcript.json"
+
+echo "== AI Questions (no proxy) =="
+python - <<PY
+import json, pathlib
+p = pathlib.Path("$TMP_DIR/transcript.json")
+transcript = json.loads(p.read_text()).get("transcript","")
+body = {"transcript": transcript, "difficulty": "easy", "language": "en-US"}
+pathlib.Path("$TMP_DIR/questions-body.json").write_text(json.dumps(body))
+PY
+curl -sS -o "$TMP_DIR/questions.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
+  -H "content-type: application/json" \
+  --data-binary "@$TMP_DIR/questions-body.json" \
+  "$BASE_URL/api/ai/questions"
+cat "$TMP_DIR/questions.json"
+
+echo "== TTS (about 2–3 min, no proxy) =="
+python - <<PY
+import json, pathlib
+base = (
+  "Today I took a slow walk through my neighborhood and tried to notice ordinary details. "
+  "I passed a small bakery, and the warm smell of bread drifted into the street. "
+  "A bicyclist rang a bell and waved at a dog that was waiting patiently at the corner. "
+  "I paused to watch the traffic lights change and listened to the soft hum of buses. "
+  "In the park, two friends were practicing a new dance routine and laughing at their mistakes. "
+  "I sat on a bench for a minute and wrote a few notes about the colors of the trees and the sky. "
+)
+text = " ".join([base] * 2)  # ~2–3 minutes
+body = {"text": text, "language": "en-US", "speed": 1.0}
+pathlib.Path("$TMP_DIR/tts-body.json").write_text(json.dumps(body))
+PY
+curl -sS -o "$TMP_DIR/tts.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
+  -H "content-type: application/json" \
+  --data-binary "@$TMP_DIR/tts-body.json" \
+  "$BASE_URL/api/tts"
+cat "$TMP_DIR/tts.json"
+
+echo "== Download audio via api/audio (no proxy) =="
+AUDIO_URL=$(python - <<PY
+import json, pathlib
+p = pathlib.Path("$TMP_DIR/tts.json")
+print(json.loads(p.read_text()).get("audioUrl") or "")
+PY
+)
+if [ -n "$AUDIO_URL" ]; then
+  curl -sS -o /dev/null -w "HTTP:%{http_code} size:%{size_download}B connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
+    "$BASE_URL$AUDIO_URL"
+else
+  echo "No audio URL returned"
+fi
+```
+
 If AI fails:
 - Check app logs: `sudo docker logs --tail=200 english-listening-trainer-app-1`
 - Ensure `CEREBRAS_BASE_URL` has NO `/v1`

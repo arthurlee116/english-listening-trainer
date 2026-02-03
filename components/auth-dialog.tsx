@@ -211,13 +211,16 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
   }, [formData, validateForm, toast, onUserAuthenticated, privacyConsent])
 
   // 提交处理
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback((event?: React.FormEvent) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+    if (loading) return
     if (activeTab === "login") {
       handleLogin()
     } else {
       handleRegister()
     }
-  }, [activeTab, handleLogin, handleRegister])
+  }, [activeTab, handleLogin, handleRegister, loading])
 
   // 重置表单
   const resetForm = useCallback(() => {
@@ -275,207 +278,246 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
           )}
 
           <TabsContent value="login" className="space-y-4">
-            {/* 邮箱输入 */}
-            <div>
-              <Label htmlFor="login-email">邮箱</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="login-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => updateFormData('email', e.target.value)}
-                  placeholder="请输入您的邮箱"
-                  className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
-                  autoComplete="email"
-                />
-              </div>
-              {errors.email && (
-                <p className="text-sm text-red-600 mt-1" role="alert">
-                  {errors.email}
-                </p>
-              )}
-            </div>
+            {activeTab === "login" && (
+              <form id="login-form" className="space-y-4" onSubmit={handleSubmit}>
+                {/* 邮箱输入 */}
+                <div>
+                  <Label htmlFor="login-email">邮箱</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="login-email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => updateFormData('email', e.target.value)}
+                      placeholder="请输入您的邮箱"
+                      className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="email"
+                      enterKeyHint="next"
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-sm text-red-600 mt-1" role="alert">
+                      {errors.email}
+                    </p>
+                  )}
+                </div>
 
-            {/* 密码输入 */}
-            <div>
-              <Label htmlFor="login-password">密码</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => updateFormData('password', e.target.value)}
-                  placeholder="请输入您的密码"
-                  className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
-                  autoComplete="current-password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-                </Button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-red-600 mt-1" role="alert">
-                  {errors.password}
-                </p>
-              )}
-            </div>
+                {/* 密码输入 */}
+                <div>
+                  <Label htmlFor="login-password">密码</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="login-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => updateFormData('password', e.target.value)}
+                      placeholder="请输入您的密码"
+                      className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                      autoComplete="current-password"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="go"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                    </Button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-sm text-red-600 mt-1" role="alert">
+                      {errors.password}
+                    </p>
+                  )}
+                </div>
 
-            {/* 记住我 */}
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="remember-me" 
-                checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-              />
-              <Label htmlFor="remember-me" className="text-sm">
-                记住我（保持登录状态）
-              </Label>
-            </div>
+                {/* 记住我 */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="remember-me" 
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  />
+                  <Label htmlFor="remember-me" className="text-sm">
+                    记住我（保持登录状态）
+                  </Label>
+                </div>
+              </form>
+            )}
           </TabsContent>
 
           <TabsContent value="register" className="space-y-4">
-            {/* 邮箱输入 */}
-            <div>
-              <Label htmlFor="register-email">邮箱</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="register-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => updateFormData('email', e.target.value)}
-                  placeholder="请输入您的邮箱"
-                  className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
-                  autoComplete="email"
-                />
-              </div>
-              {errors.email && (
-                <p className="text-sm text-red-600 mt-1" role="alert">
-                  {errors.email}
-                </p>
-              )}
-            </div>
-
-            {/* 姓名输入（可选） */}
-            <div>
-              <Label htmlFor="register-name">姓名（可选）</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="register-name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => updateFormData('name', e.target.value)}
-                  placeholder="请输入您的姓名"
-                  className="pl-10"
-                  autoComplete="name"
-                />
-              </div>
-            </div>
-
-            {/* 密码输入 */}
-            <div>
-              <Label htmlFor="register-password">密码</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="register-password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => updateFormData('password', e.target.value)}
-                  placeholder="请设置您的密码"
-                  className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
-                  autoComplete="new-password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-                </Button>
-              </div>
-              
-              {/* 密码强度提示 */}
-              {formData.password && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex gap-1">
-                    <div className={`h-1 w-full rounded ${
-                      passwordValidation.strength === 'weak' ? 'bg-red-300' : 
-                      passwordValidation.strength === 'medium' ? 'bg-yellow-300' : 'bg-green-300'
-                    }`} />
-                    <div className={`h-1 w-full rounded ${
-                      passwordValidation.strength === 'medium' || passwordValidation.strength === 'strong' ? 
-                      'bg-yellow-300' : 'bg-gray-200'
-                    }`} />
-                    <div className={`h-1 w-full rounded ${
-                      passwordValidation.strength === 'strong' ? 'bg-green-300' : 'bg-gray-200'
-                    }`} />
+            {activeTab === "register" && (
+              <form id="register-form" className="space-y-4" onSubmit={handleSubmit}>
+                {/* 邮箱输入 */}
+                <div>
+                  <Label htmlFor="register-email">邮箱</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="register-email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => updateFormData('email', e.target.value)}
+                      placeholder="请输入您的邮箱"
+                      className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="email"
+                      enterKeyHint="next"
+                    />
                   </div>
-                  <p className={`text-xs ${
-                    passwordValidation.isValid ? 'text-green-600' : 'text-gray-500'
-                  }`}>
-                    密码要求：8位以上，包含大小写字母和数字
-                  </p>
+                  {errors.email && (
+                    <p className="text-sm text-red-600 mt-1" role="alert">
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
-              )}
-              
-              {errors.password && (
-                <p className="text-sm text-red-600 mt-1" role="alert">
-                  {errors.password}
-                </p>
-              )}
-            </div>
 
-            {/* 确认密码 */}
-            <div>
-              <Label htmlFor="confirm-password">确认密码</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => updateFormData('confirmPassword', e.target.value)}
-                  placeholder="请再次输入密码"
-                  className={`pl-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
-                  autoComplete="new-password"
+                {/* 姓名输入（可选） */}
+                <div>
+                  <Label htmlFor="register-name">姓名（可选）</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="register-name"
+                      name="name"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => updateFormData('name', e.target.value)}
+                      placeholder="请输入您的姓名"
+                      className="pl-10"
+                      autoComplete="name"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="next"
+                    />
+                  </div>
+                </div>
+
+                {/* 密码输入 */}
+                <div>
+                  <Label htmlFor="register-password">密码</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="register-password"
+                      name="new-password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => updateFormData('password', e.target.value)}
+                      placeholder="请设置您的密码"
+                      className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                      autoComplete="new-password"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="next"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                    </Button>
+                  </div>
+                  
+                  {/* 密码强度提示 */}
+                  {formData.password && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex gap-1">
+                        <div className={`h-1 w-full rounded ${
+                          passwordValidation.strength === 'weak' ? 'bg-red-300' : 
+                          passwordValidation.strength === 'medium' ? 'bg-yellow-300' : 'bg-green-300'
+                        }`} />
+                        <div className={`h-1 w-full rounded ${
+                          passwordValidation.strength === 'medium' || passwordValidation.strength === 'strong' ? 
+                          'bg-yellow-300' : 'bg-gray-200'
+                        }`} />
+                        <div className={`h-1 w-full rounded ${
+                          passwordValidation.strength === 'strong' ? 'bg-green-300' : 'bg-gray-200'
+                        }`} />
+                      </div>
+                      <p className={`text-xs ${
+                        passwordValidation.isValid ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        密码要求：8位以上，包含大小写字母和数字
+                      </p>
+                    </div>
+                  )}
+                  
+                  {errors.password && (
+                    <p className="text-sm text-red-600 mt-1" role="alert">
+                      {errors.password}
+                    </p>
+                  )}
+                </div>
+
+                {/* 确认密码 */}
+                <div>
+                  <Label htmlFor="confirm-password">确认密码</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="confirm-password"
+                      name="confirm-password"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => updateFormData('confirmPassword', e.target.value)}
+                      placeholder="请再次输入密码"
+                      className={`pl-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                      autoComplete="new-password"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="done"
+                    />
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-red-600 mt-1" role="alert">
+                      {errors.confirmPassword}
+                    </p>
+                  )}
+                </div>
+
+                {/* Privacy Consent */}
+                <PrivacyConsentCheckbox
+                  checked={privacyConsent}
+                  onCheckedChange={setPrivacyConsent}
+                  error={errors.privacyConsent}
                 />
-              </div>
-              {errors.confirmPassword && (
-                <p className="text-sm text-red-600 mt-1" role="alert">
-                  {errors.confirmPassword}
-                </p>
-              )}
-            </div>
-
-            {/* Privacy Consent */}
-            <PrivacyConsentCheckbox
-              checked={privacyConsent}
-              onCheckedChange={setPrivacyConsent}
-              error={errors.privacyConsent}
-            />
+              </form>
+            )}
           </TabsContent>
         </Tabs>
 
         <DialogFooter>
           <Button 
-            onClick={handleSubmit} 
             disabled={loading}
             className="w-full"
             type="submit"
+            form={activeTab === "login" ? "login-form" : "register-form"}
           >
             {loading ? (
               <>
