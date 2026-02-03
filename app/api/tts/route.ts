@@ -44,12 +44,14 @@ function generateCacheKey(text: string, language: string, voice: string, model: 
 export async function POST(request: NextRequest) {
   let text = ''
   let inflightKey: string | null = null
+  let language = 'en-US'
+  let effectiveSpeed = 1.0
   try {
     const body = await request.json()
     text = body.text
     const speed = body.speed || 1.0
-    const language = body.language || 'en-US'
-    const effectiveSpeed = Number(speed)
+    language = body.language || 'en-US'
+    effectiveSpeed = Number(speed)
 
     if (!text || typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: '文本内容不能为空' }, { status: 400 })
@@ -175,6 +177,16 @@ export async function POST(request: NextRequest) {
       statusCode = 503
       userFacingMessage = 'TTS服务返回了非WAV音频，请稍后重试'
     }
+
+    console.error('TTS request failed', {
+      statusCode,
+      message: rawMessage,
+      normalizedMessage,
+      textLength: typeof text === 'string' ? text.length : null,
+      language,
+      speed: effectiveSpeed,
+      userAgent: request.headers.get('user-agent') ?? undefined,
+    })
 
     return NextResponse.json({
       error: userFacingMessage,
