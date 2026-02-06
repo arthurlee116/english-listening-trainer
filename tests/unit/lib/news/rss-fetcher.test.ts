@@ -85,7 +85,7 @@ describe('rss-fetcher proxy configuration', () => {
     expect((globalThis as any).__rssParserOptions?.requestOptions?.agent).toBe(agentInstance)
   })
 
-  it('includes China Daily, CNBC and CNN RSS sources', async () => {
+  it('includes China Daily, MarketWatch and CNN RSS sources', async () => {
     vi.doMock('https-proxy-agent', () => ({ HttpsProxyAgent: vi.fn() }))
     vi.doMock('rss-parser', () => ({
       default: class ParserMock {
@@ -111,8 +111,8 @@ describe('rss-fetcher proxy configuration', () => {
           category: 'general'
         }),
         expect.objectContaining({
-          name: 'CNBC (Top News)',
-          url: 'https://rsshub.app/cnbc/rss/100003114',
+          name: 'MarketWatch (Top Stories)',
+          url: 'https://feeds.marketwatch.com/marketwatch/topstories/',
           category: 'general'
         }),
         expect.objectContaining({
@@ -141,8 +141,8 @@ describe('rss-fetcher proxy configuration', () => {
           category: 'business'
         }),
         expect.objectContaining({
-          name: 'CNBC (Business)',
-          url: 'https://rsshub.app/cnbc/rss/10001147',
+          name: 'MarketWatch (MarketPulse)',
+          url: 'https://feeds.marketwatch.com/marketwatch/marketpulse/',
           category: 'business'
         })
       ])
