@@ -702,6 +702,14 @@
       "closeButton": {
         "en": "Close",
         "zh": "关闭"
+      },
+      "agreeButton": {
+        "en": "I have read and agree",
+        "zh": "我已阅读并同意"
+      },
+      "reviewAndAgreeButton": {
+        "en": "Review and agree",
+        "zh": "查看并同意"
       }
     }
   },

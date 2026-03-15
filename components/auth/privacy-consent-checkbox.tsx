@@ -21,40 +21,60 @@ export function PrivacyConsentCheckbox({
 }: PrivacyConsentCheckboxProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
 
+  const handleAgree = () => {
+    onCheckedChange(true)
+    setDialogOpen(false)
+  }
+
   return (
     <>
-      <div className="flex items-start space-x-2 pt-2">
+      <div className={`flex items-start rounded-lg border px-3 py-3 ${error ? "border-red-300 bg-red-50/70" : "border-border/60 bg-muted/20"}`}>
         <Checkbox
           id="privacy-consent"
+          data-testid="privacy-consent-checkbox"
           checked={checked}
           onCheckedChange={(c) => onCheckedChange(c as boolean)}
-          className="mt-0.5"
+          className="mt-0.5 h-5 w-5 rounded border-2 border-slate-400 bg-white shadow-sm data-[state=checked]:border-primary data-[state=checked]:bg-primary"
         />
-        <Label htmlFor="privacy-consent" className="text-sm font-normal cursor-pointer flex-1">
-          <span className="flex items-center gap-1 flex-wrap">
-            <BilingualText translationKey="components.authDialog.privacyConsent.checkboxLabel" />
+        <div className="ml-3 flex-1">
+          <Label htmlFor="privacy-consent" className="text-sm font-normal cursor-pointer block">
+            <span className="flex items-center gap-1 flex-wrap">
+              <BilingualText translationKey="components.authDialog.privacyConsent.checkboxLabel" />
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-primary underline text-sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setDialogOpen(true)
+                }}
+              >
+                <BilingualText translationKey="components.authDialog.privacyConsent.privacyLinkText" />
+                <ExternalLink className="w-3 h-3 ml-0.5" />
+              </Button>
+            </span>
+          </Label>
+
+          <div className="mt-2">
             <Button
               type="button"
-              variant="link"
-              className="h-auto p-0 text-primary underline text-sm"
-              onClick={(e) => {
-                e.preventDefault()
-                setDialogOpen(true)
-              }}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => setDialogOpen(true)}
             >
-              <BilingualText translationKey="components.authDialog.privacyConsent.privacyLinkText" />
-              <ExternalLink className="w-3 h-3 ml-0.5" />
+              <BilingualText translationKey="components.authDialog.privacyConsent.reviewAndAgreeButton" />
             </Button>
-          </span>
-        </Label>
+          </div>
+        </div>
       </div>
       {error && (
-        <p className="text-sm text-red-600 mt-1 ml-6" role="alert">
+        <p className="text-sm text-red-600 mt-1 ml-2" role="alert">
           {error}
         </p>
       )}
 
-      <PrivacyContentDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <PrivacyContentDialog open={dialogOpen} onOpenChange={setDialogOpen} onAgree={handleAgree} />
     </>
   )
 }

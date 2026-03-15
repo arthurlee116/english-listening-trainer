@@ -1,16 +1,17 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { PRIVACY_POLICY_VERSION } from "@/lib/constants/privacy"
 
 interface PrivacyContentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onAgree?: () => void
 }
 
-export function PrivacyContentDialog({ open, onOpenChange }: PrivacyContentDialogProps) {
+export function PrivacyContentDialog({ open, onOpenChange, onAgree }: PrivacyContentDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
@@ -18,6 +19,9 @@ export function PrivacyContentDialog({ open, onOpenChange }: PrivacyContentDialo
           <DialogTitle>
             <BilingualText translationKey="components.authDialog.privacyConsent.dialogTitle" />
           </DialogTitle>
+          <DialogDescription>
+            <BilingualText translationKey="components.authDialog.privacyConsent.collectionText" />
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 text-sm mt-4">
@@ -87,11 +91,21 @@ export function PrivacyContentDialog({ open, onOpenChange }: PrivacyContentDialo
             </p>
           </div>
 
-          {/* Close button */}
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => onOpenChange(false)}>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant={onAgree ? "outline" : "default"} onClick={() => onOpenChange(false)}>
               <BilingualText translationKey="components.authDialog.privacyConsent.closeButton" />
             </Button>
+            {onAgree ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  onAgree()
+                  onOpenChange(false)
+                }}
+              >
+                <BilingualText translationKey="components.authDialog.privacyConsent.agreeButton" />
+              </Button>
+            ) : null}
           </div>
         </div>
       </DialogContent>
