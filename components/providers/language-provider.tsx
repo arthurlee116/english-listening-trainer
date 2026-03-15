@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
-import { useAuthState } from '@/hooks/use-auth-state'
+import { useAuth } from '@/components/providers/auth-provider'
 import { toast } from '@/hooks/use-toast'
 
 export type Language = 'zh' | 'en'
@@ -18,7 +18,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const STORAGE_KEY = 'elt.language'
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, checkAuthStatus } = useAuthState()
+  const { user, isAuthenticated, checkAuthStatus } = useAuth()
   const [currentLanguage, setCurrentLanguage] = useState<Language>(() => {
     if (typeof window === 'undefined') return 'zh'
     try {

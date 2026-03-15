@@ -11,6 +11,7 @@ import { clearHistory, deletePracticeNote, getHistory, getPracticeNote, isStorag
 import type { Exercise, FocusArea, DifficultyLevel, ListeningLanguage } from "@/lib/types"
 import type { ExerciseHistoryEntry } from "@/lib/storage"
 import { FOCUS_AREA_LABELS } from "@/lib/types"
+import { LANGUAGE_OPTIONS } from "@/lib/language-config"
 import { useBilingualText } from "@/hooks/use-bilingual-text"
 import { BilingualText } from "@/components/ui/bilingual-text"
 import { useToast } from "@/hooks/use-toast"
@@ -22,6 +23,7 @@ interface HistoryPanelProps {
 }
 
 const PAGE_SIZE = 10
+export const HISTORY_LANGUAGE_OPTIONS = LANGUAGE_OPTIONS
 
 interface PracticeHistorySession {
   id: string
@@ -281,10 +283,11 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
               size="sm"
               onClick={onBack}
               aria-label="Back"
+              data-testid="history-back-button"
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold" data-testid="history-title">
               <BilingualText translationKey="components.historyPanel.practiceHistory" />
             </h2>
             <Badge variant="outline">
@@ -319,7 +322,7 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
       )}
 
       {exercises.length === 0 ? (
-        <Card className="glass-effect p-12 text-center">
+        <Card className="glass-effect p-12 text-center" data-testid="history-empty-state">
           <div className="text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">
@@ -366,10 +369,11 @@ export const HistoryPanel = ({ onBack, onRestore }: HistoryPanelProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("components.historyPanel.allLanguages")}</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="zh">中文</SelectItem>
-                  <SelectItem value="ja">日本語</SelectItem>
-                  <SelectItem value="ko">한국어</SelectItem>
+                  {HISTORY_LANGUAGE_OPTIONS.map((languageOption) => (
+                    <SelectItem key={languageOption.value} value={languageOption.value}>
+                      {languageOption.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               

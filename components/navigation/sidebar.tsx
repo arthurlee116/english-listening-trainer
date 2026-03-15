@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/components/providers/auth-provider'
 import { useBilingualText } from '@/hooks/use-bilingual-text'
-import { useAuthState } from '@/hooks/use-auth-state'
 import { useLanguage } from '@/components/providers/language-provider'
 import { 
   NAVIGATION_SECTIONS, 
@@ -69,7 +69,7 @@ export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>((
   },
   ref,
 ) => {
-  const { user, isAuthenticated } = useAuthState()
+  const { user, isAuthenticated } = useAuth()
   const { t } = useBilingualText()
   const { currentLanguage, switchLanguage } = useLanguage()
   

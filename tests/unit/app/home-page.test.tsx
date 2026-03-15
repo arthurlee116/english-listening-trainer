@@ -17,6 +17,10 @@ vi.mock('@/hooks/use-auth-state', () => ({
   useAuthState: () => mockAuthState,
 }))
 
+vi.mock('@/components/providers/auth-provider', () => ({
+  useAuth: () => mockAuthState,
+}))
+
 vi.mock('@/components/home/authentication-gate', () => ({
   AuthenticationGate: ({ children, ...props }: { children: React.ReactNode }) => (
     <div data-testid="auth-gate" data-props={JSON.stringify(props)}>

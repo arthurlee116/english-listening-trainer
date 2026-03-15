@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Fraunces, IBM_Plex_Sans } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AuthProvider } from '@/components/providers/auth-provider'
 import { LanguageProvider } from '@/components/providers/language-provider'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { SidebarProvider } from '@/components/navigation/sidebar-context'
@@ -54,13 +55,15 @@ const RootLayout = ({
     >
       <body className="font-body antialiased">
         <ThemeProvider>
-          <LanguageProvider>
-            <SidebarProvider>
-              <ErrorBoundary>
-                {children}
-              </ErrorBoundary>
-            </SidebarProvider>
-          </LanguageProvider>
+          <AuthProvider>
+            <LanguageProvider>
+              <SidebarProvider>
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
+              </SidebarProvider>
+            </LanguageProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

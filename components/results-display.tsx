@@ -20,6 +20,28 @@ interface ResultsDisplayProps {
   onRetryWithAdjustedTags?: never
 }
 
+type ExerciseWithStats = Exercise & {
+  accuracy?: number | null
+}
+
+export function getExerciseResultSummary(exercise: ExerciseWithStats) {
+  const correctAnswers = exercise.results.filter(result => result.is_correct).length
+  const totalQuestions = exercise.results.length
+  const storedAccuracy =
+    typeof exercise.accuracy === "number" ? Math.round(exercise.accuracy * 100) : null
+  const accuracy =
+    totalQuestions > 0
+      ? Math.round((correctAnswers / totalQuestions) * 100)
+      : (storedAccuracy ?? 0)
+
+  return {
+    accuracy,
+    correctAnswers,
+    totalQuestions,
+    hasDetailedResults: totalQuestions > 0,
+  }
+}
+
 export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplayProps) => {
   const [showDetails, setShowDetails] = useState(true)
   const [showTranscript, setShowTranscript] = useState(false)
@@ -30,10 +52,8 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
   const [savedNoteText, setSavedNoteText] = useState("")
   const [isNotesEnabled, setIsNotesEnabled] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  
-  const correctAnswers = exercise.results.filter(result => result.is_correct).length
-  const totalQuestions = exercise.results.length
-  const accuracy = Math.round((correctAnswers / totalQuestions) * 100)
+  const { accuracy, correctAnswers, totalQuestions, hasDetailedResults } =
+    getExerciseResultSummary(exercise as ExerciseWithStats)
   
   // Load existing note for this exercise
   useEffect(() => {
@@ -125,9 +145,15 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
           </div>
           
           <div className="flex items-center justify-center gap-4">
-            <Badge className={getAccuracyBadgeColor(accuracy)}>
-              {correctAnswers}/{totalQuestions} {t('components.resultsDisplay.correct')}
-            </Badge>
+            {hasDetailedResults ? (
+              <Badge className={getAccuracyBadgeColor(accuracy)}>
+                {correctAnswers}/{totalQuestions} {t('components.resultsDisplay.correct')}
+              </Badge>
+            ) : (
+              <Badge variant="secondary">
+                {t('components.historyPanel.scoreRecorded')}
+              </Badge>
+            )}
             <Badge variant="outline">
               {t(`common.difficultyLevels.${exercise.difficulty}`)} {t('components.resultsDisplay.level')}
             </Badge>
@@ -173,63 +199,67 @@ export const ResultsDisplay = ({ exercise, onRestart, onExport }: ResultsDisplay
       {showDetails && (
         <Card className="glass-effect p-6">
           <h3 className="text-lg font-semibold mb-4">{t('components.resultsDisplay.answerDetails')}</h3>
-          <div className="space-y-4">
-            {exercise.questions.map((question, index) => {
-              const result = exercise.results[index]
-              const userAnswer = exercise.answers[index] || ""
-              const isCorrect = result?.is_correct || false
-              const questionLabel = t('components.resultsDisplay.question', {
-                values: { number: index + 1 },
-              })
+          {hasDetailedResults ? (
+            <div className="space-y-4">
+              {exercise.questions.map((question, index) => {
+                const result = exercise.results[index]
+                const userAnswer = exercise.answers[index] || ""
+                const isCorrect = result?.is_correct || false
+                const questionLabel = t('components.resultsDisplay.question', {
+                  values: { number: index + 1 },
+                })
 
-              return (
-                <div key={index} className="border rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    {isCorrect ? (
-                      <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-rose-400 mt-0.5 flex-shrink-0" />
-                    )}
-
-                    <div className="flex-1 space-y-2">
-                      <div className="font-medium">
-                        {questionLabel}: {question.question}
-                      </div>
-                      
-                      {question.type === "single" && question.options && (
-                        <div className="text-sm text-gray-600">
-                          {t('components.resultsDisplay.options')}：{question.options.join(" / ")}
-                        </div>
+                return (
+                  <div key={index} className="border rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      {isCorrect ? (
+                        <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-rose-400 mt-0.5 flex-shrink-0" />
                       )}
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-700">{t('components.resultsDisplay.yourAnswer')}：</span>
-                          <span className={isCorrect ? "text-green-600" : "text-red-600"}>
-                            {userAnswer || t('components.resultsDisplay.noAnswer')}
-                          </span>
+
+                      <div className="flex-1 space-y-2">
+                        <div className="font-medium">
+                          {questionLabel}: {question.question}
                         </div>
                         
-                        {!isCorrect && result?.correct_answer && (
+                        {question.type === "single" && question.options && (
+                          <div className="text-sm text-gray-600">
+                            {t('components.resultsDisplay.options')}：{question.options.join(" / ")}
+                          </div>
+                        )}
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                           <div>
-                            <span className="font-medium text-gray-700">{t('components.resultsDisplay.correctAnswer')}：</span>
-                            <span className="text-green-600">{result.correct_answer}</span>
+                            <span className="font-medium text-gray-700">{t('components.resultsDisplay.yourAnswer')}：</span>
+                            <span className={isCorrect ? "text-green-600" : "text-red-600"}>
+                              {userAnswer || t('components.resultsDisplay.noAnswer')}
+                            </span>
+                          </div>
+                          
+                          {!isCorrect && result?.correct_answer && (
+                            <div>
+                              <span className="font-medium text-gray-700">{t('components.resultsDisplay.correctAnswer')}：</span>
+                              <span className="text-green-600">{result.correct_answer}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {question.explanation && (
+                          <div className="text-sm bg-blue-50 p-3 rounded-lg">
+                            <span className="font-medium text-blue-800">{t('components.resultsDisplay.explanation')}：</span>
+                            <span className="text-blue-700">{question.explanation}</span>
                           </div>
                         )}
                       </div>
-                      
-                      {question.explanation && (
-                        <div className="text-sm bg-blue-50 p-3 rounded-lg">
-                          <span className="font-medium text-blue-800">{t('components.resultsDisplay.explanation')}：</span>
-                          <span className="text-blue-700">{question.explanation}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">{t('components.historyPanel.scoreRecorded')}</p>
+          )}
         </Card>
       )}
 

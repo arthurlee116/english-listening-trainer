@@ -118,6 +118,11 @@ describe('AdminPage', () => {
 
     expect(screen.getByText('用户管理系统')).toBeInTheDocument()
     expect(screen.getByText('用户列表 (1)')).toBeInTheDocument()
+    expect(screen.getByText('总用户数')).toBeInTheDocument()
+    expect(screen.getByText('练习总数')).toBeInTheDocument()
+    expect(screen.getByText('活跃用户')).toBeInTheDocument()
+    expect(screen.getByText('平均准确率')).toBeInTheDocument()
+    expect(screen.getByText('70.0%')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: '练习记录' }))
     expect(screen.getByText('最近练习记录')).toBeInTheDocument()

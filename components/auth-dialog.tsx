@@ -26,6 +26,74 @@ interface AuthDialogProps {
   onUserAuthenticated: (user: User, token: string) => void
 }
 
+export interface AuthDialogErrors {
+  email: string
+  password: string
+  name: string
+  confirmPassword: string
+  privacyConsent: string
+  general: string
+}
+
+interface AuthDialogValidationInput {
+  activeTab: "login" | "register"
+  formData: {
+    email: string
+    password: string
+    name: string
+    confirmPassword: string
+  }
+  isValidEmail: boolean
+  passwordValidation: {
+    isValid: boolean
+    errors: string[]
+  }
+  privacyConsent: boolean
+  privacyConsentMessage: string
+}
+
+export function getAuthDialogErrors({
+  activeTab,
+  formData,
+  isValidEmail,
+  passwordValidation,
+  privacyConsent,
+  privacyConsentMessage,
+}: AuthDialogValidationInput): AuthDialogErrors {
+  const newErrors: AuthDialogErrors = {
+    email: "",
+    password: "",
+    name: "",
+    confirmPassword: "",
+    privacyConsent: "",
+    general: ""
+  }
+
+  if (!formData.email) {
+    newErrors.email = "邮箱不能为空"
+  } else if (!isValidEmail) {
+    newErrors.email = "邮箱格式不正确"
+  }
+
+  if (!formData.password) {
+    newErrors.password = "密码不能为空"
+  } else if (activeTab === "register" && !passwordValidation.isValid) {
+    newErrors.password = `密码需要: ${passwordValidation.errors.join('、')}`
+  }
+
+  if (activeTab === "register") {
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "两次输入的密码不一致"
+    }
+
+    if (!privacyConsent) {
+      newErrors.privacyConsent = privacyConsentMessage
+    }
+  }
+
+  return newErrors
+}
+
 const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => {
   const { t } = useBilingualText()
   const [activeTab, setActiveTab] = useState<"login" | "register">("login")
@@ -88,46 +156,14 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
 
   // 验证表单
   const validateForm = useCallback(() => {
-    const newErrors: {
-      email: string
-      password: string
-      name: string
-      confirmPassword: string
-      privacyConsent: string
-      general: string
-    } = {
-      email: "",
-      password: "",
-      name: "",
-      confirmPassword: "",
-      privacyConsent: "",
-      general: ""
-    }
-
-    // 邮箱验证
-    if (!formData.email) {
-      newErrors.email = "邮箱不能为空"
-    } else if (!isValidEmail) {
-      newErrors.email = "邮箱格式不正确"
-    }
-
-    // 密码验证
-    if (!formData.password) {
-      newErrors.password = "密码不能为空"
-    } else if (!passwordValidation.isValid) {
-      newErrors.password = `密码需要: ${passwordValidation.errors.join('、')}`
-    }
-
-    // 注册时的额外验证
-    if (activeTab === "register") {
-      if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = "两次输入的密码不一致"
-      }
-      // 隐私协议验证
-      if (!privacyConsent) {
-        newErrors.privacyConsent = t('components.authDialog.privacyConsent.validationError')
-      }
-    }
+    const newErrors = getAuthDialogErrors({
+      activeTab,
+      formData,
+      isValidEmail,
+      passwordValidation,
+      privacyConsent,
+      privacyConsentMessage: t('components.authDialog.privacyConsent.validationError'),
+    })
 
     setErrors(newErrors)
     return Object.values(newErrors).every(error => !error)
@@ -262,10 +298,10 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full" data-testid="auth-tabs">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">登录</TabsTrigger>
-            <TabsTrigger value="register">注册</TabsTrigger>
+            <TabsTrigger value="login" data-testid="login-tab">登录</TabsTrigger>
+            <TabsTrigger value="register" data-testid="register-tab">注册</TabsTrigger>
           </TabsList>
 
           {/* 通用错误显示 */}
@@ -299,6 +335,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                       spellCheck={false}
                       inputMode="email"
                       enterKeyHint="next"
+                      data-testid="login-email-input"
                     />
                   </div>
                   {errors.email && (
@@ -326,6 +363,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                       autoCorrect="off"
                       spellCheck={false}
                       enterKeyHint="go"
+                      data-testid="login-password-input"
                     />
                     <Button
                       type="button"
@@ -382,6 +420,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                       spellCheck={false}
                       inputMode="email"
                       enterKeyHint="next"
+                      data-testid="register-email-input"
                     />
                   </div>
                   {errors.email && (
@@ -408,6 +447,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                       autoCorrect="off"
                       spellCheck={false}
                       enterKeyHint="next"
+                      data-testid="register-name-input"
                     />
                   </div>
                 </div>
@@ -430,6 +470,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                       autoCorrect="off"
                       spellCheck={false}
                       enterKeyHint="next"
+                      data-testid="register-password-input"
                     />
                     <Button
                       type="button"
@@ -492,6 +533,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
                       autoCorrect="off"
                       spellCheck={false}
                       enterKeyHint="done"
+                      data-testid="register-confirm-password-input"
                     />
                   </div>
                   {errors.confirmPassword && (
@@ -518,6 +560,7 @@ const AuthDialogComponent = ({ open, onUserAuthenticated }: AuthDialogProps) => 
             className="w-full"
             type="submit"
             form={activeTab === "login" ? "login-form" : "register-form"}
+            data-testid={activeTab === "login" ? "login-submit-button" : "register-submit-button"}
           >
             {loading ? (
               <>

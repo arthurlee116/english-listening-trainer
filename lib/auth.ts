@@ -81,7 +81,7 @@ function getNextVersion(): number {
 /**
  * 缓存用户信息，使用版本号
  */
-function cacheUser(user: User, version: number = getNextVersion()): void {
+export function cacheUser(user: User, version: number = getNextVersion()): void {
   const { id, email, name, isAdmin, preferredLanguage, createdAt, updatedAt } = user
   userCache.set(id, {
     user: { id, email, name, isAdmin, preferredLanguage, createdAt, updatedAt },
@@ -410,7 +410,7 @@ export async function requireAdmin(request: NextRequest): Promise<{ user: JWTPay
  * 设置认证 Cookie 选项
  */
 export function getAuthCookieOptions(rememberMe: boolean = false) {
-  const maxAge = rememberMe ? 365 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000 // 记住我：1年，否则1天
+  const maxAge = rememberMe ? 365 * 24 * 60 * 60 : 24 * 60 * 60 // Cookie maxAge uses seconds, not milliseconds
   
   return {
     httpOnly: true,

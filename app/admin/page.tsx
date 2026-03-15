@@ -38,12 +38,12 @@ function downloadCsv(filename: string, csvContent: string) {
   URL.revokeObjectURL(url)
 }
 
-function StatsGrid({ stats: _stats }: { stats: SystemStats }) {
+function StatsGrid({ stats }: { stats: SystemStats }) {
   const cards = [
-    { label: "总用户数", value: 30, icon: <Users className="w-8 h-8 text-blue-500" />, color: "text-blue-600" },
-    { label: "练习总数", value: 371, icon: <BookOpen className="w-8 h-8 text-green-500" />, color: "text-green-600" },
-    { label: "活跃用户", value: 20, icon: <TrendingUp className="w-8 h-8 text-orange-500" />, color: "text-orange-600" },
-    { label: "平均准确率", value: "69.3%", icon: <TrendingUp className="w-8 h-8 text-purple-500" />, color: "text-purple-600" },
+    { label: "总用户数", value: stats.totalUsers, icon: <Users className="w-8 h-8 text-blue-500" />, color: "text-blue-600" },
+    { label: "练习总数", value: stats.totalSessions, icon: <BookOpen className="w-8 h-8 text-green-500" />, color: "text-green-600" },
+    { label: "活跃用户", value: stats.activeUsers, icon: <TrendingUp className="w-8 h-8 text-orange-500" />, color: "text-orange-600" },
+    { label: "平均准确率", value: formatPercent(stats.averageAccuracy), icon: <TrendingUp className="w-8 h-8 text-purple-500" />, color: "text-purple-600" },
   ]
 
   return (

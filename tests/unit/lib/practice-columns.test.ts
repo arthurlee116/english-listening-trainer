@@ -7,9 +7,19 @@ const {
   mockTableHasColumn,
   mockRequireAuth,
   mockValidateLegacyPayload,
-  mockImportLegacySessions
+  mockImportLegacySessions,
+  mockTransaction,
+  mockPracticeSessionCreate,
+  mockPracticeQuestionCreate,
+  mockPracticeAnswerCreate,
 } = vi.hoisted(() => ({
-  mockPrisma: {},
+  mockTransaction: vi.fn(),
+  mockPracticeSessionCreate: vi.fn(),
+  mockPracticeQuestionCreate: vi.fn(),
+  mockPracticeAnswerCreate: vi.fn(),
+  mockPrisma: {
+    $transaction: vi.fn()
+  },
   mockEnsure: vi.fn().mockResolvedValue(false),
   mockTableHasColumn: vi.fn().mockResolvedValue(false),
   mockRequireAuth: vi.fn().mockResolvedValue({ user: { userId: 'user' } }),
@@ -41,6 +51,11 @@ beforeEach(() => {
   mockRequireAuth.mockClear()
   mockValidateLegacyPayload.mockClear()
   mockImportLegacySessions.mockClear()
+  mockTransaction.mockReset()
+  mockPracticeSessionCreate.mockReset()
+  mockPracticeQuestionCreate.mockReset()
+  mockPracticeAnswerCreate.mockReset()
+  mockPrisma.$transaction = mockTransaction
 })
 
 describe('practice schema checks', () => {
@@ -71,4 +86,51 @@ describe('practice schema checks', () => {
 
     expect(mockEnsure).toHaveBeenCalledWith(mockPrisma, 'practice_questions', 'focus_areas', 'TEXT')
   })
+
+  it('preserves zero-valued accuracy, score, and duration when saving a session', async () => {
+    mockEnsure.mockResolvedValue(true)
+    mockPracticeSessionCreate.mockResolvedValue({
+      id: 'session-1',
+      createdAt: new Date('2025-01-01T00:00:00.000Z')
+    })
+    mockTransaction.mockImplementation(async (callback: (tx: typeof txMock) => Promise<unknown>) => {
+      return callback(txMock)
+    })
+
+    const request = new Request('http://localhost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        exerciseData: { transcript: 'hello', questions: [], results: [] },
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'Zero values',
+        accuracy: 0,
+        score: 0,
+        duration: 0
+      })
+    })
+
+    await saveHandler(request as unknown as NextRequest)
+
+    expect(mockPracticeSessionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        accuracy: 0,
+        score: 0,
+        duration: 0
+      })
+    })
+  })
 })
+
+const txMock = {
+  practiceSession: {
+    create: mockPracticeSessionCreate
+  },
+  practiceQuestion: {
+    create: mockPracticeQuestionCreate
+  },
+  practiceAnswer: {
+    create: mockPracticeAnswerCreate
+  }
+}

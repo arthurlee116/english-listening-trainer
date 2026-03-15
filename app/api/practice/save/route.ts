@@ -106,6 +106,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const normalizedAccuracy = typeof accuracy === 'number' ? accuracy : null
+    const normalizedScore = typeof score === 'number' ? score : null
+    const normalizedDuration = typeof duration === 'number' ? duration : null
+
     // 使用事务保存练习记录和题目数据
     const result = await prisma.$transaction(async (tx) => {
       // 保存练习会话
@@ -117,9 +121,9 @@ export async function POST(request: NextRequest) {
           language: language || 'en-US',
           topic,
           transcript: (parsedExerciseData.transcript as string) || '',
-          accuracy: accuracy || null,
-          score: score || null,
-          duration: duration || null
+          accuracy: normalizedAccuracy,
+          score: normalizedScore,
+          duration: normalizedDuration
         }
       })
 

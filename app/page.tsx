@@ -8,11 +8,12 @@
 import { useState, useEffect, useCallback } from "react"
 import { MainApp } from "@/components/main-app"
 import { AuthenticationGate } from "@/components/home/authentication-gate"
-import { useAuthState, type AuthUserInfo } from "@/hooks/use-auth-state"
+import { useAuth } from "@/components/providers/auth-provider"
+import type { AuthUserInfo } from "@/hooks/use-auth-state"
 
 export default function HomePage() {
   const [hasMounted, setHasMounted] = useState(false)
-  const authState = useAuthState()
+  const authState = useAuth()
   const {
     isAuthenticated,
     isLoading,
