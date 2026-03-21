@@ -1,26 +1,35 @@
 import { execSync } from 'child_process'
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-describe('database health (real sqlite)', () => {
-  let tempDir = ''
-  let dbPath = ''
+const postgresDirectUrl =
+  process.env.TEST_DATABASE_URL ||
+  process.env.POSTGRES_URL_NON_POOLING ||
+  process.env.DIRECT_URL
+const hasPostgresTestDb = typeof postgresDirectUrl === 'string' && postgresDirectUrl.startsWith('postgres')
+
+describe.skipIf(!hasPostgresTestDb)('database health (real postgres)', () => {
   let repoRoot = ''
-  let previousDatabaseUrl: string | undefined
+  const previousDatabaseUrl = process.env.DATABASE_URL
+  const previousDirectUrl = process.env.DIRECT_URL
+  const previousPostgresDirectUrl = process.env.POSTGRES_URL_NON_POOLING
   let createdUserId: string | null = null
 
   beforeAll(async () => {
-    previousDatabaseUrl = process.env.DATABASE_URL
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'elt-db-'))
-    dbPath = path.join(tempDir, 'test.db')
-    process.env.DATABASE_URL = `file:${dbPath}`
+    process.env.POSTGRES_URL_NON_POOLING = postgresDirectUrl
+    process.env.DIRECT_URL = postgresDirectUrl
+    process.env.DATABASE_URL = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || postgresDirectUrl
     repoRoot = path.resolve(__dirname, '../..')
 
     execSync('npm run db:sync', {
       cwd: repoRoot,
-      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
+      env: {
+        ...process.env,
+        DATABASE_URL: process.env.DATABASE_URL,
+        DIRECT_URL: process.env.DIRECT_URL,
+        POSTGRES_URL_NON_POOLING: process.env.POSTGRES_URL_NON_POOLING,
+      },
       stdio: 'pipe'
     })
 
@@ -47,9 +56,15 @@ describe('database health (real sqlite)', () => {
     } else {
       process.env.DATABASE_URL = previousDatabaseUrl
     }
-
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true })
+    if (previousDirectUrl === undefined) {
+      delete process.env.DIRECT_URL
+    } else {
+      process.env.DIRECT_URL = previousDirectUrl
+    }
+    if (previousPostgresDirectUrl === undefined) {
+      delete process.env.POSTGRES_URL_NON_POOLING
+    } else {
+      process.env.POSTGRES_URL_NON_POOLING = previousPostgresDirectUrl
     }
   })
 

@@ -460,6 +460,7 @@ export type PreGeneratedTranscriptCreateOrConnectWithoutTopicInput = {
 
 export type PreGeneratedTranscriptCreateManyTopicInputEnvelope = {
   data: Prisma.PreGeneratedTranscriptCreateManyTopicInput | Prisma.PreGeneratedTranscriptCreateManyTopicInput[]
+  skipDuplicates?: boolean
 }
 
 export type PreGeneratedTranscriptUpsertWithWhereUniqueWithoutTopicInput = {
@@ -1212,6 +1213,11 @@ export type PreGeneratedTranscriptFindManyArgs<ExtArgs extends runtime.Types.Ext
    * Skip the first `n` PreGeneratedTranscripts.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of PreGeneratedTranscripts.
+   */
   distinct?: Prisma.PreGeneratedTranscriptScalarFieldEnum | Prisma.PreGeneratedTranscriptScalarFieldEnum[]
 }
 
@@ -1245,6 +1251,7 @@ export type PreGeneratedTranscriptCreateManyArgs<ExtArgs extends runtime.Types.E
    * The data used to create many PreGeneratedTranscripts.
    */
   data: Prisma.PreGeneratedTranscriptCreateManyInput | Prisma.PreGeneratedTranscriptCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1263,6 +1270,7 @@ export type PreGeneratedTranscriptCreateManyAndReturnArgs<ExtArgs extends runtim
    * The data used to create many PreGeneratedTranscripts.
    */
   data: Prisma.PreGeneratedTranscriptCreateManyInput | Prisma.PreGeneratedTranscriptCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

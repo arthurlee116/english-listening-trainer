@@ -15,6 +15,17 @@ describe('together-tts-service', () => {
     vi.resetModules()
     process.env = { ...originalEnv }
     vi.doMock('server-only', () => ({}))
+    vi.doMock('@/lib/audio-storage', () => ({
+      putStoredAudio: vi.fn().mockResolvedValue({
+        storage: 'blob',
+        filename: 'tts_audio_123_abcdefabcdef.wav',
+        pathname: 'audio/tts_audio_123_abcdefabcdef.wav',
+        contentType: 'audio/wav',
+        size: 44,
+        url: 'https://blob.example/audio/tts_audio_123_abcdefabcdef.wav',
+        downloadUrl: 'https://blob.example/audio/tts_audio_123_abcdefabcdef.wav?download=1',
+      }),
+    }))
   })
 
   afterEach(() => {
@@ -51,13 +62,6 @@ describe('together-tts-service', () => {
     })
     vi.doMock('https', () => ({ default: { request } }))
 
-    const mkdir = vi.fn().mockResolvedValue(undefined)
-    const writeFile = vi.fn().mockResolvedValue(undefined)
-    const unlink = vi.fn().mockResolvedValue(undefined)
-    vi.doMock('fs', () => ({
-      default: { promises: { mkdir, writeFile, unlink } }
-    }))
-
     const randomBytes = vi.fn().mockReturnValue(Buffer.from('abcdefabcdef', 'hex'))
     vi.doMock('crypto', () => ({ default: { randomBytes } }))
 
@@ -76,8 +80,7 @@ describe('together-tts-service', () => {
     )
 
     expect(result.filename).toMatch(/^tts_audio_\d+_abcdefabcdef\.wav$/)
-    expect(result.filePath).toMatch(/public[\/\\]audio[\/\\]tts_audio_/)
-    expect(writeFile).toHaveBeenCalledTimes(1)
+    expect(result.blobUrl).toMatch(/^https:\/\/blob\.example\/audio\/tts_audio_/)
   })
 
   it('rejects non-wav content-type even if bytes look like wav', async () => {
@@ -103,9 +106,6 @@ describe('together-tts-service', () => {
     })
     vi.doMock('https', () => ({ default: { request } }))
 
-    vi.doMock('fs', () => ({
-      default: { promises: { mkdir: vi.fn(), writeFile: vi.fn(), unlink: vi.fn() } }
-    }))
     vi.doMock('crypto', () => ({ default: { randomBytes: vi.fn().mockReturnValue(Buffer.from('abcdefabcdef', 'hex')) } }))
 
     const { generateTogetherTtsAudio } = await import('@/lib/together-tts-service')
@@ -119,9 +119,6 @@ describe('together-tts-service', () => {
     process.env.TOGETHER_API_KEY = 'test-key'
 
     vi.doMock('https-proxy-agent', () => ({ HttpsProxyAgent: vi.fn().mockImplementation(() => ({})) }))
-    vi.doMock('fs', () => ({
-      default: { promises: { mkdir: vi.fn(), writeFile: vi.fn(), unlink: vi.fn() } }
-    }))
     vi.doMock('crypto', () => ({ default: { randomBytes: vi.fn().mockReturnValue(Buffer.from('abcdefabcdef', 'hex')) } }))
 
     const wav = makeWavBuffer()
@@ -251,19 +248,11 @@ describe('together-tts-service', () => {
     })
     vi.doMock('https', () => ({ default: { request } }))
 
-    const mkdir = vi.fn().mockResolvedValue(undefined)
-    const writeFile = vi.fn().mockResolvedValue(undefined)
-    const unlink = vi.fn().mockResolvedValue(undefined)
-    vi.doMock('fs', () => ({
-      default: { promises: { mkdir, writeFile, unlink } }
-    }))
     vi.doMock('crypto', () => ({ default: { randomBytes: vi.fn().mockReturnValue(Buffer.from('abcdefabcdef', 'hex')) } }))
 
     const { runTogetherTtsHealthProbe } = await import('@/lib/together-tts-service')
     const result = await runTogetherTtsHealthProbe({ timeoutMs: 1000 })
 
     expect(result.ok).toBe(true)
-    expect(writeFile).toHaveBeenCalledTimes(1)
-    expect(unlink).toHaveBeenCalledTimes(1)
   })
 })

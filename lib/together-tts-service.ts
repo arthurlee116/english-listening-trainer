@@ -2,12 +2,10 @@ import 'server-only'
 
 import crypto from 'crypto'
 import https from 'https'
-import fs from 'fs'
-import path from 'path'
 import { HttpsProxyAgent } from 'https-proxy-agent'
-import { spawn } from 'child_process'
 
 import { detectAudioFormat, getWavAudioMetadata } from './audio-utils'
+import { putStoredAudio, type AudioAssetNamespace } from './audio-storage'
 
 const DEFAULT_BASE_URL = 'https://api.together.xyz/v1'
 const DEFAULT_MODEL = 'hexgrad/Kokoro-82M'
@@ -24,7 +22,7 @@ type TogetherAudioSpeechRequest = {
 
 export type TogetherTtsOutput = {
   filename: string
-  filePath: string
+  blobUrl: string
   duration: number
   byteLength: number
   voiceUsed: string
@@ -228,95 +226,17 @@ async function fetchTogetherWavBytesWithRetry(
   throw lastError instanceof Error ? lastError : new Error(String(lastError))
 }
 
-function resolveAudioDir(): string {
-  return path.join(process.cwd(), 'public', 'audio')
-}
-
-function buildTtsFilename(prefix: 'tts_audio' | 'healthcheck', ext: 'wav' | 'mp3' = 'wav'): string {
+function buildTtsFilename(prefix: 'tts_audio' | 'healthcheck', ext: 'wav' = 'wav'): string {
   const nonce = crypto.randomBytes(6).toString('hex')
   return `${prefix}_${Date.now()}_${nonce}.${ext}`
-}
-
-async function writeAudioFileAtomic(filePath: string, buffer: Buffer): Promise<void> {
-  const fallbackWrite = async () => {
-    await fs.promises.writeFile(filePath, buffer)
-  }
-
-  if (typeof fs.promises.open !== 'function' || typeof fs.promises.rename !== 'function') {
-    await fallbackWrite()
-    return
-  }
-
-  const tmpPath = `${filePath}.tmp`
-  const handle = await fs.promises.open(tmpPath, 'w')
-  let wrote = false
-  try {
-    await handle.writeFile(buffer)
-    await handle.sync()
-    wrote = true
-  } catch (error) {
-    try {
-      await fs.promises.unlink(tmpPath)
-    } catch {
-      // ignore cleanup errors
-    }
-    throw error
-  } finally {
-    await handle.close()
-  }
-
-  if (wrote) {
-    try {
-      await fs.promises.rename(tmpPath, filePath)
-    } catch (error) {
-      try {
-        await fs.promises.unlink(tmpPath)
-      } catch {
-        // ignore cleanup errors
-      }
-      throw error
-    }
-  }
-}
-
-async function transcodeWavToMp3(wavPath: string, mp3Path: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const args = [
-      '-y',
-      '-i',
-      wavPath,
-      '-vn',
-      '-acodec',
-      'libmp3lame',
-      '-b:a',
-      '96k',
-      mp3Path,
-    ]
-    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
-    let stderr = ''
-
-    proc.stderr?.on('data', (chunk) => {
-      stderr += chunk.toString()
-    })
-
-    proc.on('error', (error) => {
-      reject(error)
-    })
-
-    proc.on('close', (code) => {
-      if (code === 0) {
-        resolve()
-        return
-      }
-      reject(new Error(`ffmpeg exited with code ${code ?? 'unknown'}: ${stderr.slice(0, 300)}`))
-    })
-  })
 }
 
 export async function generateTogetherTtsAudio(params: {
   text: string
   voice: string
   timeoutMs?: number
+  namespace?: AudioAssetNamespace
+  filename?: string
 }): Promise<TogetherTtsOutput> {
   const { model } = getTogetherConfig()
 
@@ -327,6 +247,7 @@ export async function generateTogetherTtsAudio(params: {
 
   const voicePreferred = params.voice?.trim() || DEFAULT_VOICE_FALLBACK
   const timeoutMs = Number.isFinite(params.timeoutMs) ? (params.timeoutMs as number) : 60_000
+  const namespace = params.namespace ?? 'audio'
 
   const attempt = async (voice: string) => {
     const payload: TogetherAudioSpeechRequest = {
@@ -361,43 +282,20 @@ export async function generateTogetherTtsAudio(params: {
     voiceUsed = fallback.voice
   }
 
-  const audioDir = resolveAudioDir()
-  await fs.promises.mkdir(audioDir, { recursive: true })
-
-  const wavFilename = buildTtsFilename('tts_audio', 'wav')
-  const wavPath = path.join(audioDir, wavFilename)
-  try {
-    await writeAudioFileAtomic(wavPath, audioBuffer)
-  } catch (error) {
-    try {
-      await fs.promises.unlink(wavPath)
-    } catch {
-      // ignore cleanup errors
-    }
-    throw error
-  }
-
+  const filename = params.filename ?? buildTtsFilename('tts_audio', 'wav')
+  const storedAudio = await putStoredAudio({
+    namespace,
+    filename,
+    buffer: audioBuffer,
+    contentType: 'audio/wav',
+  })
   const duration = getWavAudioMetadata(audioBuffer).duration
-  let filename = wavFilename
-  let filePath = wavPath
   let byteLength = audioBuffer.length
-
-  try {
-    const mp3Filename = buildTtsFilename('tts_audio', 'mp3')
-    const mp3Path = path.join(audioDir, mp3Filename)
-    await transcodeWavToMp3(wavPath, mp3Path)
-    const stats = await fs.promises.stat(mp3Path)
-    filename = mp3Filename
-    filePath = mp3Path
-    byteLength = stats.size
-    await fs.promises.unlink(wavPath)
-  } catch (error) {
-    console.warn('Failed to transcode WAV to MP3, falling back to WAV:', error)
-  }
+  byteLength = storedAudio.size
 
   return {
     filename,
-    filePath,
+    blobUrl: storedAudio.url,
     duration,
     byteLength,
     voiceUsed,
@@ -413,12 +311,6 @@ export async function runTogetherTtsHealthProbe(params?: { timeoutMs?: number })
   const startedAt = Date.now()
   const timeoutMs = Number.isFinite(params?.timeoutMs) ? (params?.timeoutMs as number) : 15_000
 
-  const audioDir = resolveAudioDir()
-  await fs.promises.mkdir(audioDir, { recursive: true })
-
-  const filename = buildTtsFilename('healthcheck', 'wav')
-  const filePath = path.join(audioDir, filename)
-
   try {
     const { model } = getTogetherConfig()
     const payload: TogetherAudioSpeechRequest = {
@@ -431,16 +323,9 @@ export async function runTogetherTtsHealthProbe(params?: { timeoutMs?: number })
 
     const { buffer } = await fetchTogetherWavBytes(payload, timeoutMs)
     assertWavBytes(buffer)
-    await writeAudioFileAtomic(filePath, buffer)
     return { ok: true, latencyMs: Date.now() - startedAt }
   } catch (error) {
     return { ok: false, latencyMs: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) }
-  } finally {
-    try {
-      await fs.promises.unlink(filePath)
-    } catch {
-      // best-effort
-    }
   }
 }
 

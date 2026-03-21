@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: refresh-news-production
+  group: refresh-news-vercel
   cancel-in-progress: false
 
 permissions:
@@ -15,45 +15,27 @@ permissions:
 jobs:
   refresh-news:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     steps:
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add server to known_hosts
+      - name: Trigger Vercel news refresh route
+        env:
+          VERCEL_PRODUCTION_URL: ${{ vars.VERCEL_PRODUCTION_URL }}
+          VERCEL_CRON_SECRET: ${{ secrets.VERCEL_CRON_SECRET }}
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          host="${{ secrets.SSH_HOST }}"
-          port="${{ secrets.SSH_PORT }}"
-          if [ -z "$port" ]; then
-            port=22
+          if [ -z "${VERCEL_PRODUCTION_URL:-}" ]; then
+            echo "VERCEL_PRODUCTION_URL is not set" >&2
+            exit 1
           fi
-          ssh-keyscan -p "$port" -H "$host" >> ~/.ssh/known_hosts
+          if [ -z "${VERCEL_CRON_SECRET:-}" ]; then
+            echo "VERCEL_CRON_SECRET is not set" >&2
+            exit 1
+          fi
 
-      - name: Run news refresh inside app container
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          set -euo pipefail
-          port="${SSH_PORT:-22}"
-          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
-            'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml exec -T app npm run refresh-news'
-
-      - name: Fetch logs on failure
-        if: failure()
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          set -euo pipefail
-          port="${SSH_PORT:-22}"
-          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
-            'sudo docker logs --tail=200 english-listening-trainer-app-1'
+          curl \
+            --connect-timeout 5 \
+            --max-time 120 \
+            -fsS \
+            -H "Authorization: Bearer ${VERCEL_CRON_SECRET}" \
+            "${VERCEL_PRODUCTION_URL}/api/cron/refresh-news"

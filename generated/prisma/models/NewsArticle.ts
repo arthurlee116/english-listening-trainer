@@ -1248,6 +1248,11 @@ export type NewsArticleFindManyArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Skip the first `n` NewsArticles.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of NewsArticles.
+   */
   distinct?: Prisma.NewsArticleScalarFieldEnum | Prisma.NewsArticleScalarFieldEnum[]
 }
 
@@ -1281,6 +1286,7 @@ export type NewsArticleCreateManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * The data used to create many NewsArticles.
    */
   data: Prisma.NewsArticleCreateManyInput | Prisma.NewsArticleCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1299,6 +1305,7 @@ export type NewsArticleCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Ext
    * The data used to create many NewsArticles.
    */
   data: Prisma.NewsArticleCreateManyInput | Prisma.NewsArticleCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

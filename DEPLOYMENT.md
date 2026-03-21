@@ -1,216 +1,131 @@
-# AI Deployment Runbook (Authoritative)
+# Vercel Deployment Runbook (Authoritative)
 
-这份文档是这个仓库的生产部署单一事实来源。别拿 README 猜，按这里来。
+这份文档描述当前的真实生产部署方式：Vercel + Postgres + Blob + GitHub Actions 定时刷新。
 
-## 0. 安全规则
+## 1. 当前生产拓扑
 
-- 不要提交或粘贴真实密钥、`.env.production`、SSH 私钥、代理订阅链接、管理员密码
-- 可以记录服务器 IP / 域名 / 路径
-- 需要真实值时，从服务器读取或问人
+- 应用平台：Vercel
+- 数据库：Neon / Vercel Postgres 风格的托管 Postgres
+- 音频存储：Vercel Blob
+- 定时任务：GitHub Actions 调用 Vercel cron route
+- 文本生成：Cerebras
+- TTS：Together
 
-## 1. 生产现状
+## 2. 关键环境变量
 
-### 服务器
-
-- 提供商/区域：Tencent Cloud, Hong Kong
-- 公网 IP：`43.159.200.246`
-- SSH 用户：`ubuntu`
-- 项目目录：`/srv/leesaitool/english-listening-trainer`
-
-### 域名与反代
-
-- 站点域名：`listen.leesaitool.com`
-- Caddy 路径：`/etc/caddy/Caddyfile`
-- Caddy 负责 TLS，并把流量按 Host 转发到本机容器
-
-### 应用运行方式
-
-- 部署方式：GitHub Actions 推送 `main` 自动部署，或手动 SSH 部署
-- Compose 文件：`/srv/leesaitool/english-listening-trainer/docker-compose.prod.yml`
-- 容器内部端口：`3000`
-- 宿主机映射：`127.0.0.1:3001 -> 3000`
+Vercel 项目至少需要这些变量：
 
 ### 数据库
 
-- 生产数据库：SQLite
-- 宿主机文件：`/srv/leesaitool/english-listening-trainer/prisma/data/app.db`
-- 容器路径：`/app/prisma/data/app.db`
-- 生产必须设置：
+- `DATABASE_URL`
+- `POSTGRES_PRISMA_URL`
+- `POSTGRES_URL_NON_POOLING`
 
-```env
-DATABASE_URL=file:/app/prisma/data/app.db
-```
+### 鉴权 / 应用
 
-### AI / TTS / 代理
+- `JWT_SECRET`
+- `NEXT_PUBLIC_APP_URL`
 
-- 文本生成：Cerebras
-- TTS：Together `hexgrad/Kokoro-82M`
-- 如生产环境需要代理，应用容器通过宿主机代理栈访问外部服务：
+### AI / TTS
 
-```env
-CEREBRAS_PROXY_URL=http://172.19.0.1:10808
-TOGETHER_PROXY_URL=http://172.19.0.1:10808
-```
+- `CEREBRAS_API_KEY`
+- `CEREBRAS_BASE_URL`
+- `AI_TIMEOUT`
+- `AI_MAX_RETRIES`
+- `AI_DEFAULT_MODEL`
+- `AI_DEFAULT_TEMPERATURE`
+- `TOGETHER_API_KEY`
+- `TOGETHER_BASE_URL`
+- `TOGETHER_TTS_MODEL`
+- `TTS_TIMEOUT`
+- `TTS_MAX_CONCURRENT`
+- `TTS_QUEUE_LIMIT`
+- `ENABLE_TTS`
+- `EXA_API_KEY`
 
-代理私密配置在服务器 `/srv/leesaitool/proxy/`，不要写进仓库。
+### Blob / Cron
 
-## 2. 当前部署契约
+- `BLOB_READ_WRITE_TOKEN`
+- `CRON_SECRET`
 
-### 启动顺序
+## 3. 构建与 schema 同步
 
-容器启动时执行：
+Vercel 使用：
+
+- `vercel.json` 中的 `buildCommand: npm run vercel-build`
+
+`vercel-build` 会执行：
 
 1. `npm run db:sync`
-2. `npm run start`
+2. `npm run build`
 
-`db:sync` 会统一做：
+`db:sync` 依赖 `POSTGRES_URL_NON_POOLING` / `DIRECT_URL` / `DATABASE_URL` 中至少一个。
 
-- SQLite URL 规范化
-- 目录创建
-- 预建 DB 文件
-- `prisma db push --accept-data-loss`
+## 4. 健康检查
 
-数据库同步失败时，容器必须直接失败，不能吞错后继续跑应用。
-
-### 健康检查
-
-- 默认探活：`GET /api/health`
+- `GET /api/health`
   - 公共、快速
-  - 只检查进程信息和数据库 readiness
-  - 这是部署 workflow 唯一使用的健康检查
-- 深度诊断：`GET /api/health?mode=deep`
-  - 仅管理员可用
-  - 额外包含 TTS 探针、代理状态、目录状态、内存等信息
+  - 用于部署成功后的 readiness 检查
+- `GET /api/health?mode=deep`
+  - 管理员专用
+  - 用于人工诊断
 
-### 新闻刷新
+## 5. 新闻刷新
 
-应用进程内**不会**自动刷新新闻。
+### 自动刷新
 
-自动刷新来源只有一个：
+`.github/workflows/refresh-news.yml` 每 6 小时执行一次：
 
-- GitHub Actions 工作流：`Refresh News Topics`
+```bash
+curl -H "Authorization: Bearer ${VERCEL_CRON_SECRET}" \
+  "${VERCEL_PRODUCTION_URL}/api/cron/refresh-news"
+```
 
-工作流会 SSH 到服务器，并在运行中的应用容器里执行：
+GitHub 侧需要：
+
+- repo secret: `VERCEL_CRON_SECRET`
+- repo variable: `VERCEL_PRODUCTION_URL`
+
+### 手动刷新
 
 ```bash
 npm run refresh-news
 ```
 
-## 3. 已知坑
-
-### Cerebras Base URL
-
-`CEREBRAS_BASE_URL` 必须是：
-
-```env
-https://api.cerebras.ai
-```
-
-不要带 `/v1`。SDK 自己会拼。
-
-### Prisma 7
-
-`schema.prisma` 里不要写 `datasource.url`，连接串由 `prisma.config.ts` 提供。
-
-### SQLite 数据持久化
-
-数据库必须挂载宿主机目录，别把 DB 留在容器文件系统里。
-
-### 健康检查别做深检
-
-默认 `/api/health` 是 readiness，不应该跑慢探针。深度探针只能放在 `?mode=deep`。
-
-### 新闻刷新不能绑在 import / build 上
-
-任何请求、构建、冷启动都不应该隐式触发刷新；自动刷新只能来自外部调度。
-
-## 4. 生产文件与目录
-
-需要存在这些持久化目录：
+或直接调用：
 
 ```bash
-mkdir -p public/audio public/assessment-audio data logs prisma/data
+curl -H "Authorization: Bearer ${CRON_SECRET}" \
+  https://<your-production-domain>/api/cron/refresh-news
 ```
 
-生产 Compose 挂载：
+## 6. Vercel CLI 部署
 
-- `./prisma/data:/app/prisma/data`
-- `./public/audio:/app/public/audio`
-- `./public/assessment-audio:/app/public/assessment-audio`
-- `./data:/app/data`
-- `./logs:/app/logs`
-
-## 5. 日常部署
-
-### GitHub Actions 自动部署
-
-推送到 `main` 会触发 `.github/workflows/deploy.yml`：
-
-1. SSH 到服务器
-2. `git fetch --all && git reset --hard origin/main`
-3. `docker compose ... up -d --build app`
-4. 用带超时的 `curl` 检查 `https://listen.leesaitool.com/api/health`
-
-### 手动部署
+### Preview
 
 ```bash
-# 1. 同步代码
-ssh ubuntu@43.159.200.246 \
-  'cd /srv/leesaitool/english-listening-trainer && git fetch --all && git reset --hard origin/main'
-
-# 2. 重建并启动
-ssh ubuntu@43.159.200.246 \
-  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build app'
-
-# 3. 探活
-curl --connect-timeout 5 --max-time 15 -fsS https://listen.leesaitool.com/api/health
+vercel deploy -y
 ```
 
-如果你改了环境变量：
+### Production
 
 ```bash
-ssh ubuntu@43.159.200.246 \
-  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --force-recreate --no-deps app'
+vercel deploy --prod -y
 ```
 
-## 6. 新闻刷新
+## 7. 上线后验证
 
-### 手动刷新
-
-```bash
-ssh ubuntu@43.159.200.246 \
-  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml exec -T app npm run refresh-news'
-```
-
-### 自动刷新
-
-- 工作流：`.github/workflows/refresh-news.yml`
-- 频率：每 6 小时一次
-- 也支持 `workflow_dispatch`
-
-## 7. 线上验证清单
-
-### 基础探活
+### 探活
 
 ```bash
-curl --connect-timeout 5 --max-time 15 -fsS https://listen.leesaitool.com/api/health
-```
-
-### 深度诊断
-
-管理员登录后：
-
-```bash
-curl --connect-timeout 5 --max-time 20 -fsS \
-  --cookie "auth-token=<admin-cookie>" \
-  'https://listen.leesaitool.com/api/health?mode=deep'
+curl --connect-timeout 5 --max-time 15 -fsS https://<your-production-domain>/api/health
 ```
 
 ### AI 主题生成
 
 ```bash
 curl --connect-timeout 5 --max-time 30 -fsS \
-  -X POST https://listen.leesaitool.com/api/ai/topics \
+  -X POST https://<your-production-domain>/api/ai/topics \
   -H 'content-type: application/json' \
   -d '{"difficulty":"A2","wordCount":120,"language":"en-US"}'
 ```
@@ -219,44 +134,27 @@ curl --connect-timeout 5 --max-time 30 -fsS \
 
 ```bash
 curl --connect-timeout 5 --max-time 120 -fsS \
-  -X POST https://listen.leesaitool.com/api/tts \
+  -X POST https://<your-production-domain>/api/tts \
   -H 'content-type: application/json' \
-  -d '{"text":"Hello, this is a deployment test.","language":"en-US","speed":1.0}'
+  -d '{"text":"Hello from deployment verification.","language":"en-US","speed":1.0}'
 ```
 
 ### 评估音频
 
 ```bash
-curl --connect-timeout 5 --max-time 30 -fsS https://listen.leesaitool.com/api/assessment-audio/1
+curl --connect-timeout 5 --max-time 30 -fsS https://<your-production-domain>/api/assessment-audio/1
 ```
 
-## 8. 出问题时怎么查
+## 8. 已知平台差异
 
-### 容器日志
+- 不能再依赖本地 SQLite 文件
+- 不能再依赖运行时写 `public/audio` / `public/assessment-audio`
+- 不能再用进程内 `node-cron`
+- 不能再假设存在本机 ffmpeg 可执行文件
 
-```bash
-ssh ubuntu@43.159.200.246 \
-  'sudo docker logs --tail=200 english-listening-trainer-app-1'
-```
+现在这几件事都已经分别迁到：
 
-### 看容器环境变量
-
-```bash
-ssh ubuntu@43.159.200.246 \
-  'sudo docker inspect english-listening-trainer-app-1 --format "{{range .Config.Env}}{{println .}}{{end}}"'
-```
-
-### 验证容器内数据库路径
-
-```bash
-ssh ubuntu@43.159.200.246 \
-  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml exec -T app sh -lc "echo \$DATABASE_URL && ls -lah /app/prisma/data"'
-```
-
-## 9. 仍未解决的外部问题
-
-如果代码已经更新，但 `https://listen.leesaitool.com` 依然超时：
-
-- 先确认 `127.0.0.1:3001` 上应用存活
-- 再检查 Caddy / TLS / Host 路由
-- 这已经不是应用代码问题，是反代链路问题
+- Postgres
+- Blob
+- GitHub Actions / Vercel-friendly cron route
+- Together 直接返回 WAV，再由 Blob 持久化

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLanguageConfig, isLanguageSupported } from '@/lib/language-config'
-import { cleanupOldAudioFiles, ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
+import { ttsRequestLimiter, audioCache } from '@/lib/performance-optimizer'
 import crypto from 'crypto'
 import { generateTogetherTtsAudio, isTogetherTtsError } from '@/lib/together-tts-service'
 
+export const maxDuration = 60
+
 type CachedTtsAudio = {
   filename: string
+  blobUrl: string
   duration: number
   byteLength: number
   voiceUsed: string
@@ -16,7 +19,6 @@ type TtsTask = Promise<Awaited<ReturnType<typeof generateTogetherTtsAudio>>>
 
 const globalForTts = globalThis as typeof globalThis & {
   __ttsInflight?: Map<string, TtsTask>
-  __ttsLastCleanupAt?: number
 }
 
 function getInflightMap() {
@@ -24,15 +26,6 @@ function getInflightMap() {
     globalForTts.__ttsInflight = new Map()
   }
   return globalForTts.__ttsInflight
-}
-
-function shouldRunCleanup(now: number, minIntervalMs: number): boolean {
-  const lastAt = globalForTts.__ttsLastCleanupAt ?? 0
-  if (now - lastAt < minIntervalMs) {
-    return false
-  }
-  globalForTts.__ttsLastCleanupAt = now
-  return true
 }
 
 // 生成音频缓存键（不包含 speed：speed 仅用于前端 playbackRate）
@@ -81,7 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         audioUrl: apiAudioUrl,
-        staticUrl: `/audio/${cachedAudio.filename}`,
+        staticUrl: cachedAudio.blobUrl,
         duration: cachedAudio.duration,
         byteLength: cachedAudio.byteLength,
         cached: true,
@@ -117,6 +110,7 @@ export async function POST(request: NextRequest) {
       cacheKey,
       {
         filename: audioResult.filename,
+        blobUrl: audioResult.blobUrl,
         duration: audioResult.duration,
         byteLength: audioResult.byteLength,
         voiceUsed: audioResult.voiceUsed,
@@ -125,17 +119,12 @@ export async function POST(request: NextRequest) {
       30 * 60 * 1000
     )
 
-    // best-effort cleanup (24h) for public/audio, throttled to reduce IO under load
-    if (shouldRunCleanup(Date.now(), 60 * 60 * 1000)) {
-      void cleanupOldAudioFiles(24 * 60 * 60 * 1000)
-    }
-
     const apiAudioUrl = `/api/audio/${audioResult.filename}`
 
     return NextResponse.json({
       success: true,
       audioUrl: apiAudioUrl,
-      staticUrl: `/audio/${audioResult.filename}`,
+      staticUrl: audioResult.blobUrl,
       duration: audioResult.duration,
       byteLength: audioResult.byteLength,
       cached: false,

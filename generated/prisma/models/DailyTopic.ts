@@ -456,6 +456,7 @@ export type DailyTopicCreateOrConnectWithoutArticleInput = {
 
 export type DailyTopicCreateManyArticleInputEnvelope = {
   data: Prisma.DailyTopicCreateManyArticleInput | Prisma.DailyTopicCreateManyArticleInput[]
+  skipDuplicates?: boolean
 }
 
 export type DailyTopicUpsertWithWhereUniqueWithoutArticleInput = {
@@ -1312,6 +1313,11 @@ export type DailyTopicFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Skip the first `n` DailyTopics.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of DailyTopics.
+   */
   distinct?: Prisma.DailyTopicScalarFieldEnum | Prisma.DailyTopicScalarFieldEnum[]
 }
 
@@ -1345,6 +1351,7 @@ export type DailyTopicCreateManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * The data used to create many DailyTopics.
    */
   data: Prisma.DailyTopicCreateManyInput | Prisma.DailyTopicCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1363,6 +1370,7 @@ export type DailyTopicCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Exte
    * The data used to create many DailyTopics.
    */
   data: Prisma.DailyTopicCreateManyInput | Prisma.DailyTopicCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

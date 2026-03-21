@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { refreshNews, getLastRefreshTime, getNextRefreshTime } from '@/lib/news/scheduler'
 
+export const maxDuration = 60
+
 export async function POST() {
   try {
     const result = await refreshNews()

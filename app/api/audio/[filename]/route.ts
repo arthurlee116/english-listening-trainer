@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stat } from 'fs/promises'
-import { createReadStream, existsSync } from 'fs'
-import path from 'path'
+import { createReadStream } from 'fs'
 import { Readable } from 'stream'
+import { headStoredAudio } from '@/lib/audio-storage'
 
 const AUDIO_HEADERS_BASE = {
   'Accept-Ranges': 'bytes',
@@ -15,6 +15,78 @@ function resolveAudioContentType(filename: string): string {
   return 'audio/wav'
 }
 
+function validateFilename(filename: string): boolean {
+  return filename.startsWith('tts_audio_') && (filename.endsWith('.wav') || filename.endsWith('.mp3'))
+}
+
+async function serveLocalFile(request: NextRequest, localPath: string, filename: string) {
+  const { size: fileSize } = await stat(localPath)
+  const range = request.headers.get('range')
+  const contentType = resolveAudioContentType(filename)
+
+  if (range) {
+    const match = range.match(/bytes=(\d*)-(\d*)/)
+    if (!match) {
+      return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+    }
+
+    const startText = match[1]
+    const endText = match[2]
+
+    let start: number
+    let end: number
+
+    if (!startText && !endText) {
+      return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+    }
+
+    if (!startText && endText) {
+      const suffixLength = parseInt(endText, 10)
+      if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
+        return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
+      }
+      start = Math.max(fileSize - suffixLength, 0)
+      end = fileSize - 1
+    } else {
+      start = parseInt(startText || '0', 10)
+      end = endText ? parseInt(endText, 10) : fileSize - 1
+    }
+
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0 || start >= fileSize) {
+      return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
+    }
+
+    end = Math.min(end, fileSize - 1)
+    if (start > end) {
+      return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
+    }
+
+    const stream = createReadStream(localPath, { start, end })
+    const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
+
+    return new NextResponse(readableStream, {
+      status: 206,
+      headers: {
+        ...AUDIO_HEADERS_BASE,
+        'Content-Type': contentType,
+        'Content-Length': String(end - start + 1),
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      },
+    })
+  }
+
+  const stream = createReadStream(localPath)
+  const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
+  return new NextResponse(readableStream, {
+    status: 200,
+    headers: {
+      ...AUDIO_HEADERS_BASE,
+      'Content-Type': contentType,
+      'Content-Length': String(fileSize),
+    },
+  })
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
@@ -22,126 +94,20 @@ export async function GET(
   try {
     const { filename } = await params
 
-    if (!filename.startsWith('tts_audio_') || (!filename.endsWith('.wav') && !filename.endsWith('.mp3'))) {
+    if (!validateFilename(filename)) {
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
     }
-    
-    const filePath = path.join(process.cwd(), 'public', 'audio', filename)
-    
-    if (!existsSync(filePath)) {
-      console.warn('Audio file not found:', {
-        filename,
-        range: request.headers.get('range'),
-        userAgent: request.headers.get('user-agent'),
-      })
+
+    const asset = await headStoredAudio('audio', filename)
+    if (!asset) {
       return NextResponse.json({ error: 'Audio file not found' }, { status: 404 })
     }
-    
-    const { size: fileSize } = await stat(filePath)
-    const range = request.headers.get('range')
 
-    const contentType = resolveAudioContentType(filename)
-
-    if (range) {
-      const match = range.match(/bytes=(\d*)-(\d*)/)
-      if (!match) {
-        console.warn('Invalid range header:', {
-          filename,
-          range,
-          userAgent: request.headers.get('user-agent'),
-        })
-        return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
-      }
-
-      const startText = match[1]
-      const endText = match[2]
-
-      let start: number
-      let end: number
-
-      if (!startText && !endText) {
-        console.warn('Empty range header:', {
-          filename,
-          range,
-          userAgent: request.headers.get('user-agent'),
-        })
-        return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
-      }
-
-      if (!startText && endText) {
-        const suffixLength = parseInt(endText, 10)
-        if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
-          return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
-        }
-        start = Math.max(fileSize - suffixLength, 0)
-        end = fileSize - 1
-      } else {
-        start = parseInt(startText || '0', 10)
-        end = endText ? parseInt(endText, 10) : fileSize - 1
-      }
-
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0) {
-        console.warn('Invalid range values:', {
-          filename,
-          range,
-          start,
-          end,
-          fileSize,
-          userAgent: request.headers.get('user-agent'),
-        })
-        return NextResponse.json({ error: 'Invalid range' }, { status: 416 })
-      }
-
-      if (start >= fileSize) {
-        console.warn('Range start beyond file size:', {
-          filename,
-          range,
-          start,
-          end,
-          fileSize,
-          userAgent: request.headers.get('user-agent'),
-        })
-        return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
-      }
-
-      end = Math.min(end, fileSize - 1)
-
-      if (start > end) {
-        console.warn('Range start greater than end:', {
-          filename,
-          range,
-          start,
-          end,
-          fileSize,
-          userAgent: request.headers.get('user-agent'),
-        })
-        return NextResponse.json({ error: 'Range not satisfiable' }, { status: 416 })
-      }
-
-      const stream = createReadStream(filePath, { start, end })
-      const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
-
-      return new NextResponse(readableStream, {
-        status: 206,
-        headers: {
-          ...AUDIO_HEADERS_BASE,
-          'Content-Type': contentType,
-          'Content-Length': String(end - start + 1),
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        },
-      })
+    if (asset.storage === 'local' && asset.localPath) {
+      return serveLocalFile(request, asset.localPath, filename)
     }
 
-    const stream = createReadStream(filePath)
-    const readableStream = Readable.toWeb(stream) as ReadableStream<Uint8Array>
-    return new NextResponse(readableStream, {
-      status: 200,
-      headers: {
-        ...AUDIO_HEADERS_BASE,
-        'Content-Type': contentType,
-        'Content-Length': String(fileSize),
-      },
-    })
+    return NextResponse.redirect(asset.url, 307)
   } catch (error) {
     console.error('Error serving audio:', error)
     return NextResponse.json({ error: 'Failed to serve audio' }, { status: 500 })
@@ -160,28 +126,27 @@ export async function OPTIONS() {
 }
 
 export async function HEAD(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
     const { filename } = await params
 
-    if (!filename.startsWith('tts_audio_') || (!filename.endsWith('.wav') && !filename.endsWith('.mp3'))) {
+    if (!validateFilename(filename)) {
       return new NextResponse(null, { status: 400 })
     }
 
-    const filePath = path.join(process.cwd(), 'public', 'audio', filename)
-    if (!existsSync(filePath)) {
+    const asset = await headStoredAudio('audio', filename)
+    if (!asset) {
       return new NextResponse(null, { status: 404 })
     }
 
-    const { size: fileSize } = await stat(filePath)
     return new NextResponse(null, {
       status: 200,
       headers: {
         ...AUDIO_HEADERS_BASE,
-        'Content-Type': resolveAudioContentType(filename),
-        'Content-Length': String(fileSize),
+        'Content-Type': asset.contentType,
+        'Content-Length': String(asset.size),
       },
     })
   } catch (error) {

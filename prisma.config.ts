@@ -1,10 +1,11 @@
-import { config } from 'dotenv'
+import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
-// 加载 .env.local 文件
-config({ path: '.env.local' })
-
-const databaseUrl = process.env.DATABASE_URL || 'file:/app/prisma/data/app.db'
+const prismaCliDatabaseUrl =
+  process.env.POSTGRES_URL_NON_POOLING ||
+  process.env.DIRECT_URL ||
+  process.env.DATABASE_URL ||
+  'postgresql://placeholder:placeholder@localhost:5432/placeholder?sslmode=disable'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -12,6 +13,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: databaseUrl,
+    url: prismaCliDatabaseUrl,
   },
 })

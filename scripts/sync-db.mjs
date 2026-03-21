@@ -1,43 +1,6 @@
 #!/usr/bin/env node
 
-import fs from 'fs'
-import path from 'path'
 import { spawnSync } from 'child_process'
-
-function normalizeSqliteUrl(rawUrl) {
-  if (!rawUrl || !rawUrl.startsWith('file:')) {
-    return rawUrl
-  }
-
-  const filePath = rawUrl.slice('file:'.length)
-  if (!filePath) {
-    return rawUrl
-  }
-
-  if (path.isAbsolute(filePath)) {
-    return `file:${filePath}`
-  }
-
-  return `file:${path.resolve(process.cwd(), filePath)}`
-}
-
-function ensureSqliteFile(sqliteUrl) {
-  if (!sqliteUrl || !sqliteUrl.startsWith('file:')) {
-    return
-  }
-
-  const filePath = sqliteUrl.slice('file:'.length)
-  if (!filePath) {
-    return
-  }
-
-  const directory = path.dirname(filePath)
-  fs.mkdirSync(directory, { recursive: true })
-
-  if (!fs.existsSync(filePath)) {
-    fs.closeSync(fs.openSync(filePath, 'a'))
-  }
-}
 
 function runPrismaDbPush(databaseUrl) {
   const result = spawnSync(
@@ -66,15 +29,18 @@ function runPrismaDbPush(databaseUrl) {
 }
 
 try {
-  const rawDatabaseUrl = process.env.DATABASE_URL || 'file:/app/prisma/data/app.db'
-  const databaseUrl = normalizeSqliteUrl(rawDatabaseUrl)
+  const databaseUrl =
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DIRECT_URL ||
+    process.env.DATABASE_URL
 
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required')
+    throw new Error('POSTGRES_URL_NON_POOLING, DIRECT_URL, or DATABASE_URL is required')
   }
 
-  process.env.DATABASE_URL = databaseUrl
-  ensureSqliteFile(databaseUrl)
+  process.env.POSTGRES_URL_NON_POOLING = process.env.POSTGRES_URL_NON_POOLING || databaseUrl
+  process.env.DIRECT_URL = process.env.DIRECT_URL || databaseUrl
+  process.env.DATABASE_URL = process.env.DATABASE_URL || databaseUrl
   runPrismaDbPush(databaseUrl)
 } catch (error) {
   console.error('[sync-db] Failed to synchronize database schema:', error)

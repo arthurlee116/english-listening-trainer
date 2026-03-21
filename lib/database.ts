@@ -1,90 +1,44 @@
 /**
- * 数据库连接管理和错误处理工具
- * 提供统一的数据库操作接口和错误处理机制
+ * Database utilities for Prisma + Postgres/Neon on Vercel.
+ * The runtime uses a pooled URL when available, while Prisma CLI uses the
+ * direct URL configured in prisma.config.ts for schema operations.
  */
 
-import fs from 'fs'
-import path from 'path'
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { neonConfig } from '@neondatabase/serverless'
+import { PrismaNeon } from '@prisma/adapter-neon'
 import { PrismaClient } from '@/generated/prisma/client'
+import ws from 'ws'
 
-function normalizeSqliteUrl(rawUrl: string | undefined): string | undefined {
-  if (!rawUrl || !rawUrl.startsWith('file:')) return rawUrl
+neonConfig.webSocketConstructor = ws
 
-  const filePath = rawUrl.slice('file:'.length)
-  const needsResolve = filePath.startsWith('./') || filePath.startsWith('../')
-  const resolvedPath = needsResolve ? path.resolve(process.cwd(), filePath) : filePath
+const PLACEHOLDER_DATABASE_URL =
+  'postgresql://placeholder:placeholder@localhost:5432/placeholder?sslmode=disable'
 
-  if (resolvedPath !== filePath) {
-    return `file:${resolvedPath}`
-  }
-
-  return rawUrl
-}
-
-function ensureSqliteDirectory(sqliteUrl: string | undefined): void {
-  if (!sqliteUrl || !sqliteUrl.startsWith('file:')) return
-
-  const filePath = sqliteUrl.slice('file:'.length)
-  const directory = path.dirname(filePath)
-
-  if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory, { recursive: true })
-  }
-}
-
-const normalizedUrl = normalizeSqliteUrl(process.env.DATABASE_URL)
-if (normalizedUrl) {
-  process.env.DATABASE_URL = normalizedUrl
-  ensureSqliteDirectory(normalizedUrl)
+function getRuntimeDatabaseUrl(): string {
+  return (
+    process.env.POSTGRES_PRISMA_URL?.trim() ||
+    process.env.DATABASE_URL?.trim() ||
+    process.env.POSTGRES_URL?.trim() ||
+    PLACEHOLDER_DATABASE_URL
+  )
 }
 
 type GlobalWithPrisma = typeof globalThis & { __eltPrisma?: PrismaClient }
 
 const globalForPrisma = globalThis as GlobalWithPrisma
 
-// 初始化 Prisma 客户端
 function initPrisma(): PrismaClient {
-  // 从 DATABASE_URL 获取 SQLite 文件路径
-  const dbUrl = process.env.DATABASE_URL || 'file:./data/app.db'
-  ensureSqliteDirectory(dbUrl)
+  const adapter = new PrismaNeon({
+    connectionString: getRuntimeDatabaseUrl(),
+  })
 
-  const adapter = new PrismaBetterSqlite3({ url: dbUrl })
-  
-  const client = new PrismaClient({
+  return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
     errorFormat: 'pretty',
   })
-
-  // 预热数据库连接并设置 SQLite 日志模式
-  void client.$connect()
-    .then(async () => {
-      try {
-        const journalMode = (process.env.SQLITE_JOURNAL_MODE || 'WAL').toUpperCase()
-        const allowedModes = new Set([
-          'WAL',
-          'DELETE',
-          'TRUNCATE',
-          'PERSIST',
-          'MEMORY',
-          'OFF',
-        ])
-        const safeMode = allowedModes.has(journalMode) ? journalMode : 'WAL'
-        await client.$queryRawUnsafe(`PRAGMA journal_mode=${safeMode};`)
-        await client.$queryRawUnsafe('PRAGMA busy_timeout = 5000;')
-      } catch (pragmaError) {
-        console.warn('Failed to apply SQLite pragmas:', pragmaError)
-      }
-    })
-    .catch((connectionError) => {
-      console.error('Prisma preconnect failed:', connectionError)
-    })
-
-  return client
 }
 
-// 获取 Prisma 客户端单例
 export function getPrismaClient(): PrismaClient {
   if (!globalForPrisma.__eltPrisma) {
     globalForPrisma.__eltPrisma = initPrisma()
@@ -110,10 +64,21 @@ export async function tableHasColumn(
   }
 
   try {
-    const rows = await client.$queryRawUnsafe<Array<{ name?: string }>>(
-      `PRAGMA table_info('${table}')`
+    const rows = await client.$queryRawUnsafe<Array<{ exists?: boolean }>>(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = $1
+            AND column_name = $2
+        ) AS "exists"
+      `,
+      table,
+      column,
     )
-    const exists = rows.some(row => row?.name === column)
+
+    const exists = Boolean(rows[0]?.exists)
     schemaColumnCache.set(cacheKey, exists)
     return exists
   } catch (error) {
@@ -150,7 +115,11 @@ export async function ensureTableColumn(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    if (message.includes('duplicate column name') || message.includes('already exists')) {
+    if (
+      message.includes('already exists') ||
+      message.includes('duplicate column') ||
+      message.includes('42701')
+    ) {
       schemaColumnCache.set(`${table}.${column}`, true)
       return true
     }
@@ -160,10 +129,6 @@ export async function ensureTableColumn(
   }
 }
 
-/**
- * 数据库操作包装器
- * 提供统一的错误处理和重试机制
- */
 export async function withDatabase<T>(
   operation: (prisma: PrismaClient) => Promise<T>,
   operationName: string = 'database operation'
@@ -171,24 +136,21 @@ export async function withDatabase<T>(
   const client = getPrismaClient()
   let attempts = 0
   const maxRetries = 3
-  const retryDelay = 1000 // 1秒
+  const retryDelay = 1000
 
   while (attempts < maxRetries) {
     try {
-      const result = await operation(client)
-      return result
+      return await operation(client)
     } catch (error) {
       attempts++
       console.error(`${operationName} failed (attempt ${attempts}/${maxRetries}):`, error)
 
-      // 检查是否是可以重试的错误
       if (attempts < maxRetries && isRetriableError(error)) {
         console.log(`Retrying ${operationName} in ${retryDelay}ms...`)
-        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        await new Promise((resolve) => setTimeout(resolve, retryDelay))
         continue
       }
 
-      // 抛出格式化的错误
       throw formatDatabaseError(error, operationName)
     }
   }
@@ -196,35 +158,30 @@ export async function withDatabase<T>(
   throw new Error(`${operationName} failed after ${maxRetries} attempts`)
 }
 
-/**
- * 检查是否是可重试的错误
- */
 function isRetriableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
 
   const retriableErrors = [
     'ECONNREFUSED',
-    'ENOTFOUND', 
+    'ENOTFOUND',
     'ETIMEDOUT',
     'ECONNRESET',
-    'database is locked'
+    'server closed the connection unexpectedly',
+    'too many connections',
+    'connection terminated unexpectedly',
   ]
 
-  return retriableErrors.some(retriableError => 
-    error.message.includes(retriableError)
+  return retriableErrors.some((retriableError) =>
+    error.message.toLowerCase().includes(retriableError.toLowerCase())
   )
 }
 
-/**
- * 格式化数据库错误消息
- */
 function formatDatabaseError(error: unknown, operationName: string): Error {
   if (!(error instanceof Error)) {
     return new Error(`${operationName} failed with unknown error`)
   }
 
-  // Prisma 特定错误处理
-  if (error.message.includes('Unique constraint failed')) {
+  if (error.message.includes('Unique constraint failed') || error.message.includes('unique constraint')) {
     return new Error('该记录已存在，请检查重复数据')
   }
 
@@ -236,26 +193,21 @@ function formatDatabaseError(error: unknown, operationName: string): Error {
     return new Error('要更新的记录不存在')
   }
 
-  if (error.message.includes('Foreign key constraint failed')) {
+  if (error.message.includes('Foreign key constraint failed') || error.message.includes('foreign key')) {
     return new Error('数据关联错误，无法执行该操作')
   }
 
-  if (error.message.includes('database is locked')) {
-    return new Error('数据库忙碌，请稍后重试')
-  }
-
-  // 连接错误
-  if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
+  if (
+    error.message.includes('ECONNREFUSED') ||
+    error.message.includes('ENOTFOUND') ||
+    error.message.includes('connection')
+  ) {
     return new Error('数据库连接失败，请检查网络连接')
   }
 
-  // 默认错误消息
   return new Error(`${operationName} failed: ${error.message}`)
 }
 
-/**
- * 数据库健康检查
- */
 export async function checkDatabaseHealth(): Promise<{ healthy: boolean; message: string }> {
   try {
     const client = getPrismaClient()
@@ -263,16 +215,13 @@ export async function checkDatabaseHealth(): Promise<{ healthy: boolean; message
     return { healthy: true, message: 'Database connection is healthy' }
   } catch (error) {
     console.error('Database health check failed:', error)
-    return { 
-      healthy: false, 
-      message: error instanceof Error ? error.message : 'Database connection failed' 
+    return {
+      healthy: false,
+      message: error instanceof Error ? error.message : 'Database connection failed'
     }
   }
 }
 
-/**
- * 批量操作工具
- */
 export class BatchOperations<T> {
   private operations: Array<() => Promise<T>> = []
   private batchSize = 100
@@ -288,38 +237,32 @@ export class BatchOperations<T> {
 
   async execute(): Promise<(T | Error)[]> {
     const results: (T | Error)[] = []
-    
+
     for (let i = 0; i < this.operations.length; i += this.batchSize) {
       const batch = this.operations.slice(i, i + this.batchSize)
-      const batchResults = await Promise.allSettled(
-        batch.map(op => op())
+      const batchResults = await Promise.allSettled(batch.map((op) => op()))
+
+      results.push(
+        ...batchResults.map((result) => {
+          if (result.status === 'fulfilled') {
+            return result.value
+          }
+          if (result.reason instanceof Error) {
+            return result.reason
+          }
+          return new Error(String(result.reason))
+        }),
       )
-      
-      results.push(...batchResults.map(result => {
-        if (result.status === 'fulfilled') {
-          return result.value
-        }
-        // 确保 reason 是一个 Error 对象
-        if (result.reason instanceof Error) {
-          return result.reason
-        }
-        return new Error(String(result.reason))
-      }))
     }
-    
+
     return results
   }
 }
 
-/**
- * 数据库清理工具
- * 清理过期数据和孤儿记录
- */
 export async function cleanupDatabase(): Promise<void> {
   await withDatabase(async (prisma) => {
-    // 清理超过30天的练习数据（可配置）
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    
+
     const deletedCount = await prisma.practiceSession.deleteMany({
       where: {
         createdAt: {
@@ -327,18 +270,15 @@ export async function cleanupDatabase(): Promise<void> {
         }
       }
     })
-    
+
     console.log(`Cleaned up ${deletedCount.count} old practice sessions`)
   }, 'cleanup database')
 }
 
-/**
- * 优化查询构建器
- */
 export class QueryBuilder {
   static getUserPracticeSessions(userId: string, page: number = 1, limit: number = 10) {
     const offset = (page - 1) * limit
-    
+
     return {
       where: { userId },
       orderBy: { createdAt: 'desc' as const },
@@ -389,9 +329,8 @@ export class QueryBuilder {
   }
 }
 
-// 优雅关闭处理
 process.on('beforeExit', async () => {
-  const prisma = getPrismaClient()
+  const prisma = globalForPrisma.__eltPrisma
   if (prisma) {
     await prisma.$disconnect()
   }
@@ -400,12 +339,12 @@ process.on('beforeExit', async () => {
 if (!(globalThis as Record<string, unknown>).__dbSignalHandlersRegistered) {
   (globalThis as Record<string, unknown>).__dbSignalHandlersRegistered = true
   process.on('SIGINT', async () => {
-    const prisma = getPrismaClient()
+    const prisma = globalForPrisma.__eltPrisma
     if (prisma) await prisma.$disconnect()
     process.exit(0)
   })
   process.on('SIGTERM', async () => {
-    const prisma = getPrismaClient()
+    const prisma = globalForPrisma.__eltPrisma
     if (prisma) await prisma.$disconnect()
     process.exit(0)
   })

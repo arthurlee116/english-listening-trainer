@@ -480,6 +480,7 @@ export type PracticeAnswerCreateOrConnectWithoutQuestionInput = {
 
 export type PracticeAnswerCreateManyQuestionInputEnvelope = {
   data: Prisma.PracticeAnswerCreateManyQuestionInput | Prisma.PracticeAnswerCreateManyQuestionInput[]
+  skipDuplicates?: boolean
 }
 
 export type PracticeAnswerUpsertWithWhereUniqueWithoutQuestionInput = {
@@ -1265,6 +1266,11 @@ export type PracticeAnswerFindManyArgs<ExtArgs extends runtime.Types.Extensions.
    * Skip the first `n` PracticeAnswers.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of PracticeAnswers.
+   */
   distinct?: Prisma.PracticeAnswerScalarFieldEnum | Prisma.PracticeAnswerScalarFieldEnum[]
 }
 
@@ -1298,6 +1304,7 @@ export type PracticeAnswerCreateManyArgs<ExtArgs extends runtime.Types.Extension
    * The data used to create many PracticeAnswers.
    */
   data: Prisma.PracticeAnswerCreateManyInput | Prisma.PracticeAnswerCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1316,6 +1323,7 @@ export type PracticeAnswerCreateManyAndReturnArgs<ExtArgs extends runtime.Types.
    * The data used to create many PracticeAnswers.
    */
   data: Prisma.PracticeAnswerCreateManyInput | Prisma.PracticeAnswerCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

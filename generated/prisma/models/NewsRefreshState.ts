@@ -926,6 +926,11 @@ export type NewsRefreshStateFindManyArgs<ExtArgs extends runtime.Types.Extension
    * Skip the first `n` NewsRefreshStates.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of NewsRefreshStates.
+   */
   distinct?: Prisma.NewsRefreshStateScalarFieldEnum | Prisma.NewsRefreshStateScalarFieldEnum[]
 }
 
@@ -955,6 +960,7 @@ export type NewsRefreshStateCreateManyArgs<ExtArgs extends runtime.Types.Extensi
    * The data used to create many NewsRefreshStates.
    */
   data: Prisma.NewsRefreshStateCreateManyInput | Prisma.NewsRefreshStateCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -973,6 +979,7 @@ export type NewsRefreshStateCreateManyAndReturnArgs<ExtArgs extends runtime.Type
    * The data used to create many NewsRefreshStates.
    */
   data: Prisma.NewsRefreshStateCreateManyInput | Prisma.NewsRefreshStateCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

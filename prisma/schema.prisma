@@ -1,14 +1,13 @@
 // Prisma Schema - 英语听力训练应用 (用户认证版本)
-// 支持多数据库适配器: SQLite, PostgreSQL, MySQL
+// Runtime target: Postgres/Neon on Vercel
 
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
 }
 
-// 数据库配置 - 根据 DATABASE_URL 自动检测数据库类型
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ==========================================
