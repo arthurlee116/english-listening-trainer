@@ -69,17 +69,38 @@ export function mergeHistoryEntries({
   const merged: ExerciseHistoryEntry[] = []
   const seen = new Set<string>()
 
-  const normalizeKey = (entry: ExerciseHistoryEntry): string => {
-    // 使用主题和创建时间（容差10秒）作为匹配键，以识别本地与服务器同步后的同一条记录
-    // 这样 serverHistory (先处理) 会占位，后续重复的 localHistory 会被去重
-    const time = Math.floor(new Date(entry.createdAt).getTime() / 10000) // 10秒容差
-    return `match:${entry.topic}-${time}`
+  const normalizeFallback = (entry: ExerciseHistoryEntry): string => {
+    return [
+      'fallback',
+      entry.topic,
+      entry.difficulty,
+      entry.language,
+      entry.createdAt,
+      String(entry.questions.length),
+      String(entry.results.length),
+      String(entry.transcript.length),
+    ].join(':')
+  }
+
+  const getIdentityKeys = (entry: ExerciseHistoryEntry): string[] => {
+    const keys: string[] = []
+
+    if (entry.sessionId) {
+      keys.push(`session:${entry.sessionId}`)
+    }
+
+    if (entry.id) {
+      keys.push(`exercise:${entry.id}`)
+    }
+
+    keys.push(normalizeFallback(entry))
+    return keys
   }
 
   const addEntry = (entry: ExerciseHistoryEntry) => {
-    const key = normalizeKey(entry)
-    if (seen.has(key)) return
-    seen.add(key)
+    const keys = getIdentityKeys(entry)
+    if (keys.some((key) => seen.has(key))) return
+    keys.forEach((key) => seen.add(key))
     merged.push(entry)
   }
 

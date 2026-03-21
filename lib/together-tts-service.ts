@@ -192,6 +192,9 @@ async function fetchTogetherWavBytes(payload: TogetherAudioSpeechRequest, timeou
       })
     }
 
+    globalForTogether.__togetherProxyLastFailure = undefined
+    globalForTogether.__togetherProxyLastCheckedAt = Date.now()
+
     return { buffer: buffer.body, contentType, requestId }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

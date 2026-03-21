@@ -6,9 +6,7 @@ export { processAndStoreNews, getActiveTopics, cleanupExpiredData } from './news
 
 export { generateTranscriptsForTopic, generateAllPendingTranscripts, getTranscript } from './transcript-generator'
 
-export { refreshNews, shouldRefresh, initScheduler, getLastRefreshTime, getNextRefreshTime, isCurrentlyRefreshing } from './scheduler'
+export { refreshNews, shouldRefresh, getLastRefreshTime, getNextRefreshTime, isCurrentlyRefreshing } from './scheduler'
 
 export { searchNewsForTopic, buildEnhancedTranscriptPrompt } from './exa-search'
 export type { NewsEnhancementResult } from './exa-search'
-
-export { initNewsSystem } from './init'

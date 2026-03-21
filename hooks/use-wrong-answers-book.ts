@@ -1,11 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useBatchProcessing } from "@/hooks/use-batch-processing"
-import { aiAnalysisConcurrency } from "@/lib/concurrency-service"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ExportService } from "@/lib/export-service"
 import type { AIAnalysisResponse, WrongAnswerItem } from "@/lib/types"
 import { AnalysisState } from "@/components/ai-analysis-card"
+import type { BatchResult, QueueStatus } from "@/lib/concurrency-service"
 
 interface WrongAnswersResponse {
   wrongAnswers: WrongAnswerItem[]
@@ -31,6 +30,17 @@ const DEFAULT_FILTERS: WrongAnswerFilters = {
   type: "all",
 }
 
+const WRONG_ANSWERS_PAGE_SIZE = 100
+const ANALYZE_BATCH_LIMIT = 100
+
+const EMPTY_STATUS: QueueStatus = {
+  pending: 0,
+  active: 0,
+  completed: 0,
+  failed: 0,
+  total: 0,
+}
+
 export function useWrongAnswersBook() {
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswerItem[]>([])
   const [filteredAnswers, setFilteredAnswers] = useState<WrongAnswerItem[]>([])
@@ -39,8 +49,25 @@ export function useWrongAnswersBook() {
   const [error, setError] = useState<string | null>(null)
   const [analysisStates, setAnalysisStates] = useState<Map<string, AnalysisState>>(new Map())
   const [exporting, setExporting] = useState(false)
+  const [batchState, setBatchState] = useState<{
+    isProcessing: boolean
+    progress: number
+    status: QueueStatus
+    results: BatchResult<AIAnalysisResponse, WrongAnswerItem> | null
+    error: string | null
+  }>({
+    isProcessing: false,
+    progress: 0,
+    status: EMPTY_STATUS,
+    results: null,
+    error: null,
+  })
+  const batchAbortRef = useRef<AbortController | null>(null)
+  const batchCancelledRef = useRef(false)
 
-  const batchProcessor = useBatchProcessing(aiAnalysisConcurrency)
+  const updateBatchState = useCallback((updates: Partial<typeof batchState>) => {
+    setBatchState((prev) => ({ ...prev, ...updates }))
+  }, [])
 
   const setFilter = useCallback(<K extends keyof WrongAnswerFilters>(key: K, value: WrongAnswerFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -56,23 +83,34 @@ export function useWrongAnswersBook() {
       if (filters.difficulty !== "all") params.append("difficulty", filters.difficulty)
       if (filters.language !== "all") params.append("language", filters.language)
       if (filters.type !== "all") params.append("type", filters.type)
-      params.append("limit", "100")
+      params.append("limit", String(WRONG_ANSWERS_PAGE_SIZE))
 
-      const response = await fetch(`/api/wrong-answers/list?${params.toString()}`)
-      if (!response || typeof (response as Response).ok !== "boolean") {
-        throw new Error("Invalid response from wrong answers API")
+      const allWrongAnswers: WrongAnswerItem[] = []
+      let page = 1
+      let hasMore = true
+
+      while (hasMore) {
+        params.set("page", String(page))
+        const response = await fetch(`/api/wrong-answers/list?${params.toString()}`)
+        if (!response || typeof (response as Response).ok !== "boolean") {
+          throw new Error("Invalid response from wrong answers API")
+        }
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch wrong answers")
+        }
+
+        const data: WrongAnswersResponse = await response.json()
+        allWrongAnswers.push(...data.wrongAnswers)
+        hasMore = Boolean(data.pagination?.hasMore)
+        page += 1
       }
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch wrong answers")
-      }
-
-      const data: WrongAnswersResponse = await response.json()
-      setWrongAnswers(data.wrongAnswers)
-      setFilteredAnswers(data.wrongAnswers)
+      setWrongAnswers(allWrongAnswers)
+      setFilteredAnswers(allWrongAnswers)
 
       const newAnalysisStates = new Map<string, AnalysisState>()
-      data.wrongAnswers.forEach((item) => {
+      allWrongAnswers.forEach((item) => {
         if (item.answer.aiAnalysis) {
           newAnalysisStates.set(item.answerId, AnalysisState.SUCCESS)
         } else {
@@ -95,6 +133,29 @@ export function useWrongAnswersBook() {
 
     return () => clearTimeout(timeoutId)
   }, [filters.searchTerm, filters.difficulty, filters.language, filters.type, refresh])
+
+  const applyAnalysisResult = useCallback((answerId: string, analysisResult: AIAnalysisResponse) => {
+    const generatedAt = new Date().toISOString()
+
+    const applyUpdate = (items: WrongAnswerItem[]) =>
+      items.map((item) =>
+        item.answerId === answerId
+          ? {
+              ...item,
+              answer: {
+                ...item.answer,
+                aiAnalysis: analysisResult,
+                aiAnalysisGeneratedAt: generatedAt,
+                needsAnalysis: false,
+              },
+            }
+          : item,
+      )
+
+    setWrongAnswers((prev) => applyUpdate(prev))
+    setFilteredAnswers((prev) => applyUpdate(prev))
+    setAnalysisStates((prev) => new Map(prev).set(answerId, AnalysisState.SUCCESS))
+  }, [])
 
   const handleGenerateAnalysis = useCallback(async (answerId: string) => {
     const item = wrongAnswers.find((w) => w.answerId === answerId)
@@ -137,44 +198,12 @@ export function useWrongAnswersBook() {
         throw new Error("Missing analysis in API response")
       }
 
-      setWrongAnswers((prev) =>
-        prev.map((w) =>
-          w.answerId === answerId
-            ? {
-                ...w,
-                answer: {
-                  ...w.answer,
-                  aiAnalysis: analysisResult,
-                  aiAnalysisGeneratedAt: new Date().toISOString(),
-                  needsAnalysis: false,
-                },
-              }
-            : w,
-        ),
-      )
-
-      setFilteredAnswers((prev) =>
-        prev.map((w) =>
-          w.answerId === answerId
-            ? {
-                ...w,
-                answer: {
-                  ...w.answer,
-                  aiAnalysis: analysisResult,
-                  aiAnalysisGeneratedAt: new Date().toISOString(),
-                  needsAnalysis: false,
-                },
-              }
-            : w,
-        ),
-      )
-
-      setAnalysisStates((prev) => new Map(prev).set(answerId, AnalysisState.SUCCESS))
+      applyAnalysisResult(answerId, analysisResult)
     } catch (err) {
       console.error("Error generating AI analysis:", err)
       setAnalysisStates((prev) => new Map(prev).set(answerId, AnalysisState.ERROR))
     }
-  }, [wrongAnswers])
+  }, [applyAnalysisResult, wrongAnswers])
 
   const handleRetryAnalysis = useCallback((answerId: string) => {
     handleGenerateAnalysis(answerId)
@@ -188,114 +217,237 @@ export function useWrongAnswersBook() {
     [analysisStates, filteredAnswers],
   )
 
+  const restorePendingAnalysisStates = useCallback((items: WrongAnswerItem[]) => {
+    setAnalysisStates((prev) => {
+      const next = new Map(prev)
+      items.forEach((item) => {
+        if (next.get(item.answerId) === AnalysisState.LOADING) {
+          next.set(item.answerId, AnalysisState.NOT_GENERATED)
+        }
+      })
+      return next
+    })
+  }, [])
+
   const handleBatchAnalysis = useCallback(async () => {
     const itemsToAnalyze = itemsNeedingAnalysis
     if (itemsToAnalyze.length === 0) {
       return
     }
 
-    const newAnalysisStates = new Map(analysisStates)
-    itemsToAnalyze.forEach((item) => {
-      newAnalysisStates.set(item.answerId, AnalysisState.LOADING)
+    setAnalysisStates((prev) => {
+      const next = new Map(prev)
+      itemsToAnalyze.forEach((item) => {
+        next.set(item.answerId, AnalysisState.LOADING)
+      })
+      return next
     })
-    setAnalysisStates(newAnalysisStates)
+
+    batchCancelledRef.current = false
+    const allSuccess: AIAnalysisResponse[] = []
+    const allFailures: Array<{ item: WrongAnswerItem; error: string }> = []
+    const total = itemsToAnalyze.length
+    let completed = 0
+    let failed = 0
+
+    updateBatchState({
+      isProcessing: true,
+      progress: 0,
+      error: null,
+      results: null,
+      status: {
+        pending: total,
+        active: 0,
+        completed: 0,
+        failed: 0,
+        total,
+      },
+    })
+
+    const chunks: WrongAnswerItem[][] = []
+    for (let index = 0; index < itemsToAnalyze.length; index += ANALYZE_BATCH_LIMIT) {
+      chunks.push(itemsToAnalyze.slice(index, index + ANALYZE_BATCH_LIMIT))
+    }
 
     try {
-      await batchProcessor.processBatch(
-        itemsToAnalyze,
-        async (item: WrongAnswerItem) => {
-          const requestData = {
-            questionId: item.questionId,
-            answerId: item.answerId,
-            questionType: item.question.type,
-            question: item.question.question,
-            options: item.question.options,
-            userAnswer: item.answer.userAnswer,
-            correctAnswer: item.question.correctAnswer,
-            transcript: item.question.transcript,
-            exerciseTopic: item.session.topic,
-            exerciseDifficulty: item.session.difficulty,
-            language: item.session.language,
-            attemptedAt: item.answer.attemptedAt,
-          }
+      for (const chunk of chunks) {
+        if (batchCancelledRef.current) {
+          break
+        }
 
-          const response = await fetch("/api/ai/wrong-answers/analyze", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestData),
+        const controller = new AbortController()
+        batchAbortRef.current = controller
+
+        updateBatchState({
+          status: {
+            pending: total - completed - failed - chunk.length,
+            active: chunk.length,
+            completed,
+            failed,
+            total,
+          },
+        })
+
+        const response = await fetch("/api/ai/wrong-answers/analyze-batch", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ answerIds: chunk.map((item) => item.answerId) }),
+          signal: controller.signal,
+        })
+
+        batchAbortRef.current = null
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null)
+          const message = payload?.error || `Failed to generate AI analysis batch: ${response.statusText}`
+          chunk.forEach((item) => {
+            allFailures.push({ item, error: message })
+            failed += 1
           })
+          setAnalysisStates((prev) => {
+            const next = new Map(prev)
+            chunk.forEach((item) => next.set(item.answerId, AnalysisState.ERROR))
+            return next
+          })
+          updateBatchState({
+            status: {
+              pending: total - completed - failed,
+              active: 0,
+              completed,
+              failed,
+              total,
+            },
+            progress: Math.round(((completed + failed) / total) * 100),
+          })
+          continue
+        }
 
-          if (!response.ok) {
-            throw new Error(`Failed to generate AI analysis: ${response.statusText}`)
-          }
+        const responseData = await response.json() as {
+          success: Array<{ answerId: string; analysis: AIAnalysisResponse }>
+          failed: Array<{ answerId: string; error: string }>
+        }
 
-          const responseData = await response.json()
-          const analysisResult: AIAnalysisResponse = responseData.analysis
+        const itemsById = new Map(chunk.map((item) => [item.answerId, item]))
 
-          if (!analysisResult) {
-            throw new Error("Missing analysis in API response")
-          }
+        responseData.success.forEach(({ answerId, analysis }) => {
+          allSuccess.push(analysis)
+          completed += 1
+          applyAnalysisResult(answerId, analysis)
+        })
 
-          setWrongAnswers((prev) =>
-            prev.map((w) =>
-              w.answerId === item.answerId
-                ? {
-                    ...w,
-                    answer: {
-                      ...w.answer,
-                      aiAnalysis: analysisResult,
-                      aiAnalysisGeneratedAt: new Date().toISOString(),
-                      needsAnalysis: false,
-                    },
-                  }
-                : w,
-            ),
-          )
+        responseData.failed.forEach(({ answerId, error: message }) => {
+          const item = itemsById.get(answerId)
+          if (!item) return
+          allFailures.push({ item, error: message })
+          failed += 1
+          setAnalysisStates((prev) => new Map(prev).set(answerId, AnalysisState.ERROR))
+        })
 
-          setFilteredAnswers((prev) =>
-            prev.map((w) =>
-              w.answerId === item.answerId
-                ? {
-                    ...w,
-                    answer: {
-                      ...w.answer,
-                      aiAnalysis: analysisResult,
-                      aiAnalysisGeneratedAt: new Date().toISOString(),
-                      needsAnalysis: false,
-                    },
-                  }
-                : w,
-            ),
-          )
+        const handledIds = new Set([
+          ...responseData.success.map(({ answerId }) => answerId),
+          ...responseData.failed.map(({ answerId }) => answerId),
+        ])
 
-          setAnalysisStates((prev) => new Map(prev).set(item.answerId, AnalysisState.SUCCESS))
+        chunk.forEach((item) => {
+          if (handledIds.has(item.answerId)) return
+          allFailures.push({ item, error: 'Missing batch analysis result' })
+          failed += 1
+          setAnalysisStates((prev) => new Map(prev).set(item.answerId, AnalysisState.ERROR))
+        })
 
-          return analysisResult
+        updateBatchState({
+          status: {
+            pending: total - completed - failed,
+            active: 0,
+            completed,
+            failed,
+            total,
+          },
+          progress: Math.round(((completed + failed) / total) * 100),
+        })
+      }
+
+      const wasCancelled = batchCancelledRef.current
+      if (wasCancelled) {
+        restorePendingAnalysisStates(itemsToAnalyze)
+      }
+      updateBatchState({
+        isProcessing: false,
+        progress: wasCancelled ? Math.round(((completed + failed) / total) * 100) : 100,
+        results: {
+          success: allSuccess,
+          failed: allFailures,
+          status: {
+            pending: wasCancelled ? total - completed - failed : 0,
+            active: 0,
+            completed,
+            failed,
+            total,
+          },
         },
-        {
-          onProgress: (status) => {
-            console.log("Batch progress:", status)
-          },
-          onComplete: (results) => {
-            results.failed.forEach(({ item }) => {
-              const wrongAnswerItem = item as WrongAnswerItem
-              setAnalysisStates((prev) => new Map(prev).set(wrongAnswerItem.answerId, AnalysisState.ERROR))
-            })
-          },
-          onError: (batchError) => {
-            console.error("Batch processing error:", batchError)
-            itemsToAnalyze.forEach((item) => {
-              setAnalysisStates((prev) => new Map(prev).set(item.answerId, AnalysisState.NOT_GENERATED))
-            })
-          },
+        error: wasCancelled ? 'Processing cancelled by user' : null,
+        status: {
+          pending: wasCancelled ? total - completed - failed : 0,
+          active: 0,
+          completed,
+          failed,
+          total,
         },
-      )
+      })
     } catch (err) {
-      console.error("Batch analysis failed:", err)
+      if (err instanceof Error && err.name === 'AbortError') {
+        restorePendingAnalysisStates(itemsToAnalyze)
+        updateBatchState({
+          isProcessing: false,
+          error: 'Processing cancelled by user',
+          status: {
+            pending: total - completed - failed,
+            active: 0,
+            completed,
+            failed,
+            total,
+          },
+          progress: Math.round(((completed + failed) / total) * 100),
+        })
+      } else {
+        console.error("Batch analysis failed:", err)
+        const errorMessage = err instanceof Error ? err.message : "Batch analysis failed"
+        restorePendingAnalysisStates(itemsToAnalyze)
+        updateBatchState({
+          isProcessing: false,
+          error: errorMessage,
+          status: {
+            pending: total - completed - failed,
+            active: 0,
+            completed,
+            failed,
+            total,
+          },
+          progress: Math.round(((completed + failed) / total) * 100),
+        })
+      }
+    } finally {
+      batchAbortRef.current = null
+      batchCancelledRef.current = false
     }
-  }, [analysisStates, batchProcessor, itemsNeedingAnalysis])
+  }, [applyAnalysisResult, itemsNeedingAnalysis, restorePendingAnalysisStates, updateBatchState])
+
+  const cancelProcessing = useCallback(() => {
+    batchCancelledRef.current = true
+    batchAbortRef.current?.abort()
+  }, [])
+
+  const resetBatchState = useCallback(() => {
+    setBatchState({
+      isProcessing: false,
+      progress: 0,
+      status: EMPTY_STATUS,
+      results: null,
+      error: null,
+    })
+  }, [])
 
   const handleExport = useCallback(async () => {
     try {
@@ -313,14 +465,7 @@ export function useWrongAnswersBook() {
     }
   }, [filteredAnswers])
 
-  const concurrencyStatus = aiAnalysisConcurrency?.getStatus?.()
-  const defaultConcurrencyLabel = "10 max concurrent"
-  const concurrencyLabel =
-    concurrencyStatus && typeof concurrencyStatus.total === "number"
-      ? concurrencyStatus.total > 0
-        ? `${concurrencyStatus.active}/${concurrencyStatus.total} active`
-        : defaultConcurrencyLabel
-      : defaultConcurrencyLabel
+  const concurrencyLabel = `Server batch: ${ANALYZE_BATCH_LIMIT} items/request`
 
   return {
     wrongAnswers,
@@ -331,7 +476,11 @@ export function useWrongAnswersBook() {
     error,
     refresh,
     analysisStates,
-    batchProcessor,
+    batchProcessor: {
+      ...batchState,
+      cancelProcessing,
+      resetState: resetBatchState,
+    },
     itemsNeedingAnalysis,
     handleGenerateAnalysis,
     handleRetryAnalysis,

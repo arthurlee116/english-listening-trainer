@@ -18,7 +18,7 @@ describe('database health (real sqlite)', () => {
     process.env.DATABASE_URL = `file:${dbPath}`
     repoRoot = path.resolve(__dirname, '../..')
 
-    execSync('npx prisma migrate deploy', {
+    execSync('npm run db:sync', {
       cwd: repoRoot,
       env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
       stdio: 'pipe'

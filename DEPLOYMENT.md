@@ -1,350 +1,262 @@
 # AI Deployment Runbook (Authoritative)
 
-Audience: AI agents operating this repo.
+这份文档是这个仓库的生产部署单一事实来源。别拿 README 猜，按这里来。
 
-Goal: Deploy `english-listening-trainer` to the existing production VPS and keep it working after changes.
+## 0. 安全规则
 
-This file is the single source of truth for deployment. If it conflicts with other docs, follow this file.
+- 不要提交或粘贴真实密钥、`.env.production`、SSH 私钥、代理订阅链接、管理员密码
+- 可以记录服务器 IP / 域名 / 路径
+- 需要真实值时，从服务器读取或问人
 
-## 0) Safety rules (still follow these)
+## 1. 生产现状
 
-- NEVER paste or commit secrets (API keys, `.env.production`, SSH private keys, subscription URLs/tokens, admin passwords).
-- It is OK to store the server IP/domain here. It is NOT OK to store credentials.
-- When you need values, read them from the server’s `.env.production` or ask the human.
+### 服务器
 
-## 1) Production inventory (current known state)
+- 提供商/区域：Tencent Cloud, Hong Kong
+- 公网 IP：`43.159.200.246`
+- SSH 用户：`ubuntu`
+- 项目目录：`/srv/leesaitool/english-listening-trainer`
 
-### Server
-- Provider/Region: Tencent Cloud, Hong Kong
-- Public IPv4: `43.159.200.246`
-- SSH user: `ubuntu`
-- App path on server: `/srv/leesaitool/english-listening-trainer`
-- There is already another web app on the same server (shared `:80/:443` via Caddy). Host-based routing is used.
+### 域名与反代
 
-### Domain
-- Primary domain: `leesaitool.com`
-- `www.leesaitool.com` redirects to apex
-- DNS: A records for apex + `www` point to `43.159.200.246`
+- 站点域名：`listen.leesaitool.com`
+- Caddy 路径：`/etc/caddy/Caddyfile`
+- Caddy 负责 TLS，并把流量按 Host 转发到本机容器
 
-### Edge / TLS
-- Reverse proxy: Caddy
-- Caddyfile path: `/etc/caddy/Caddyfile`
-- Caddy terminates HTTPS (Let’s Encrypt) and routes by Host header.
+### 应用运行方式
 
-### App runtime
-- Deployment method: GitHub Actions (Push to `main`) or manual Docker Compose build-on-server
-- Compose file: `/srv/leesaitool/english-listening-trainer/docker-compose.prod.yml`
-- Container listens on `0.0.0.0:3000` inside container
-- Host mapping: `127.0.0.1:3001 -> 3000` (so only Caddy can reach it)
+- 部署方式：GitHub Actions 推送 `main` 自动部署，或手动 SSH 部署
+- Compose 文件：`/srv/leesaitool/english-listening-trainer/docker-compose.prod.yml`
+- 容器内部端口：`3000`
+- 宿主机映射：`127.0.0.1:3001 -> 3000`
 
-### Database
-- DB: SQLite (persistent on host)
-- Host path: `/srv/leesaitool/english-listening-trainer/prisma/data/app.db`
-- Container path: `/app/prisma/data/app.db`
-- Required env: `DATABASE_URL=file:/app/prisma/data/app.db`
+### 数据库
 
-### AI outbound proxy (only if needed)
-Production uses a local proxy stack on the VPS when the region cannot reliably reach some AI providers.
+- 生产数据库：SQLite
+- 宿主机文件：`/srv/leesaitool/english-listening-trainer/prisma/data/app.db`
+- 容器路径：`/app/prisma/data/app.db`
+- 生产必须设置：
 
-- Proxy stack:
-  - `subconverter` container on host `127.0.0.1:25500`
-  - `mihomo` container providing mixed proxy on `0.0.0.0:10808`
-- App container reaches host proxy via Docker gateway, e.g.:
-  - `CEREBRAS_PROXY_URL=http://172.19.0.1:10808`
-  - `TOGETHER_PROXY_URL=http://172.19.0.1:10808`
-
-Do NOT store subscription URLs/tokens here. They live on the server under `/srv/leesaitool/proxy/` (private).
-
-## 2) Known pitfalls (root causes we hit)
-
-### Pitfall A: Cerebras returns 404
-Root cause: `@cerebras/cerebras_cloud_sdk` expects:
-- `CEREBRAS_BASE_URL=https://api.cerebras.ai`
-
-Do NOT set it to `https://api.cerebras.ai/v1` because the SDK calls `/v1/...` internally and you end up with `/v1/v1/...` → 404.
-
-### Pitfall B: Prisma fails on slim images
-Root cause: Prisma on Debian slim needs OpenSSL runtime.
-Fix: install `openssl` in the Docker image runtime layer (already done in `Dockerfile`).
-
-### Pitfall B2: Prisma 7 schema url error during build
-Symptoms:
-- `npx prisma generate` fails in Docker build with `P1012`
-- Error says `datasource.url is no longer supported in schema files`
-
-Root cause:
-- Prisma CLI v7 removed `datasource.url` from `schema.prisma`.
-- Connection URL must be supplied via `prisma.config.ts`.
-
-Fix (applied 2026-01-28):
-- Keep `schema.prisma` without `url`.
-- Ensure `prisma.config.ts` is copied into the image for both build and runtime.
-  - `Dockerfile`: copy `prisma.config.ts` into `/app` before `npx prisma generate`
-  - `Dockerfile` runtime: copy `prisma.config.ts` into the final image
-- Keep `DATABASE_URL=file:/app/prisma/data/app.db` set in `docker-compose.prod.yml`.
-
-### Pitfall C: SQLite data disappears after redeploy
-Root cause: DB stored inside container filesystem.
-Fix: mount host dir `./prisma/data` into `/app/prisma/data` and use absolute `DATABASE_URL=file:/app/prisma/data/app.db`.
-
-### Pitfall D: “Env var is empty” debugging lies
-If you run `ssh host 'docker exec ... sh -lc "echo $VAR"'`, the *remote shell* may expand `$VAR` before it reaches the container.
-Preferred checks:
-- `docker inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}'`
-- or: `docker exec <container> node -e 'console.log(process.env.VAR)'`
-
-### Pitfall E: Recommended topics were grey/can’t click
-Root cause: UI disabled click when no pre-generated transcript existed for selected duration.
-Fix: `components/home/recommended-topics.tsx` now allows click and shows a “Generate/需生成” hint.
-
-### Recent incident (2026-01-28): Deploy health check 502
-Symptoms:
-- GitHub Actions deploy failed on health check.
-- `curl -fsS https://listen.leesaitool.com/api/health` returned 502.
-- App container exited with `Error: The datasource.url property is required in your Prisma config file when using prisma db push.`
-
-Root cause:
-- Prisma config file was not available in the container at runtime or build time.
-- A temporary attempt to add `url = env("DATABASE_URL")` to `schema.prisma` broke Prisma 7 (P1012).
-
-Resolution:
-- Copy `prisma.config.ts` into the Docker image (build + runtime).
-- Keep `schema.prisma` without `datasource.url`.
-- Keep `DATABASE_URL=file:/app/prisma/data/app.db` in `docker-compose.prod.yml`.
-- Health check uses `https://listen.leesaitool.com/api/health`.
-
-Notes:
-- If health check fails again, inspect container logs with:
-  `sudo docker logs --tail=200 english-listening-trainer-app-1`
-
-## 3) How production works (wiring)
-
-### Caddy routing (reference)
-`leesaitool.com` and `www.leesaitool.com` should proxy to `127.0.0.1:3001`.
-Multiple domains can share the same server IP; Caddy routes by Host header.
-
-### Docker Compose (reference)
-`docker-compose.prod.yml` is the production entrypoint for builds and restarts.
-- `env_file: .env.production`
-- persistent volumes: `./prisma/data`, `./public/audio`, `./data`, `./logs`
-- startup command runs `prisma db push` then `next start`
-
-Why `db push` (for speed): migration history may not be stable/complete for a clean prod DB. Follow up later with real migrations + `prisma migrate deploy`.
-
-## 4) One-time setup checklist (if rebuilding a fresh server)
-
-1) Install Docker + Compose plugin
-2) Install Caddy
-3) Set DNS A records (apex + `www`) to server IP
-4) Put site blocks into `/etc/caddy/Caddyfile`, reload Caddy
-5) Clone repo into `/srv/leesaitool/english-listening-trainer`
-6) Create `.env.production` from `.env.production.example` (fill secrets locally; do not commit)
-7) Create persistent dirs:
-   - `mkdir -p public/audio public/assessment-audio data logs prisma/data`
-8) `docker compose -f docker-compose.prod.yml up -d --build`
-9) Pre-generate assessment audio once (persists via volume):
-   - `BASE_URL=http://127.0.0.1:3001 ./scripts/generate-assessment-audio.sh`
-
-If you need assessment audio baked into the image:
-- Generate `public/assessment-audio/*` before building the image so `COPY . .` includes it.
-
-# 5) Routine deployment after code changes (fast path)
-
-### Option A: GitHub Actions (Automatic - Preferred)
-Simply push to `main` or merge a PR. The `deploy.yml` workflow will:
-1. Sync code on the server via SSH.
-2. Rebuild and restart the container.
-3. Perform a health check.
-
-### Option B: Manual sync (Run from your local machine)
-
-```bash
-# 1) sync code to server
-ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && git fetch --all && git reset --hard origin/main'
-
-# 2) rebuild + restart app
-ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && sudo docker compose -f docker-compose.prod.yml up -d --build app'
-
-# 3) health check
-curl -fsS https://listen.leesaitool.com/api/health
+```env
+DATABASE_URL=file:/app/prisma/data/app.db
 ```
 
-If assessment audio is missing (fresh host or cleared volume):
-- `ssh ubuntu@43.159.200.246 'cd /srv/leesaitool/english-listening-trainer && BASE_URL=http://127.0.0.1:3001 ./scripts/generate-assessment-audio.sh'`
+### AI / TTS / 代理
 
-If you changed Prisma schema:
-- Expect `prisma db push` to run at container start.
-- Verify DB file is still mounted and writable.
+- 文本生成：Cerebras
+- TTS：Together `hexgrad/Kokoro-82M`
+- 如生产环境需要代理，应用容器通过宿主机代理栈访问外部服务：
 
-If you changed env requirements:
-- Update server `.env.production` (never commit it).
-- Recreate container: `docker compose ... up -d --force-recreate --no-deps app`
+```env
+CEREBRAS_PROXY_URL=http://172.19.0.1:10808
+TOGETHER_PROXY_URL=http://172.19.0.1:10808
+```
 
-Text model reminder:
-- `AI_DEFAULT_MODEL=gpt-oss-120b` (project default for text generation)
+代理私密配置在服务器 `/srv/leesaitool/proxy/`，不要写进仓库。
 
-## 6) Verification checklist (must pass)
+## 2. 当前部署契约
 
-From anywhere:
-- `GET https://listen.leesaitool.com/api/health` returns `status=healthy`
+### 启动顺序
 
-Assessment audio sanity:
-- `curl -fsS https://listen.leesaitool.com/api/assessment-audio/1`
+容器启动时执行：
 
-AI sanity (Cerebras):
+1. `npm run db:sync`
+2. `npm run start`
+
+`db:sync` 会统一做：
+
+- SQLite URL 规范化
+- 目录创建
+- 预建 DB 文件
+- `prisma db push --accept-data-loss`
+
+数据库同步失败时，容器必须直接失败，不能吞错后继续跑应用。
+
+### 健康检查
+
+- 默认探活：`GET /api/health`
+  - 公共、快速
+  - 只检查进程信息和数据库 readiness
+  - 这是部署 workflow 唯一使用的健康检查
+- 深度诊断：`GET /api/health?mode=deep`
+  - 仅管理员可用
+  - 额外包含 TTS 探针、代理状态、目录状态、内存等信息
+
+### 新闻刷新
+
+应用进程内**不会**自动刷新新闻。
+
+自动刷新来源只有一个：
+
+- GitHub Actions 工作流：`Refresh News Topics`
+
+工作流会 SSH 到服务器，并在运行中的应用容器里执行：
+
 ```bash
-curl -fsS -X POST https://listen.leesaitool.com/api/ai/topics \
+npm run refresh-news
+```
+
+## 3. 已知坑
+
+### Cerebras Base URL
+
+`CEREBRAS_BASE_URL` 必须是：
+
+```env
+https://api.cerebras.ai
+```
+
+不要带 `/v1`。SDK 自己会拼。
+
+### Prisma 7
+
+`schema.prisma` 里不要写 `datasource.url`，连接串由 `prisma.config.ts` 提供。
+
+### SQLite 数据持久化
+
+数据库必须挂载宿主机目录，别把 DB 留在容器文件系统里。
+
+### 健康检查别做深检
+
+默认 `/api/health` 是 readiness，不应该跑慢探针。深度探针只能放在 `?mode=deep`。
+
+### 新闻刷新不能绑在 import / build 上
+
+任何请求、构建、冷启动都不应该隐式触发刷新；自动刷新只能来自外部调度。
+
+## 4. 生产文件与目录
+
+需要存在这些持久化目录：
+
+```bash
+mkdir -p public/audio public/assessment-audio data logs prisma/data
+```
+
+生产 Compose 挂载：
+
+- `./prisma/data:/app/prisma/data`
+- `./public/audio:/app/public/audio`
+- `./public/assessment-audio:/app/public/assessment-audio`
+- `./data:/app/data`
+- `./logs:/app/logs`
+
+## 5. 日常部署
+
+### GitHub Actions 自动部署
+
+推送到 `main` 会触发 `.github/workflows/deploy.yml`：
+
+1. SSH 到服务器
+2. `git fetch --all && git reset --hard origin/main`
+3. `docker compose ... up -d --build app`
+4. 用带超时的 `curl` 检查 `https://listen.leesaitool.com/api/health`
+
+### 手动部署
+
+```bash
+# 1. 同步代码
+ssh ubuntu@43.159.200.246 \
+  'cd /srv/leesaitool/english-listening-trainer && git fetch --all && git reset --hard origin/main'
+
+# 2. 重建并启动
+ssh ubuntu@43.159.200.246 \
+  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build app'
+
+# 3. 探活
+curl --connect-timeout 5 --max-time 15 -fsS https://listen.leesaitool.com/api/health
+```
+
+如果你改了环境变量：
+
+```bash
+ssh ubuntu@43.159.200.246 \
+  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --force-recreate --no-deps app'
+```
+
+## 6. 新闻刷新
+
+### 手动刷新
+
+```bash
+ssh ubuntu@43.159.200.246 \
+  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml exec -T app npm run refresh-news'
+```
+
+### 自动刷新
+
+- 工作流：`.github/workflows/refresh-news.yml`
+- 频率：每 6 小时一次
+- 也支持 `workflow_dispatch`
+
+## 7. 线上验证清单
+
+### 基础探活
+
+```bash
+curl --connect-timeout 5 --max-time 15 -fsS https://listen.leesaitool.com/api/health
+```
+
+### 深度诊断
+
+管理员登录后：
+
+```bash
+curl --connect-timeout 5 --max-time 20 -fsS \
+  --cookie "auth-token=<admin-cookie>" \
+  'https://listen.leesaitool.com/api/health?mode=deep'
+```
+
+### AI 主题生成
+
+```bash
+curl --connect-timeout 5 --max-time 30 -fsS \
+  -X POST https://listen.leesaitool.com/api/ai/topics \
   -H 'content-type: application/json' \
-  -d '{"difficulty":"easy","wordCount":120,"language":"en-US"}'
+  -d '{"difficulty":"A2","wordCount":120,"language":"en-US"}'
 ```
 
-### No-proxy end-to-end test (REQUIRED after manual deploy or GitHub Actions finish)
-
-Run the following **from your local machine in mainland China** with all proxy vars unset.
-This validates: topics → transcript → questions → TTS → audio download.
+### TTS
 
 ```bash
-BASE_URL="https://listen.leesaitool.com"
-TMP_DIR="$(mktemp -d)"
-unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
-
-echo "== AI Topics (no proxy) =="
-curl -sS -o "$TMP_DIR/topics.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
-  -H "content-type: application/json" \
-  -d '{"difficulty":"easy","wordCount":120,"language":"en-US"}' \
-  "$BASE_URL/api/ai/topics"
-cat "$TMP_DIR/topics.json"
-
-echo "== AI Transcript (no proxy) =="
-curl -sS -o "$TMP_DIR/transcript.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
-  -H "content-type: application/json" \
-  -d '{"topic":"A short walk in the city","difficulty":"easy","wordCount":180,"language":"en-US"}' \
-  "$BASE_URL/api/ai/transcript"
-cat "$TMP_DIR/transcript.json"
-
-echo "== AI Questions (no proxy) =="
-python - <<PY
-import json, pathlib
-p = pathlib.Path("$TMP_DIR/transcript.json")
-transcript = json.loads(p.read_text()).get("transcript","")
-body = {"transcript": transcript, "difficulty": "easy", "language": "en-US"}
-pathlib.Path("$TMP_DIR/questions-body.json").write_text(json.dumps(body))
-PY
-curl -sS -o "$TMP_DIR/questions.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
-  -H "content-type: application/json" \
-  --data-binary "@$TMP_DIR/questions-body.json" \
-  "$BASE_URL/api/ai/questions"
-cat "$TMP_DIR/questions.json"
-
-echo "== TTS (about 2–3 min, no proxy) =="
-python - <<PY
-import json, pathlib
-base = (
-  "Today I took a slow walk through my neighborhood and tried to notice ordinary details. "
-  "I passed a small bakery, and the warm smell of bread drifted into the street. "
-  "A bicyclist rang a bell and waved at a dog that was waiting patiently at the corner. "
-  "I paused to watch the traffic lights change and listened to the soft hum of buses. "
-  "In the park, two friends were practicing a new dance routine and laughing at their mistakes. "
-  "I sat on a bench for a minute and wrote a few notes about the colors of the trees and the sky. "
-)
-text = " ".join([base] * 2)  # ~2–3 minutes
-body = {"text": text, "language": "en-US", "speed": 1.0}
-pathlib.Path("$TMP_DIR/tts-body.json").write_text(json.dumps(body))
-PY
-curl -sS -o "$TMP_DIR/tts.json" -w "HTTP:%{http_code} connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
-  -H "content-type: application/json" \
-  --data-binary "@$TMP_DIR/tts-body.json" \
-  "$BASE_URL/api/tts"
-cat "$TMP_DIR/tts.json"
-
-echo "== Download audio via api/audio (no proxy) =="
-AUDIO_URL=$(python - <<PY
-import json, pathlib
-p = pathlib.Path("$TMP_DIR/tts.json")
-print(json.loads(p.read_text()).get("audioUrl") or "")
-PY
-)
-if [ -n "$AUDIO_URL" ]; then
-  curl -sS -o /dev/null -w "HTTP:%{http_code} size:%{size_download}B connect:%{time_connect}s ttfb:%{time_starttransfer}s total:%{time_total}s\n" \
-    "$BASE_URL$AUDIO_URL"
-else
-  echo "No audio URL returned"
-fi
+curl --connect-timeout 5 --max-time 120 -fsS \
+  -X POST https://listen.leesaitool.com/api/tts \
+  -H 'content-type: application/json' \
+  -d '{"text":"Hello, this is a deployment test.","language":"en-US","speed":1.0}'
 ```
 
-If AI fails:
-- Check app logs: `sudo docker logs --tail=200 english-listening-trainer-app-1`
-- Ensure `CEREBRAS_BASE_URL` has NO `/v1`
-- If proxy is required, ensure:
-  - `mihomo` + `subconverter` containers are running
-  - app env includes `CEREBRAS_PROXY_URL` / `TOGETHER_PROXY_URL`
-
-## 7) Troubleshooting quick commands (server)
+### 评估音频
 
 ```bash
-ssh ubuntu@43.159.200.246
-
-# app status
-cd /srv/leesaitool/english-listening-trainer
-sudo docker compose -f docker-compose.prod.yml ps
-sudo docker logs -f --tail=200 english-listening-trainer-app-1
-
-# caddy status
-sudo systemctl status caddy --no-pager
-sudo caddy fmt --overwrite /etc/caddy/Caddyfile
-sudo systemctl reload caddy
-
-# confirm ports
-sudo ss -lntp | egrep '(:80|:443|:3001|:10808)'
+curl --connect-timeout 5 --max-time 30 -fsS https://listen.leesaitool.com/api/assessment-audio/1
 ```
 
-## 8) Memory pressure (swap) — optional
+## 8. 出问题时怎么查
 
-If the server is low-memory and builds OOM, add temporary swap (example 4G):
+### 容器日志
 
 ```bash
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-swapon --show
+ssh ubuntu@43.159.200.246 \
+  'sudo docker logs --tail=200 english-listening-trainer-app-1'
 ```
 
-## 9) What NOT to do
+### 看容器环境变量
 
-- Do not run `docker system prune -a` unless the human explicitly asks (it destroys caches and slows next deploy).
-- Do not exposure proxy port `10808` publicly unless required (keep it internal).
-- Do not paste `.env.production` contents into chats/issues.
+```bash
+ssh ubuntu@43.159.200.246 \
+  'sudo docker inspect english-listening-trainer-app-1 --format "{{range .Config.Env}}{{println .}}{{end}}"'
+```
 
-## 10) CI/CD & Docker Registry
+### 验证容器内数据库路径
 
-The project uses GitHub Actions for automation:
+```bash
+ssh ubuntu@43.159.200.246 \
+  'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml exec -T app sh -lc "echo \$DATABASE_URL && ls -lah /app/prisma/data"'
+```
 
-### Workflows
-- **Deploy to Production (`deploy.yml`)**: Triggered on push to `main`. Syncs code and restarts app on the server.
-- **Build and Push (`build-and-push.yml`)**: Manual workflow to build production-ready Docker images and push to GHCR (`ghcr.io`). Supports advanced caching.
-- **Prewarm Dependencies (`prewarm-deps.yml`)**: Weekly schedule or manual. Pre-builds `cache-base`, `cache-python`, and `cache-node` layers to speed up main builds.
+## 9. 仍未解决的外部问题
 
-### Registry & Caching
-- **Registry**: `ghcr.io/arthurlee116/english-listening-trainer`
-- **Caching strategy**: Uses multi-layer registry cache (`type=registry`).
-  - `cache-base`: OS + System dependencies (CUDA/CUDNN).
-  - `cache-python`: Python runtime + pip packages.
-  - `cache-node`: Node.js runtime + npm packages + Prisma.
-  - `cache-builder`: Compilation artifacts.
+如果代码已经更新，但 `https://listen.leesaitool.com` 依然超时：
 
-## 11) GitHub Secrets Configuration
-
-The following secrets must be configured in GitHub Actions for the workflows to function:
-
-### Deployment (`deploy.yml`)
-- `SSH_HOST`: IP or domain of the production server (e.g., `43.159.200.246`).
-- `SSH_USER`: SSH username (e.g., `ubuntu`).
-- `SSH_PRIVATE_KEY`: The private key used to access the server.
-- `SSH_PORT`: (Optional) SSH port, defaults to `22`.
-
-### Registry Registry (`build-and-push.yml`)
-- `GHCR_PAT`: Personal Access Token with `write:packages` permission.
-
-### Connection
-- if you want to ssh to my server, to avoid security risks, run "ssh elt-prod"
+- 先确认 `127.0.0.1:3001` 上应用存活
+- 再检查 Caddy / TLS / Host 路由
+- 这已经不是应用代码问题，是反代链路问题

@@ -132,17 +132,6 @@ export async function refreshNews(categories?: NewsCategory[]): Promise<RefreshR
   }
 }
 
-export async function initScheduler() {
-  // 启动时检查是否需要刷新
-  if (await shouldRefresh()) {
-    console.log('[News Scheduler] Initial refresh needed, starting...')
-    // 异步执行，不阻塞启动
-    refreshNews().catch(err => console.error('[News Scheduler] Initial refresh failed:', err))
-  } else {
-    console.log('[News Scheduler] Data is fresh, skipping initial refresh')
-  }
-}
-
 export async function getLastRefreshTime(): Promise<Date | null> {
   const state = await getRefreshState()
   return state.lastRefreshAt

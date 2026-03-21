@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getActiveTopics } from '@/lib/news/news-processor'
 import { getLastRefreshTime, getNextRefreshTime, isCurrentlyRefreshing } from '@/lib/news/scheduler'
 import { CATEGORY_LABELS } from '@/lib/news/rss-fetcher'
-import '@/lib/news/init' // 触发自动初始化
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)

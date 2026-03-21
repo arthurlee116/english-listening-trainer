@@ -237,9 +237,6 @@ export const ConcurrencyConfigs = {
   } as ConcurrencyConfig
 }
 
-// Singleton instance for AI analysis
-export const aiAnalysisConcurrency = new ConcurrencyService(ConcurrencyConfigs.AI_ANALYSIS)
-
 // Backwards compatibility helper used by legacy tests/utilities
 export async function processConcurrently<TInput, TOutput>(
   items: TInput[],

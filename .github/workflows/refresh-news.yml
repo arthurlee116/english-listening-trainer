@@ -1,28 +1,23 @@
-name: Deploy to Production
+name: Refresh News Topics
 
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 concurrency:
-  group: deploy-production
-  cancel-in-progress: true
+  group: refresh-news-production
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
-env:
-  REMOTE_APP_DIR: /srv/leesaitool/english-listening-trainer
-
 jobs:
-  deploy:
+  refresh-news:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.8.0
         with:
@@ -40,7 +35,7 @@ jobs:
           fi
           ssh-keyscan -p "$port" -H "$host" >> ~/.ssh/known_hosts
 
-      - name: Preflight disk cleanup
+      - name: Run news refresh inside app container
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
@@ -49,30 +44,7 @@ jobs:
           set -euo pipefail
           port="${SSH_PORT:-22}"
           ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
-            'set -e; df -h /; sudo docker builder prune -af || true; df -h /'
-
-      - name: Sync code and restart app
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          set -euo pipefail
-          port="${SSH_PORT:-22}"
-          ssh -p "$port" "${SSH_USER}@${SSH_HOST}" \
-            'cd '"${REMOTE_APP_DIR}"' && git fetch --all && git reset --hard origin/main && sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build app'
-
-      - name: Health check
-        run: |
-          set -euo pipefail
-          for i in {1..10}; do
-            if curl --connect-timeout 5 --max-time 15 -fsS https://listen.leesaitool.com/api/health; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Health check failed after retries." >&2
-          exit 1
+            'cd /srv/leesaitool/english-listening-trainer && sudo docker compose --env-file .env.production -f docker-compose.prod.yml exec -T app npm run refresh-news'
 
       - name: Fetch logs on failure
         if: failure()

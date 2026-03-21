@@ -38,6 +38,7 @@ COPY --from=build --chown=nodeapp:nodeapp /app/.next ./.next
 COPY --from=build --chown=nodeapp:nodeapp /app/public ./public
 COPY --from=build --chown=nodeapp:nodeapp /app/prisma ./prisma
 COPY --from=build --chown=nodeapp:nodeapp /app/prisma.config.ts ./prisma.config.ts
+COPY --from=build --chown=nodeapp:nodeapp /app/scripts ./scripts
 
 USER nodeapp
 EXPOSE 3000

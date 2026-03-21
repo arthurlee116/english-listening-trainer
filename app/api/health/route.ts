@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getPrismaClient } from '@/lib/database'
+import { checkDatabaseHealth } from '@/lib/database'
 import fs from 'fs'
 import path from 'path'
 import { getTogetherProxyStatus, runTogetherTtsHealthProbe } from '@/lib/together-tts-service'
@@ -23,8 +23,8 @@ export async function GET(_request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    const authResult = await requireAdmin(_request)
-    const isAdmin = !authResult.error && !!authResult.user
+    const mode = _request.nextUrl.searchParams.get('mode')
+    const deepMode = mode === 'deep'
 
     // 基本应用状态
     const appStatus = {
@@ -36,21 +36,46 @@ export async function GET(_request: NextRequest) {
     }
 
     // 检查数据库连接
-    let databaseStatus = 'unknown'
-    try {
-      // 尝试一个简单的数据库操作
-      const prisma = getPrismaClient()
-      await prisma.user.count()
-      databaseStatus = 'connected'
-    } catch (error) {
-      console.error('Database health check failed:', error)
-      databaseStatus = 'disconnected'
+    const databaseResult = await checkDatabaseHealth()
+    const databaseStatus = databaseResult.healthy ? 'connected' : 'disconnected'
+
+    const responseTime = Date.now() - startTime
+    const isHealthy = databaseStatus === 'connected'
+
+    const readinessData = {
+      ...appStatus,
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      services: { database: databaseStatus },
+      performance: {
+        responseTime: `${responseTime}ms`,
+      },
+      checks: {
+        database: databaseResult.message
+      },
     }
 
-    // 检查 TTS 服务状态（真实轻量探测，带频率限制）
+    if (!deepMode) {
+      return NextResponse.json(readinessData, {
+        status: isHealthy ? 200 : 503,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      })
+    }
+
+    const authResult = await requireAdmin(_request)
+    if (authResult.error || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || '需要管理员权限' },
+        { status: 401 }
+      )
+    }
+
+    // 深度模式下才运行慢探针和诊断信息
     let ttsStatus = 'unknown'
     const enableTts = process.env.ENABLE_TTS !== 'false'
-    
+
     if (!enableTts) {
       ttsStatus = 'disabled'
     } else {
@@ -68,18 +93,17 @@ export async function GET(_request: NextRequest) {
       ttsStatus = probe?.ok ? 'ready' : 'unhealthy'
     }
 
-    // 检查重要目录是否存在
     const dirChecks = {
       data: fs.existsSync(path.join(process.cwd(), 'data')),
       audio: fs.existsSync(path.join(process.cwd(), 'public', 'audio')),
       logs: fs.existsSync(path.join(process.cwd(), 'logs'))
     }
 
-    // 计算响应时间
-    const responseTime = Date.now() - startTime
+    const deepHealthy = isHealthy && (ttsStatus === 'ready' || ttsStatus === 'disabled')
 
-    const healthData = {
-      ...appStatus,
+    const responseBody = {
+      ...readinessData,
+      status: deepHealthy ? 'healthy' : 'unhealthy',
       services: {
         database: databaseStatus,
         tts: ttsStatus,
@@ -88,7 +112,7 @@ export async function GET(_request: NextRequest) {
       },
       directories: dirChecks,
       performance: {
-        responseTime: `${responseTime}ms`,
+        ...readinessData.performance,
         memoryUsage: {
           rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
           heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
@@ -97,22 +121,8 @@ export async function GET(_request: NextRequest) {
       }
     }
 
-    // 确定整体健康状态
-    const isHealthy = databaseStatus === 'connected' && 
-                     (ttsStatus === 'ready' || ttsStatus === 'disabled')
-
-    const httpStatus = isHealthy ? 200 : 503
-    healthData.status = isHealthy ? 'healthy' : 'unhealthy'
-
-    const responseBody = isAdmin
-      ? healthData
-      : {
-          status: healthData.status,
-          timestamp: healthData.timestamp
-        }
-
     return NextResponse.json(responseBody, { 
-      status: httpStatus,
+      status: deepHealthy ? 200 : 503,
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache, no-store, must-revalidate'

@@ -186,6 +186,73 @@ describe('storage utilities (history + notes)', () => {
     expect(merged[2].id).toBe('local-2')
   })
 
+  it('dedupes synced history by exercise id even when server entry also has a session id', () => {
+    const serverHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'exercise-1',
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'shared topic',
+        transcript: 'server transcript',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-03T10:00:00.000Z',
+        sessionId: 'session-1'
+      }
+    ]
+
+    const localHistory: ExerciseHistoryEntry[] = [
+      {
+        id: 'exercise-1',
+        difficulty: 'B1',
+        language: 'en-US',
+        topic: 'shared topic',
+        transcript: 'local transcript',
+        questions: [],
+        answers: {},
+        results: [],
+        createdAt: '2024-01-03T10:00:00.000Z'
+      }
+    ]
+
+    const merged = mergeHistoryEntries({ serverHistory, localHistory })
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].sessionId).toBe('session-1')
+  })
+
+  it('does not merge different exercises that share topic within the same ten-second window', () => {
+    const first: ExerciseHistoryEntry = {
+      id: 'exercise-1',
+      difficulty: 'B1',
+      language: 'en-US',
+      topic: 'same topic',
+      transcript: 'first transcript',
+      questions: [],
+      answers: {},
+      results: [],
+      createdAt: '2024-01-03T10:00:01.000Z'
+    }
+
+    const second: ExerciseHistoryEntry = {
+      id: 'exercise-2',
+      difficulty: 'B1',
+      language: 'en-US',
+      topic: 'same topic',
+      transcript: 'second transcript',
+      questions: [],
+      answers: {},
+      results: [],
+      createdAt: '2024-01-03T10:00:05.000Z'
+    }
+
+    const merged = mergeHistoryEntries({ serverHistory: [first], localHistory: [second] })
+
+    expect(merged).toHaveLength(2)
+    expect(merged.map((entry) => entry.id)).toEqual(['exercise-2', 'exercise-1'])
+  })
+
   it('saves and deletes practice notes', () => {
     const okSave = savePracticeNote('ex-1', 'note')
     expect(okSave).toBe(true)
