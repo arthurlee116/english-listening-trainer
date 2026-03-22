@@ -33,7 +33,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - `npm run lint`: run ESLint (Next.js config).
 - `npm run test`: run Vitest in watch mode; `npm run test:run` for CI style runs.
 - `npm run db:migrate` / `npm run db:generate`: apply migrations or regenerate Prisma client.
-- TTS uses Together Kokoro-82M; requires `TOGETHER_API_KEY` and a proxy at `http://127.0.0.1:10808`.
+- TTS uses Together Kokoro-82M; requires `TOGETHER_API_KEY`. Proxy settings are optional and can be supplied via `TOGETHER_PROXY_URL`, `PROXY_URL`, `HTTPS_PROXY`, or `HTTP_PROXY`.
 
 ## Coding Style & Naming Conventions
 - TypeScript + React with Tailwind CSS; follow ESLint output in `eslint.config.mjs`.
@@ -58,7 +58,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Deployment (Authoritative)
 
-Read `DEPLOYMENT.md` before making any production changes. After changing code, follow the “Routine deployment after code changes (fast path)” section in `DEPLOYMENT.md`.
+Read `DEPLOYMENT.md` before making any production changes. It is the source of truth for the current Vercel deployment, required environment variables, and post-deploy verification steps.
 
 ## CI/CD & Docker Registry
 

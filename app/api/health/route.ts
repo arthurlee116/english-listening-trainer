@@ -1,6 +1,7 @@
 /**
- * 简化健康检查 API - Docker 容器专用
- * 无需认证，快速响应，用于容器健康监控
+ * 健康检查 API
+ * - `/api/health`: 公共 readiness 检查
+ * - `/api/health?mode=deep`: 管理员诊断入口
  */
 
 import { NextRequest, NextResponse } from 'next/server'

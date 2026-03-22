@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
 import { topicsSchema, type TopicsStructuredResponse } from '@/lib/ai/schemas'
 
 const hasCerebrasKey = Boolean(process.env.CEREBRAS_API_KEY)
@@ -15,6 +16,7 @@ describeIf('real external services', () => {
       messages: [{ role: 'user', content: 'Provide 3 short listening topics about travel.' }],
       schema: topicsSchema,
       schemaName: 'topics_response',
+      model: CEREBRAS_FAST_MODEL,
       options: {
         temperature: 0.3,
         maxTokens: 200,

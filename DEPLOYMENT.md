@@ -43,6 +43,15 @@ Vercel 项目至少需要这些变量：
 - `ENABLE_TTS`
 - `EXA_API_KEY`
 
+可选代理变量：
+
+- `CEREBRAS_PROXY_URL`
+- `TOGETHER_PROXY_URL`
+- `RSS_PROXY_URL`
+- `PROXY_URL`
+- `HTTPS_PROXY`
+- `HTTP_PROXY`
+
 ### Blob / Cron
 
 - `BLOB_READ_WRITE_TOKEN`

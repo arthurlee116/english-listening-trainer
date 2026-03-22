@@ -33,7 +33,7 @@ describe('together-tts-service', () => {
     vi.clearAllMocks()
   })
 
-  it('uses a proxy agent when TOGETHER_PROXY_URL is set and writes to public/audio', async () => {
+  it('uses a proxy agent when TOGETHER_PROXY_URL is set and persists audio through storage', async () => {
     process.env.TOGETHER_API_KEY = 'test-key'
     process.env.TOGETHER_BASE_URL = 'https://api.together.xyz/v1'
     process.env.TOGETHER_TTS_MODEL = 'hexgrad/Kokoro-82M'

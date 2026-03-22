@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Pre-generate assessment audios once and store them under `public/assessment-audio/`.
+# Pre-generate assessment audios through the app route.
+# In Blob-enabled environments the assets land in Blob; local disk is only fallback.
 #
 # Usage:
 #   1) Start the dev server: npm run dev
 #   2) Run: ./scripts/generate-assessment-audio.sh
 #
-# This uses curl against the app route `/api/assessment-audio/:id` which will
-# generate the audio (via the configured TTS provider) only if the target file doesn't exist yet.
+# This uses curl against `/api/assessment-audio/:id`, which generates the asset
+# via the configured TTS provider only when it is missing.
 
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 
@@ -19,4 +20,4 @@ for id in 1 2 3 4 5; do
   curl -sf "${BASE_URL}/api/assessment-audio/${id}" >/dev/null
 done
 
-echo "Done. Files should now exist in public/assessment-audio/."
+echo "Done. Assessment audio assets should now be available via /api/assessment-audio/:id."
