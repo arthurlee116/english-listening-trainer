@@ -3,14 +3,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 const {
-  mockFindUnique,
-  mockCreate,
+  mockUpsert,
+  mockRevalidateTag,
   mockUpdate,
   mockUpdateMany,
   mockCount
 } = vi.hoisted(() => ({
-  mockFindUnique: vi.fn(),
-  mockCreate: vi.fn(),
+  mockUpsert: vi.fn(),
+  mockRevalidateTag: vi.fn(),
   mockUpdate: vi.fn(),
   mockUpdateMany: vi.fn(),
   mockCount: vi.fn()
@@ -19,8 +19,7 @@ const {
 vi.mock('@/lib/database', () => ({
   getPrismaClient: () => ({
     newsRefreshState: {
-      findUnique: mockFindUnique,
-      create: mockCreate,
+      upsert: mockUpsert,
       update: mockUpdate,
       updateMany: mockUpdateMany
     },
@@ -28,6 +27,11 @@ vi.mock('@/lib/database', () => ({
       count: mockCount
     }
   })
+}))
+
+vi.mock('next/cache', () => ({
+  revalidateTag: mockRevalidateTag,
+  unstable_cache: (callback: () => Promise<unknown>) => callback,
 }))
 
 vi.mock('@/lib/news/rss-fetcher', () => ({ fetchAllNews: vi.fn().mockResolvedValue([]) }))
@@ -42,8 +46,8 @@ vi.mock('@/lib/news/transcript-generator', () => ({
 import { refreshNews, shouldRefresh } from '@/lib/news/scheduler'
 
 beforeEach(() => {
-  mockFindUnique.mockReset()
-  mockCreate.mockReset()
+  mockUpsert.mockReset()
+  mockRevalidateTag.mockReset()
   mockUpdate.mockReset()
   mockUpdateMany.mockReset()
   mockCount.mockReset()
@@ -51,7 +55,7 @@ beforeEach(() => {
 
 describe('refresh state reads', () => {
   it('does not update refresh state when record exists and is not refreshing', async () => {
-    mockFindUnique.mockResolvedValue({
+    mockUpsert.mockResolvedValue({
       id: 'singleton',
       isRefreshing: false,
       lastRefreshAt: new Date(Date.now() - 7 * 60 * 60 * 1000),
@@ -61,7 +65,7 @@ describe('refresh state reads', () => {
 
     const result = await shouldRefresh()
 
-    expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockUpsert).toHaveBeenCalledTimes(1)
     expect(mockUpdate).not.toHaveBeenCalled()
     expect(result).toBe(true)
   })
@@ -69,7 +73,7 @@ describe('refresh state reads', () => {
 
 describe('refreshNews lock updates', () => {
   it('does not write isRefreshing false on success path', async () => {
-    mockFindUnique.mockResolvedValue({
+    mockUpsert.mockResolvedValue({
       id: 'singleton',
       isRefreshing: false,
       lastRefreshAt: null,

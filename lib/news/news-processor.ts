@@ -1,7 +1,9 @@
 import 'server-only'
+import { unstable_cache } from 'next/cache'
 import { getPrismaClient } from '@/lib/database'
 import { invokeStructured } from '@/lib/ai/cerebras-service'
 import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
+import { NEWS_TOPICS_CACHE_TAG } from './cache'
 import type { FetchedArticle } from './rss-fetcher'
 
 const prisma = getPrismaClient()
@@ -149,19 +151,31 @@ export async function processAndStoreNews(fetchedArticles: FetchedArticle[]): Pr
 }
 
 export async function getActiveTopics(difficulty?: string, category?: string) {
-  const now = new Date()
-  return prisma.dailyTopic.findMany({
-    where: {
-      expiresAt: { gt: now },
-      ...(difficulty ? { difficulty } : {}),
-      ...(category ? { article: { category } } : {})
+  const difficultyKey = difficulty ?? 'all'
+  const categoryKey = category ?? 'all'
+
+  return unstable_cache(
+    async () => {
+      const now = new Date()
+      return prisma.dailyTopic.findMany({
+        where: {
+          expiresAt: { gt: now },
+          ...(difficulty ? { difficulty } : {}),
+          ...(category ? { article: { category } } : {})
+        },
+        include: {
+          article: { select: { source: true, sourceUrl: true, title: true, publishedAt: true, category: true } },
+          transcripts: { select: { duration: true, wordCount: true } }
+        },
+        orderBy: { generatedAt: 'desc' }
+      })
     },
-    include: {
-      article: { select: { source: true, sourceUrl: true, title: true, publishedAt: true, category: true } },
-      transcripts: { select: { duration: true, wordCount: true } }
-    },
-    orderBy: { generatedAt: 'desc' }
-  })
+    [NEWS_TOPICS_CACHE_TAG, difficultyKey, categoryKey],
+    {
+      tags: [NEWS_TOPICS_CACHE_TAG],
+      revalidate: 300,
+    }
+  )()
 }
 
 export async function cleanupExpiredData() {

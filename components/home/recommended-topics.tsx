@@ -65,7 +65,7 @@ export function RecommendedTopics({
   const [selectedCategory, setSelectedCategory] = useState<NewsCategory | ''>('')
 
   useEffect(() => {
-    fetchTopics()
+    void fetchTopics()
   }, [selectedCategory])
 
   function normalizeTopics(input: unknown): Record<string, RecommendedTopic[]> {
@@ -95,12 +95,17 @@ export function RecommendedTopics({
     return result
   }
 
-  async function fetchTopics() {
+  async function fetchTopics(options: { bypassCache?: boolean } = {}) {
+    const { bypassCache = false } = options
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (selectedCategory) params.set('category', selectedCategory)
-      const res = await fetch(`/api/news/topics?${params}`)
+      if (bypassCache) params.set('_', Date.now().toString())
+
+      const queryString = params.toString()
+      const requestUrl = queryString ? `/api/news/topics?${queryString}` : '/api/news/topics'
+      const res = await fetch(requestUrl, bypassCache ? { cache: 'no-store' } : undefined)
       if (res.ok) {
         const data = await res.json()
         setTopics(normalizeTopics(data.topics))
@@ -119,7 +124,7 @@ export function RecommendedTopics({
     try {
       const res = await fetch('/api/news/refresh', { method: 'POST' })
       if (res.ok) {
-        await fetchTopics()
+        await fetchTopics({ bypassCache: true })
         onRefresh()
       }
     } catch (error) {

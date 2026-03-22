@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTranscript } from '@/lib/news/transcript-generator'
+import { NEWS_TRANSCRIPT_CACHE_HEADERS } from '@/lib/http-cache'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -20,9 +21,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Transcript not found' }, { status: 404 })
   }
 
-  return NextResponse.json({
-    transcript: transcript.transcript,
-    wordCount: transcript.wordCount,
-    duration: transcript.duration
-  })
+  return NextResponse.json(
+    {
+      transcript: transcript.transcript,
+      wordCount: transcript.wordCount,
+      duration: transcript.duration
+    },
+    {
+      headers: NEWS_TRANSCRIPT_CACHE_HEADERS,
+    }
+  )
 }

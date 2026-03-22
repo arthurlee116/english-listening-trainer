@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getActiveTopics } from '@/lib/news/news-processor'
 import { getLastRefreshTime, getNextRefreshTime, isCurrentlyRefreshing } from '@/lib/news/scheduler'
 import { CATEGORY_LABELS } from '@/lib/news/rss-fetcher'
+import { NEWS_TOPICS_CACHE_HEADERS } from '@/lib/http-cache'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -25,12 +26,21 @@ export async function GET(request: NextRequest) {
     isCurrentlyRefreshing()
   ])
 
-  return NextResponse.json({
+  const payload = {
     topics: byDifficulty,
     totalCount: topics.length,
     categories: CATEGORY_LABELS,
     lastRefresh: lastRefresh?.toISOString() || null,
     nextRefresh: nextRefresh?.toISOString() || null,
     isRefreshing: refreshing
-  })
+  }
+
+  return NextResponse.json(
+    payload,
+    refreshing
+      ? undefined
+      : {
+          headers: NEWS_TOPICS_CACHE_HEADERS,
+        }
+  )
 }

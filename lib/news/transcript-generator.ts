@@ -1,7 +1,9 @@
 import 'server-only'
+import { revalidateTag, unstable_cache } from 'next/cache'
 import { getPrismaClient } from '@/lib/database'
 import { invokeStructured } from '@/lib/ai/cerebras-service'
 import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
+import { NEWS_TRANSCRIPTS_CACHE_TAG } from './cache'
 
 const prisma = getPrismaClient()
 
@@ -118,6 +120,10 @@ export async function generateTranscriptsForTopic(topicId: string): Promise<numb
     }
   }
 
+  if (generated > 0) {
+    revalidateTag(NEWS_TRANSCRIPTS_CACHE_TAG, 'max')
+  }
+
   return generated
 }
 
@@ -144,7 +150,14 @@ export async function generateAllPendingTranscripts(): Promise<number> {
 }
 
 export async function getTranscript(topicId: string, duration: number) {
-  return prisma.preGeneratedTranscript.findUnique({
-    where: { topicId_duration: { topicId, duration } }
-  })
+  return unstable_cache(
+    async () => prisma.preGeneratedTranscript.findUnique({
+      where: { topicId_duration: { topicId, duration } }
+    }),
+    [NEWS_TRANSCRIPTS_CACHE_TAG, topicId, String(duration)],
+    {
+      tags: [NEWS_TRANSCRIPTS_CACHE_TAG],
+      revalidate: 86400,
+    }
+  )()
 }

@@ -1,7 +1,9 @@
 import 'server-only'
+import { revalidateTag, unstable_cache } from 'next/cache'
 import { getPrismaClient } from '@/lib/database'
 import { fetchAllNews, type NewsCategory } from './rss-fetcher'
 import { processAndStoreNews, cleanupExpiredData } from './news-processor'
+import { NEWS_REFRESH_STATE_CACHE_TAG, NEWS_TOPICS_CACHE_TAG, NEWS_TRANSCRIPTS_CACHE_TAG } from './cache'
 import { generateAllPendingTranscripts } from './transcript-generator'
 
 const prisma = getPrismaClient()
@@ -105,6 +107,12 @@ export async function refreshNews(categories?: NewsCategory[]): Promise<RefreshR
       where: { id: REFRESH_STATE_ID },
       data: { lastRefreshAt: new Date() }
     })
+
+    revalidateTag(NEWS_TOPICS_CACHE_TAG, 'max')
+    revalidateTag(NEWS_REFRESH_STATE_CACHE_TAG, 'max')
+    if (transcriptsGenerated > 0) {
+      revalidateTag(NEWS_TRANSCRIPTS_CACHE_TAG, 'max')
+    }
     
     const duration = Date.now() - startTime
     console.log(`[News Scheduler] Refresh completed in ${duration}ms`)
@@ -124,14 +132,32 @@ export async function refreshNews(categories?: NewsCategory[]): Promise<RefreshR
 }
 
 export async function getLastRefreshTime(): Promise<Date | null> {
-  const state = await getRefreshState()
-  return state.lastRefreshAt
+  return unstable_cache(
+    async () => {
+      const state = await getRefreshState()
+      return state.lastRefreshAt
+    },
+    [NEWS_REFRESH_STATE_CACHE_TAG, 'last-refresh'],
+    {
+      tags: [NEWS_REFRESH_STATE_CACHE_TAG],
+      revalidate: 300,
+    }
+  )()
 }
 
 export async function getNextRefreshTime(): Promise<Date | null> {
-  const state = await getRefreshState()
-  if (!state.lastRefreshAt) return null
-  return new Date(state.lastRefreshAt.getTime() + REFRESH_INTERVAL_HOURS * 60 * 60 * 1000)
+  return unstable_cache(
+    async () => {
+      const state = await getRefreshState()
+      if (!state.lastRefreshAt) return null
+      return new Date(state.lastRefreshAt.getTime() + REFRESH_INTERVAL_HOURS * 60 * 60 * 1000)
+    },
+    [NEWS_REFRESH_STATE_CACHE_TAG, 'next-refresh'],
+    {
+      tags: [NEWS_REFRESH_STATE_CACHE_TAG],
+      revalidate: 300,
+    }
+  )()
 }
 
 export async function isCurrentlyRefreshing(): Promise<boolean> {

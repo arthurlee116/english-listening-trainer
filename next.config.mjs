@@ -6,6 +6,8 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactCompiler: true,
+
   // 允许通过环境变量自定义构建目录，防止多个实例冲突
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
