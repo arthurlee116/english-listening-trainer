@@ -1,4 +1,39 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run vercel-build"
+  "buildCommand": "npm run vercel-build",
+  "functions": {
+    "app/api/ai/topics/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/ai/transcript/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/ai/questions/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/ai/grade/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/ai/expand/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/ai/wrong-answers/analyze/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/ai/wrong-answers/analyze-batch/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/news/refresh/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/refresh-news/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/tts/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/assessment-audio/[id]/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

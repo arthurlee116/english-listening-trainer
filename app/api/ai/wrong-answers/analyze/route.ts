@@ -26,6 +26,8 @@ interface AnalyzeRequestBody {
   attemptedAt: string
 }
 
+export const maxDuration = 60
+
 export async function POST(request: NextRequest) {
   try {
     // Check rate limit first

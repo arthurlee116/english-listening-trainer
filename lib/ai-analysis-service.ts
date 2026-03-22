@@ -7,6 +7,7 @@ import {
   type AnalysisStructuredResponse,
   type AnalysisRelatedSentence
 } from './ai/schemas'
+import { CEREBRAS_FAST_MODEL } from './ai/models'
 
 // Types for AI Analysis
 export interface AnalysisRequest {
@@ -125,6 +126,7 @@ export async function analyzeWrongAnswer(request: AnalysisRequest): Promise<Anal
       messages,
       schema: analysisSchema,
       schemaName: 'wrong_answer_analysis',
+      model: CEREBRAS_FAST_MODEL,
       options: {
         maxRetries: 3
       }

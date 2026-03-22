@@ -3,6 +3,8 @@ import { expandTranscript } from '@/lib/ai/transcript-expansion'
 import { createAiRoute } from '@/lib/ai/route-utils'
 import { RateLimitConfigs } from '@/lib/rate-limiter'
 
+export const maxDuration = 60
+
 async function handleExpansion(request: NextRequest): Promise<NextResponse> {
   const {
     text,

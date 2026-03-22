@@ -1,6 +1,7 @@
 import 'server-only'
 import { getPrismaClient } from '@/lib/database'
 import { invokeStructured } from '@/lib/ai/cerebras-service'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
 
 const prisma = getPrismaClient()
 
@@ -97,6 +98,7 @@ export async function generateTranscriptsForTopic(topicId: string): Promise<numb
         messages: [{ role: 'user', content: prompt }],
         schema: transcriptSchema,
         schemaName: 'transcript_generation',
+        model: CEREBRAS_FAST_MODEL,
         options: { temperature: 0.7, maxTokens: 2048 }
       })
 

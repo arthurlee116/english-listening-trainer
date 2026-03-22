@@ -43,7 +43,7 @@ JWT_SECRET=replace-me
 
 CEREBRAS_API_KEY=...
 CEREBRAS_BASE_URL=https://api.cerebras.ai
-AI_DEFAULT_MODEL=gpt-oss-120b
+AI_DEFAULT_MODEL=llama3.1-8b
 
 TOGETHER_API_KEY=...
 TOGETHER_BASE_URL=https://api.together.xyz/v1

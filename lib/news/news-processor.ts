@@ -1,6 +1,7 @@
 import 'server-only'
 import { getPrismaClient } from '@/lib/database'
 import { invokeStructured } from '@/lib/ai/cerebras-service'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
 import type { FetchedArticle } from './rss-fetcher'
 
 const prisma = getPrismaClient()
@@ -88,6 +89,7 @@ export async function processAndStoreNews(fetchedArticles: FetchedArticle[]): Pr
         messages: [{ role: 'user', content: prompt }],
         schema: analysisSchema,
         schemaName: 'news_analysis',
+        model: CEREBRAS_FAST_MODEL,
         options: { temperature: 0.3, maxTokens: 2048 }
       })
 

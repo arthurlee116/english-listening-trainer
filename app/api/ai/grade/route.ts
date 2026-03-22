@@ -8,6 +8,9 @@ import { createAiRoute } from '@/lib/ai/route-utils'
 import { RateLimitConfigs } from '@/lib/rate-limiter'
 import { getLanguageDisplayName } from '@/lib/language-config'
 import { buildGradingPrompt } from '@/lib/ai/prompt-templates'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
+
+export const maxDuration = 60
 
 async function handleGrade(request: NextRequest): Promise<NextResponse> {
   const { transcript, questions, answers, language = 'en-US', focusAreas } = await request.json()
@@ -39,6 +42,7 @@ async function handleGrade(request: NextRequest): Promise<NextResponse> {
     messages,
     schema: gradingSchema,
     schemaName: 'grading_response',
+    model: CEREBRAS_FAST_MODEL,
     options: {
       temperature: 0.2,
       maxTokens: 4096

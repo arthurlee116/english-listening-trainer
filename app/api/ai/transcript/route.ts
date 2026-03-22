@@ -14,6 +14,9 @@ import { preprocessRequestContext } from '@/lib/ai/request-preprocessor'
 import { buildTranscriptPrompt } from '@/lib/ai/prompt-templates'
 import { expandTranscript } from '@/lib/ai/transcript-expansion'
 import { searchNewsForTopic } from '@/lib/news/exa-search'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
+
+export const maxDuration = 60
 
 async function handleTranscript(request: NextRequest): Promise<NextResponse> {
   const {
@@ -71,6 +74,7 @@ async function handleTranscript(request: NextRequest): Promise<NextResponse> {
         messages,
         schema: transcriptSchema,
         schemaName: 'transcript_response',
+        model: CEREBRAS_FAST_MODEL,
         options: {
           temperature: 0.35,
           maxTokens: 4096

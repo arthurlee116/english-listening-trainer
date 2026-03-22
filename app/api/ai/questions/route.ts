@@ -20,6 +20,9 @@ import { RateLimitConfigs } from '@/lib/rate-limiter'
 import { preprocessRequestContext } from '@/lib/ai/request-preprocessor'
 import { buildQuestionsPrompt } from '@/lib/ai/prompt-templates'
 import { executeWithCoverageRetry } from '@/lib/ai/retry-strategy'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
+
+export const maxDuration = 60
 
 async function handleQuestions(request: NextRequest): Promise<NextResponse> {
   const {
@@ -76,6 +79,7 @@ async function handleQuestions(request: NextRequest): Promise<NextResponse> {
         messages,
         schema: questionsSchema,
         schemaName: 'questions_response',
+        model: CEREBRAS_FAST_MODEL,
         options: {
           temperature: 0.5,
           maxTokens: 4096

@@ -15,6 +15,9 @@ import { RateLimitConfigs } from '@/lib/rate-limiter'
 import { preprocessRequestContext } from '@/lib/ai/request-preprocessor'
 import { buildTopicsPrompt } from '@/lib/ai/prompt-templates'
 import { executeWithCoverageRetry } from '@/lib/ai/retry-strategy'
+import { CEREBRAS_FAST_MODEL } from '@/lib/ai/models'
+
+export const maxDuration = 60
 
 async function handleTopics(request: NextRequest): Promise<NextResponse> {
   const {
@@ -60,10 +63,12 @@ async function handleTopics(request: NextRequest): Promise<NextResponse> {
     maxAttempts,
     generate: async (currentPrompt) => {
       const messages: ArkMessage[] = [{ role: 'user', content: currentPrompt }]
+      console.log('[AI topics] Using model:', CEREBRAS_FAST_MODEL)
       const result = await invokeStructured<TopicsStructuredResponse>({
         messages,
         schema: topicsSchema,
         schemaName: 'topics_response',
+        model: CEREBRAS_FAST_MODEL,
         options: {
           temperature: 0.3,
           maxTokens: 512

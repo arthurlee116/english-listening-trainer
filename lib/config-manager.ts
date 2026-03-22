@@ -133,11 +133,12 @@ class ConfigurationManager {
 
   private buildConfig(): AppConfig {
     const env = process.env.NODE_ENV || 'development'
+    const getTrimmedEnv = (key: string) => process.env[key]?.trim()
 
-    const parsedTemperature = Number(process.env.AI_DEFAULT_TEMPERATURE)
+    const parsedTemperature = Number(getTrimmedEnv('AI_DEFAULT_TEMPERATURE'))
     const defaultTemperature = Number.isFinite(parsedTemperature) ? parsedTemperature : 0.3
 
-    const parsedMaxTokens = parseInt(process.env.AI_DEFAULT_MAX_TOKENS || '', 10)
+    const parsedMaxTokens = parseInt(getTrimmedEnv('AI_DEFAULT_MAX_TOKENS') || '', 10)
     const defaultMaxTokens = Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0 ? parsedMaxTokens : 8192
 
     return {
@@ -147,23 +148,23 @@ class ConfigurationManager {
 
       ai: {
         cerebrasApiKey: this.getRequiredEnv('CEREBRAS_API_KEY'),
-        baseUrl: process.env.CEREBRAS_BASE_URL || 'https://api.cerebras.ai',
-        timeout: parseInt(process.env.AI_TIMEOUT || '30000'),
-        maxRetries: parseInt(process.env.AI_MAX_RETRIES || '3'),
-        defaultModel: process.env.AI_DEFAULT_MODEL || 'gpt-oss-120b',
+        baseUrl: getTrimmedEnv('CEREBRAS_BASE_URL') || 'https://api.cerebras.ai',
+        timeout: parseInt(getTrimmedEnv('AI_TIMEOUT') || '30000'),
+        maxRetries: parseInt(getTrimmedEnv('AI_MAX_RETRIES') || '3'),
+        defaultModel: getTrimmedEnv('AI_DEFAULT_MODEL') || 'llama3.1-8b',
         defaultTemperature,
         defaultMaxTokens
       },
 
       tts: {
         provider: 'together',
-        baseUrl: process.env.TOGETHER_BASE_URL || 'https://api.together.xyz/v1',
-        model: process.env.TOGETHER_TTS_MODEL || 'hexgrad/Kokoro-82M',
+        baseUrl: getTrimmedEnv('TOGETHER_BASE_URL') || 'https://api.together.xyz/v1',
+        model: getTrimmedEnv('TOGETHER_TTS_MODEL') || 'hexgrad/Kokoro-82M',
         voiceFallback: 'af_alloy',
-        timeout: parseInt(process.env.TTS_TIMEOUT || '30000'),
-        maxConcurrentRequests: parseInt(process.env.TTS_MAX_CONCURRENT || '1'),
-        maxRestartAttempts: parseInt(process.env.TTS_MAX_RESTARTS || '3'),
-        restartCooldown: parseInt(process.env.TTS_RESTART_COOLDOWN || '5000')
+        timeout: parseInt(getTrimmedEnv('TTS_TIMEOUT') || '30000'),
+        maxConcurrentRequests: parseInt(getTrimmedEnv('TTS_MAX_CONCURRENT') || '1'),
+        maxRestartAttempts: parseInt(getTrimmedEnv('TTS_MAX_RESTARTS') || '3'),
+        restartCooldown: parseInt(getTrimmedEnv('TTS_RESTART_COOLDOWN') || '5000')
       },
       
       database: {
@@ -178,8 +179,8 @@ class ConfigurationManager {
       
       security: {
         adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
-        corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
-        maxRequestsPerMinute: parseInt(process.env.RATE_LIMIT || '60')
+        corsOrigins: (getTrimmedEnv('CORS_ORIGINS') || 'http://localhost:3000').split(','),
+        maxRequestsPerMinute: parseInt(getTrimmedEnv('RATE_LIMIT') || '60')
       },
       
       features: {
@@ -192,7 +193,7 @@ class ConfigurationManager {
   }
 
   private getRequiredEnv(key: string): string {
-    const value = process.env[key]
+    const value = process.env[key]?.trim()
     if (!value) {
       throw new Error(`Required environment variable ${key} is not set`)
     }

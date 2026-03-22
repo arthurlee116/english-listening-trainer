@@ -210,6 +210,16 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
       const formattedError = formatError(error)
       lastError = error
 
+      console.error('Cerebras request attempt failed', {
+        label: options.label ?? options.schemaName,
+        model: payload.model,
+        baseUrl: config.baseUrl,
+        timeoutMs,
+        attempt: attempts,
+        maxAttempts,
+        error: formattedError,
+      })
+
       attemptRecords.push({
         attempt: attempts,
         durationMs,
@@ -228,6 +238,15 @@ export async function callArkAPI<T>(options: ArkCallOptions<T>): Promise<T> {
   }
 
   const failureMessage = `Cerebras API failed after ${attempts} attempts (proxy-only): ${formatError(lastError)}`
+
+  console.error('Cerebras request exhausted retries', {
+    label: options.label ?? options.schemaName,
+    model: payload.model,
+    baseUrl: config.baseUrl,
+    timeoutMs,
+    attempts,
+    error: formatError(lastError),
+  })
 
   emitAiTelemetry({
     label: options.label ?? options.schemaName,

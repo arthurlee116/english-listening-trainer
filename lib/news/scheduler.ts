@@ -7,7 +7,7 @@ import { generateAllPendingTranscripts } from './transcript-generator'
 const prisma = getPrismaClient()
 
 const REFRESH_INTERVAL_HOURS = 6
-const REFRESH_LOCK_TIMEOUT_MINUTES = 30
+const REFRESH_LOCK_TIMEOUT_MINUTES = 5
 const REFRESH_STATE_ID = 'singleton'
 
 interface RefreshResult {
@@ -18,29 +18,11 @@ interface RefreshResult {
 }
 
 async function getRefreshState() {
-  const existing = await prisma.newsRefreshState.findUnique({
-    where: { id: REFRESH_STATE_ID }
+  return prisma.newsRefreshState.upsert({
+    where: { id: REFRESH_STATE_ID },
+    update: {},
+    create: { id: REFRESH_STATE_ID, isRefreshing: false, lastRefreshAt: null }
   })
-  if (existing) {
-    return existing
-  }
-
-  try {
-    return await prisma.newsRefreshState.create({
-      data: { id: REFRESH_STATE_ID, isRefreshing: false, lastRefreshAt: null }
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (message.toLowerCase().includes('unique')) {
-      const retry = await prisma.newsRefreshState.findUnique({
-        where: { id: REFRESH_STATE_ID }
-      })
-      if (retry) {
-        return retry
-      }
-    }
-    throw error
-  }
 }
 
 function isLockStale(updatedAt: Date) {
@@ -106,9 +88,18 @@ export async function refreshNews(categories?: NewsCategory[]): Promise<RefreshR
     const topicsCreated = await processAndStoreNews(articles)
     console.log(`[News Scheduler] Created ${topicsCreated} topics`)
     
-    // 4. 生成稿子
-    const transcriptsGenerated = await generateAllPendingTranscripts()
-    console.log(`[News Scheduler] Generated ${transcriptsGenerated} transcripts`)
+    // 4. 预生成稿子在 Vercel 上很容易超时；默认留给用户按需生成
+    const shouldPreGenerateTranscripts =
+      process.env.NEWS_PREGENERATE_TRANSCRIPTS === 'true' && process.env.VERCEL !== '1'
+    const transcriptsGenerated = shouldPreGenerateTranscripts
+      ? await generateAllPendingTranscripts()
+      : 0
+
+    if (shouldPreGenerateTranscripts) {
+      console.log(`[News Scheduler] Generated ${transcriptsGenerated} transcripts`)
+    } else {
+      console.log('[News Scheduler] Skipped transcript pre-generation for current runtime')
+    }
     
     await prisma.newsRefreshState.update({
       where: { id: REFRESH_STATE_ID },

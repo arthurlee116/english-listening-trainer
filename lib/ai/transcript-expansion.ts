@@ -6,6 +6,7 @@ import { invokeStructured } from './cerebras-service'
 import { expansionSchema, type ExpansionStructuredResponse } from './schemas'
 import { buildExpansionPrompt } from './prompt-templates'
 import { getLanguageDisplayName } from '../language-config'
+import { CEREBRAS_FAST_MODEL } from './models'
 
 export interface TranscriptExpansionParams {
   text: string
@@ -89,6 +90,7 @@ export async function expandTranscript(
         messages,
         schema: expansionSchema,
         schemaName: 'expansion_response',
+        model: CEREBRAS_FAST_MODEL,
         options: {
           temperature: 0.4,
           maxTokens: 2048

@@ -58,6 +58,8 @@ interface AnswerData {
 const MAX_CONCURRENT_REQUESTS = 100
 const BATCH_SIZE = 10 // Process in smaller batches to avoid overwhelming the AI service
 
+export const maxDuration = 60
+
 export async function POST(request: NextRequest) {
   try {
     // Check rate limit for batch processing
