@@ -1,3 +1,5 @@
+
+
 # English Listening Trainer
 
 一个部署在 Vercel 上的 AI 英语听力训练站。当前架构已经从“VPS + SQLite + 本地文件落盘”迁到“Vercel + Postgres + Blob + 外部定时任务”。
@@ -69,6 +71,8 @@ npm run db:sync
 ```bash
 npm run dev
 ```
+
+> 💡 如需启动本地管理后台，可运行 `npm run admin`（默认端口 3005）或 `npm run admin-dev` 开启热重载。
 
 ## 常用命令
 
